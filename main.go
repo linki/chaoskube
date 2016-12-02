@@ -2,15 +2,27 @@ package main
 
 import (
 	"fmt"
-	"time"
 	"math/rand"
+	"time"
+
+	"gopkg.in/alecthomas/kingpin.v2"
 
 	"k8s.io/client-go/1.5/kubernetes"
 	"k8s.io/client-go/1.5/pkg/api"
 	"k8s.io/client-go/1.5/rest"
 )
 
+var (
+	interval time.Duration
+)
+
+func init() {
+	kingpin.Flag("interval", "Interval between Pod terminations").Short('i').Default("10m").DurationVar(&interval)
+}
+
 func main() {
+	kingpin.Parse()
+
 	config := &rest.Config{
 		Host: "http://127.0.0.1:8001",
 	}
@@ -35,6 +47,6 @@ func main() {
 			panic(err.Error())
 		}
 
-		time.Sleep(10 * time.Second)
+		time.Sleep(interval)
 	}
 }

@@ -12,11 +12,7 @@ spec:
       containers:
       - name: chaoskube
         image: docker.io/linki/chaoskube:latest
-        imagePullPolicy: Always
-      - name: kubectl
-        image: quay.io/coreos/hyperkube:v1.4.5_coreos.0
-        command:
-        - /hyperkube
         args:
-        - kubectl
-        - proxy
+        - --in-cluster
+        - --interval=10m
+        imagePullPolicy: Always

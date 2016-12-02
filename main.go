@@ -7,9 +7,9 @@ import (
 
 	"gopkg.in/alecthomas/kingpin.v2"
 
-	"k8s.io/client-go/1.5/kubernetes"
-	"k8s.io/client-go/1.5/pkg/api"
-	"k8s.io/client-go/1.5/rest"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/rest"
 )
 
 var (
@@ -33,7 +33,7 @@ func main() {
 	}
 
 	for {
-		pods, err := clientset.Core().Pods("").List(api.ListOptions{})
+		pods, err := clientset.Core().Pods("").List(v1.ListOptions{})
 		if err != nil {
 			panic(err.Error())
 		}

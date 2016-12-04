@@ -1,0 +1,10 @@
+package: github.com/linki/chaoskube
+import:
+- package: gopkg.in/alecthomas/kingpin.v2
+  version: ~2.2.3
+- package: k8s.io/client-go
+  version: ~2.0.0-alpha.0
+  subpackages:
+  - kubernetes
+  - pkg/api/v1
+  - rest

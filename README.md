@@ -7,7 +7,7 @@ Test how your system behaves under random pod failures.
 
 ## Example
 
-Running it will kill a random pod in any namespace every 10 seconds.
+Running it will kill a random pod in any namespace every 10 minutes by default.
 
 ```
 Killing pod kube-system/kube-dns-v20-6ikos

@@ -20,7 +20,7 @@ import (
 const (
 	appName = "chaoskube"
 	image   = "quay.io/linki/chaoskube"
-	version = "v0.3.0"
+	version = "v0.3.1"
 )
 
 var (
@@ -39,6 +39,8 @@ func init() {
 	kingpin.Flag("deploy", "If true, deploys chaoskube in the current cluster with the provided configuration").Short('d').BoolVar(&deploy)
 	kingpin.Flag("dry-run", "If true, don't actually do anything.").Default("true").BoolVar(&dryRun)
 	kingpin.Flag("debug", "Enable debug logging.").BoolVar(&debug)
+
+	rand.Seed(time.Now().UTC().UnixNano())
 }
 
 func main() {

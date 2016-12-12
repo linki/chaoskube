@@ -13,7 +13,7 @@ spec:
     spec:
       containers:
       - name: chaoskube
-        image: quay.io/linki/chaoskube:v0.3.0
+        image: quay.io/linki/chaoskube:v0.3.1
         args:
         - --in-cluster
         - --interval=10m

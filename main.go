@@ -20,7 +20,7 @@ import (
 const (
 	appName = "chaoskube"
 	image   = "quay.io/linki/chaoskube"
-	version = "v0.2.2"
+	version = "v0.3.0"
 )
 
 var (

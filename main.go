@@ -1,7 +1,6 @@
 package main
 
 import (
-	"math/rand"
 	"os"
 	"strings"
 	"time"
@@ -15,6 +14,8 @@ import (
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"github.com/linki/chaoskube/chaoskube"
 )
 
 const (
@@ -39,8 +40,6 @@ func init() {
 	kingpin.Flag("deploy", "If true, deploys chaoskube in the current cluster with the provided configuration").Short('d').BoolVar(&deploy)
 	kingpin.Flag("dry-run", "If true, don't actually do anything.").Default("true").BoolVar(&dryRun)
 	kingpin.Flag("debug", "Enable debug logging.").BoolVar(&debug)
-
-	rand.Seed(time.Now().UTC().UnixNano())
 }
 
 func main() {
@@ -81,21 +80,18 @@ func main() {
 		os.Exit(0)
 	}
 
+	chaoskube := chaoskube.New(client, dryRun, time.Now().UTC().UnixNano())
+
 	for {
-		pods, err := client.Core().Pods(v1.NamespaceAll).List(v1.ListOptions{})
+		victim, err := chaoskube.Victim()
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		victim := pods.Items[rand.Intn(len(pods.Items))]
-
 		log.Infof("Killing pod %s/%s", victim.Namespace, victim.Name)
 
-		if !dryRun {
-			err = client.Core().Pods(victim.Namespace).Delete(victim.Name, nil)
-			if err != nil {
-				log.Fatal(err)
-			}
+		if err := chaoskube.DeletePod(victim); err != nil {
+			log.Fatal(err)
 		}
 
 		log.Debugf("Sleeping for %s...", interval)

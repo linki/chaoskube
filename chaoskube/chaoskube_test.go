@@ -72,6 +72,15 @@ func TestAnotherVictim(t *testing.T) {
 	})
 }
 
+// TestNoVictimReturnsError tests that on missing victim it returns a known error
+func TestNoVictimReturnsError(t *testing.T) {
+	chaoskube := New(fake.NewSimpleClientset(), false, 2000)
+
+	if _, err := chaoskube.Victim(); err != ErrPodNotFound {
+		t.Errorf("expected %#v, got %#v", ErrPodNotFound, err)
+	}
+}
+
 // TestDeletePod tests deleting a particular pod
 func TestDeletePod(t *testing.T) {
 	chaoskube := setup(t, false, 0)

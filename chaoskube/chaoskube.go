@@ -18,6 +18,9 @@ type Chaoskube struct {
 	Seed int64
 }
 
+// ErrPodNotFound is returned when no victim could be found
+var ErrPodNotFound = errors.New("pod not found")
+
 // New returns a new instance of Chaoskube. It expects a kubernetes client,
 // allows enabling dryRun mode and seeds the randomizer with the given seed.
 func New(client kubernetes.Interface, dryRun bool, seed int64) *Chaoskube {
@@ -51,7 +54,7 @@ func (c *Chaoskube) Victim() (v1.Pod, error) {
 	}
 
 	if len(pods) == 0 {
-		return v1.Pod{}, errors.New("pod not found")
+		return v1.Pod{}, ErrPodNotFound
 	}
 
 	index := rand.Intn(len(pods))

@@ -6,12 +6,15 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/pkg/labels"
 )
 
 // Chaoskube represents an instance of chaoskube
 type Chaoskube struct {
 	// a kubernetes client object
 	Client kubernetes.Interface
+	// a label selector which restricts the pods to choose from
+	Selector labels.Selector
 	// dry run will not allow any pod terminations
 	DryRun bool
 	// seed value for the randomizer
@@ -19,12 +22,14 @@ type Chaoskube struct {
 }
 
 // New returns a new instance of Chaoskube. It expects a kubernetes client,
-// allows enabling dryRun mode and seeds the randomizer with the given seed.
-func New(client kubernetes.Interface, dryRun bool, seed int64) *Chaoskube {
+// a label selector, allows enabling dryRun mode and seeds the randomizer with
+// the given seed.
+func New(client kubernetes.Interface, selector labels.Selector, dryRun bool, seed int64) *Chaoskube {
 	c := &Chaoskube{
-		Client: client,
-		DryRun: dryRun,
-		Seed:   seed,
+		Client:   client,
+		Selector: selector,
+		DryRun:   dryRun,
+		Seed:     seed,
 	}
 
 	rand.Seed(c.Seed)
@@ -33,9 +38,11 @@ func New(client kubernetes.Interface, dryRun bool, seed int64) *Chaoskube {
 }
 
 // Candidates returns the list of pods that are available for termination.
-// Currently it returns all pods in all namespaces.
+// It returns all pods in all namespaces matching the label selector.
 func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
-	podList, err := c.Client.Core().Pods(v1.NamespaceAll).List(v1.ListOptions{})
+	listOptions := v1.ListOptions{LabelSelector: c.Selector.String()}
+
+	podList, err := c.Client.Core().Pods(v1.NamespaceAll).List(listOptions)
 	if err != nil {
 		return nil, err
 	}

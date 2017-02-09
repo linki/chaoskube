@@ -1,15 +1,16 @@
 package: github.com/linki/chaoskube
 import:
 - package: github.com/Sirupsen/logrus
-  version: ~0.11.0
+  version: ~0.11.2
 - package: gopkg.in/alecthomas/kingpin.v2
   version: ~2.2.3
 - package: k8s.io/client-go
-  version: ~2.0.0-alpha.0
+  version: ~2.0.0-alpha.1
   subpackages:
   - kubernetes
   - pkg/api/unversioned
   - pkg/api/v1
   - pkg/apis/extensions/v1beta1
+  - pkg/labels
   - rest
   - tools/clientcmd

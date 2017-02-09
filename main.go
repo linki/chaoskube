@@ -12,6 +12,7 @@ import (
 	"k8s.io/client-go/pkg/api/unversioned"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	"k8s.io/client-go/pkg/labels"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -25,15 +26,17 @@ const (
 )
 
 var (
-	kubeconfig string
-	interval   time.Duration
-	inCluster  bool
-	deploy     bool
-	dryRun     bool
-	debug      bool
+	labelString string
+	kubeconfig  string
+	interval    time.Duration
+	inCluster   bool
+	deploy      bool
+	dryRun      bool
+	debug       bool
 )
 
 func init() {
+	kingpin.Flag("labels", "A set of labels that restricts the Pods available for termination").Default(labels.Everything().String()).StringVar(&labelString)
 	kingpin.Flag("kubeconfig", "Path to a kubeconfig file").Default(clientcmd.RecommendedHomeFile).StringVar(&kubeconfig)
 	kingpin.Flag("interval", "Interval between Pod terminations").Short('i').Default("10m").DurationVar(&interval)
 	kingpin.Flag("in-cluster", "If true, finds the Kubernetes cluster from the environment").Short('c').BoolVar(&inCluster)
@@ -80,7 +83,14 @@ func main() {
 		os.Exit(0)
 	}
 
-	chaoskube := chaoskube.New(client, dryRun, time.Now().UTC().UnixNano())
+	selector, err := labels.Parse(labelString)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Infof("Filtering pods by label selector: %s", selector.String())
+
+	chaoskube := chaoskube.New(client, selector, dryRun, time.Now().UTC().UnixNano())
 
 	for {
 		if err := terminateVictim(chaoskube); err != nil {

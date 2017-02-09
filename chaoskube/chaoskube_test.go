@@ -3,9 +3,9 @@ package chaoskube
 import (
 	"testing"
 
-	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/labels"
+	"k8s.io/client-go/1.5/kubernetes/fake"
+	"k8s.io/client-go/1.5/pkg/api/v1"
+	"k8s.io/client-go/1.5/pkg/labels"
 )
 
 // TestNew tests that arguments are passed to the new instance correctly

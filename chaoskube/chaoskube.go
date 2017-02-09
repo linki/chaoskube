@@ -4,9 +4,10 @@ import (
 	"errors"
 	"math/rand"
 
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/labels"
+	"k8s.io/client-go/1.5/kubernetes"
+	"k8s.io/client-go/1.5/pkg/api"
+	"k8s.io/client-go/1.5/pkg/api/v1"
+	"k8s.io/client-go/1.5/pkg/labels"
 )
 
 // Chaoskube represents an instance of chaoskube
@@ -43,7 +44,7 @@ func New(client kubernetes.Interface, selector labels.Selector, dryRun bool, see
 // Candidates returns the list of pods that are available for termination.
 // It returns all pods in all namespaces matching the label selector.
 func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
-	listOptions := v1.ListOptions{LabelSelector: c.Selector.String()}
+	listOptions := api.ListOptions{LabelSelector: c.Selector}
 
 	podList, err := c.Client.Core().Pods(v1.NamespaceAll).List(listOptions)
 	if err != nil {

@@ -93,20 +93,32 @@ func main() {
 	chaoskube := chaoskube.New(client, selector, dryRun, time.Now().UTC().UnixNano())
 
 	for {
-		victim, err := chaoskube.Victim()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		log.Infof("Killing pod %s/%s", victim.Namespace, victim.Name)
-
-		if err := chaoskube.DeletePod(victim); err != nil {
+		if err := terminateVictim(chaoskube); err != nil {
 			log.Fatal(err)
 		}
 
 		log.Debugf("Sleeping for %s...", interval)
 		time.Sleep(interval)
 	}
+}
+
+func terminateVictim(ck *chaoskube.Chaoskube) error {
+	victim, err := ck.Victim()
+	if err == chaoskube.ErrPodNotFound {
+		log.Warnf("No victim could be found. If that's surprising double-check your label selector.")
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	log.Infof("Killing pod %s/%s", victim.Namespace, victim.Name)
+
+	if err := ck.DeletePod(victim); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func newClient() (*kubernetes.Clientset, error) {

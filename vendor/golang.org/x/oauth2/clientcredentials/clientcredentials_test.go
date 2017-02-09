@@ -5,11 +5,12 @@
 package clientcredentials
 
 import (
-	"context"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"golang.org/x/oauth2"
 )
 
 func newConf(url string) *Config {
@@ -56,7 +57,7 @@ func TestTokenRequest(t *testing.T) {
 	}))
 	defer ts.Close()
 	conf := newConf(ts.URL)
-	tok, err := conf.Token(context.Background())
+	tok, err := conf.Token(oauth2.NoContext)
 	if err != nil {
 		t.Error(err)
 	}
@@ -90,6 +91,6 @@ func TestTokenRefreshRequest(t *testing.T) {
 	}))
 	defer ts.Close()
 	conf := newConf(ts.URL)
-	c := conf.Client(context.Background())
+	c := conf.Client(oauth2.NoContext)
 	c.Get(ts.URL + "/somethingelse")
 }

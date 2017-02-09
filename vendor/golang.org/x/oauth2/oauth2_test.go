@@ -28,6 +28,19 @@ func (t *mockTransport) RoundTrip(req *http.Request) (resp *http.Response, err e
 	return t.rt(req)
 }
 
+type mockCache struct {
+	token   *Token
+	readErr error
+}
+
+func (c *mockCache) ReadToken() (*Token, error) {
+	return c.token, c.readErr
+}
+
+func (c *mockCache) WriteToken(*Token) {
+	// do nothing
+}
+
 func newConf(url string) *Config {
 	return &Config{
 		ClientID:     "CLIENT_ID",
@@ -44,9 +57,8 @@ func newConf(url string) *Config {
 func TestAuthCodeURL(t *testing.T) {
 	conf := newConf("server")
 	url := conf.AuthCodeURL("foo", AccessTypeOffline, ApprovalForce)
-	const want = "server/auth?access_type=offline&approval_prompt=force&client_id=CLIENT_ID&redirect_uri=REDIRECT_URL&response_type=code&scope=scope1+scope2&state=foo"
-	if got := url; got != want {
-		t.Errorf("got auth code URL = %q; want %q", got, want)
+	if url != "server/auth?access_type=offline&approval_prompt=force&client_id=CLIENT_ID&redirect_uri=REDIRECT_URL&response_type=code&scope=scope1+scope2&state=foo" {
+		t.Errorf("Auth code URL doesn't match the expected, found: %v", url)
 	}
 }
 
@@ -54,9 +66,8 @@ func TestAuthCodeURL_CustomParam(t *testing.T) {
 	conf := newConf("server")
 	param := SetAuthURLParam("foo", "bar")
 	url := conf.AuthCodeURL("baz", param)
-	const want = "server/auth?client_id=CLIENT_ID&foo=bar&redirect_uri=REDIRECT_URL&response_type=code&scope=scope1+scope2&state=baz"
-	if got := url; got != want {
-		t.Errorf("got auth code = %q; want %q", got, want)
+	if url != "server/auth?client_id=CLIENT_ID&foo=bar&redirect_uri=REDIRECT_URL&response_type=code&scope=scope1+scope2&state=baz" {
+		t.Errorf("Auth code URL doesn't match the expected, found: %v", url)
 	}
 }
 
@@ -69,9 +80,8 @@ func TestAuthCodeURL_Optional(t *testing.T) {
 		},
 	}
 	url := conf.AuthCodeURL("")
-	const want = "/auth-url?client_id=CLIENT_ID&response_type=code"
-	if got := url; got != want {
-		t.Fatalf("got auth code = %q; want %q", got, want)
+	if url != "/auth-url?client_id=CLIENT_ID&response_type=code" {
+		t.Fatalf("Auth code URL doesn't match the expected, found: %v", url)
 	}
 }
 
@@ -100,7 +110,7 @@ func TestExchangeRequest(t *testing.T) {
 	}))
 	defer ts.Close()
 	conf := newConf(ts.URL)
-	tok, err := conf.Exchange(context.Background(), "exchange-code")
+	tok, err := conf.Exchange(NoContext, "exchange-code")
 	if err != nil {
 		t.Error(err)
 	}
@@ -144,7 +154,7 @@ func TestExchangeRequest_JSONResponse(t *testing.T) {
 	}))
 	defer ts.Close()
 	conf := newConf(ts.URL)
-	tok, err := conf.Exchange(context.Background(), "exchange-code")
+	tok, err := conf.Exchange(NoContext, "exchange-code")
 	if err != nil {
 		t.Error(err)
 	}
@@ -169,40 +179,45 @@ func TestExchangeRequest_JSONResponse(t *testing.T) {
 
 func TestExtraValueRetrieval(t *testing.T) {
 	values := url.Values{}
+
 	kvmap := map[string]string{
 		"scope": "user", "token_type": "bearer", "expires_in": "86400.92",
 		"server_time": "1443571905.5606415", "referer_ip": "10.0.0.1",
 		"etag": "\"afZYj912P4alikMz_P11982\"", "request_id": "86400",
 		"untrimmed": "  untrimmed  ",
 	}
+
 	for key, value := range kvmap {
 		values.Set(key, value)
 	}
 
-	tok := Token{raw: values}
+	tok := Token{
+		raw: values,
+	}
+
 	scope := tok.Extra("scope")
-	if got, want := scope, "user"; got != want {
-		t.Errorf("got scope = %q; want %q", got, want)
+	if scope != "user" {
+		t.Errorf("Unexpected scope %v wanted \"user\"", scope)
 	}
 	serverTime := tok.Extra("server_time")
-	if got, want := serverTime, 1443571905.5606415; got != want {
-		t.Errorf("got server_time value = %v; want %v", got, want)
+	if serverTime != 1443571905.5606415 {
+		t.Errorf("Unexpected non-float64 value for server_time: %v", serverTime)
 	}
-	refererIP := tok.Extra("referer_ip")
-	if got, want := refererIP, "10.0.0.1"; got != want {
-		t.Errorf("got referer_ip value = %v, want %v", got, want)
+	refererIp := tok.Extra("referer_ip")
+	if refererIp != "10.0.0.1" {
+		t.Errorf("Unexpected non-string value for referer_ip: %v", refererIp)
 	}
-	expiresIn := tok.Extra("expires_in")
-	if got, want := expiresIn, 86400.92; got != want {
-		t.Errorf("got expires_in value = %v, want %v", got, want)
+	expires_in := tok.Extra("expires_in")
+	if expires_in != 86400.92 {
+		t.Errorf("Unexpected value for expires_in, wanted 86400 got %v", expires_in)
 	}
-	requestID := tok.Extra("request_id")
-	if got, want := requestID, int64(86400); got != want {
-		t.Errorf("got request_id value = %v, want %v", got, want)
+	requestId := tok.Extra("request_id")
+	if requestId != int64(86400) {
+		t.Errorf("Unexpected non-int64 value for request_id: %v", requestId)
 	}
 	untrimmed := tok.Extra("untrimmed")
-	if got, want := untrimmed, "  untrimmed  "; got != want {
-		t.Errorf("got untrimmed = %q; want %q", got, want)
+	if untrimmed != "  untrimmed  " {
+		t.Errorf("Unexpected value for untrimmed, got %q expected \"  untrimmed \"", untrimmed)
 	}
 }
 
@@ -234,7 +249,7 @@ func testExchangeRequest_JSONResponse_expiry(t *testing.T, exp string, expect er
 	defer ts.Close()
 	conf := newConf(ts.URL)
 	t1 := time.Now().Add(day)
-	tok, err := conf.Exchange(context.Background(), "exchange-code")
+	tok, err := conf.Exchange(NoContext, "exchange-code")
 	t2 := time.Now().Add(day)
 	// Do a fmt.Sprint comparison so either side can be
 	// nil. fmt.Sprint just stringifies them to "<nil>", and no
@@ -267,7 +282,7 @@ func TestExchangeRequest_BadResponse(t *testing.T) {
 	}))
 	defer ts.Close()
 	conf := newConf(ts.URL)
-	tok, err := conf.Exchange(context.Background(), "code")
+	tok, err := conf.Exchange(NoContext, "code")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -283,7 +298,7 @@ func TestExchangeRequest_BadResponseType(t *testing.T) {
 	}))
 	defer ts.Close()
 	conf := newConf(ts.URL)
-	_, err := conf.Exchange(context.Background(), "exchange-code")
+	_, err := conf.Exchange(NoContext, "exchange-code")
 	if err == nil {
 		t.Error("expected error from invalid access_token type")
 	}
@@ -342,7 +357,7 @@ func TestPasswordCredentialsTokenRequest(t *testing.T) {
 	}))
 	defer ts.Close()
 	conf := newConf(ts.URL)
-	tok, err := conf.PasswordCredentialsToken(context.Background(), "user1", "password1")
+	tok, err := conf.PasswordCredentialsToken(NoContext, "user1", "password1")
 	if err != nil {
 		t.Error(err)
 	}
@@ -378,7 +393,7 @@ func TestTokenRefreshRequest(t *testing.T) {
 	}))
 	defer ts.Close()
 	conf := newConf(ts.URL)
-	c := conf.Client(context.Background(), &Token{RefreshToken: "REFRESH_TOKEN"})
+	c := conf.Client(NoContext, &Token{RefreshToken: "REFRESH_TOKEN"})
 	c.Get(ts.URL + "/somethingelse")
 }
 
@@ -401,7 +416,7 @@ func TestFetchWithNoRefreshToken(t *testing.T) {
 	}))
 	defer ts.Close()
 	conf := newConf(ts.URL)
-	c := conf.Client(context.Background(), nil)
+	c := conf.Client(NoContext, nil)
 	_, err := c.Get(ts.URL + "/somethingelse")
 	if err == nil {
 		t.Errorf("Fetch should return an error if no refresh token is set")
@@ -418,16 +433,16 @@ func TestRefreshToken_RefreshTokenReplacement(t *testing.T) {
 	conf := newConf(ts.URL)
 	tkr := tokenRefresher{
 		conf:         conf,
-		ctx:          context.Background(),
+		ctx:          NoContext,
 		refreshToken: "OLD REFRESH TOKEN",
 	}
 	tk, err := tkr.Token()
 	if err != nil {
-		t.Errorf("got err = %v; want none", err)
+		t.Errorf("Unexpected refreshToken error returned: %v", err)
 		return
 	}
 	if tk.RefreshToken != tkr.refreshToken {
-		t.Errorf("tokenRefresher.refresh_token = %q; want %q", tkr.refreshToken, tk.RefreshToken)
+		t.Errorf("tokenRefresher.refresh_token = %s; want %s", tkr.refreshToken, tk.RefreshToken)
 	}
 }
 
@@ -444,7 +459,7 @@ func TestConfigClientWithToken(t *testing.T) {
 	defer ts.Close()
 	conf := newConf(ts.URL)
 
-	c := conf.Client(context.Background(), tok)
+	c := conf.Client(NoContext, tok)
 	req, err := http.NewRequest("GET", ts.URL, nil)
 	if err != nil {
 		t.Error(err)

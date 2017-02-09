@@ -5,13 +5,11 @@
 package jwt_test
 
 import (
-	"context"
-
+	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/jwt"
 )
 
 func ExampleJWTConfig() {
-	ctx := context.Background()
 	conf := &jwt.Config{
 		Email: "xxx@developer.com",
 		// The contents of your RSA private key or your PEM file
@@ -28,6 +26,6 @@ func ExampleJWTConfig() {
 	}
 	// Initiate an http.Client, the following GET request will be
 	// authorized and authenticated on the behalf of user@example.com.
-	client := conf.Client(ctx)
+	client := conf.Client(oauth2.NoContext)
 	client.Get("...")
 }

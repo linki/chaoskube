@@ -24,9 +24,7 @@ var _ = math.Inf
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the proto package it is being compiled against.
-// A compilation error at this line likely means your copy of the
-// proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion1
 
 // A Timestamp represents a point in time independent of any time zone
 // or calendar, represented as seconds and fractions of seconds at
@@ -103,10 +101,6 @@ func (*Timestamp) XXX_WellKnownType() string   { return "Timestamp" }
 
 func init() {
 	proto.RegisterType((*Timestamp)(nil), "google.protobuf.Timestamp")
-}
-
-func init() {
-	proto.RegisterFile("github.com/golang/protobuf/ptypes/timestamp/timestamp.proto", fileDescriptor0)
 }
 
 var fileDescriptor0 = []byte{

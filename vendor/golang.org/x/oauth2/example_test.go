@@ -5,7 +5,6 @@
 package oauth2_test
 
 import (
-	"context"
 	"fmt"
 	"log"
 
@@ -13,7 +12,6 @@ import (
 )
 
 func ExampleConfig() {
-	ctx := context.Background()
 	conf := &oauth2.Config{
 		ClientID:     "YOUR_CLIENT_ID",
 		ClientSecret: "YOUR_CLIENT_SECRET",
@@ -29,19 +27,19 @@ func ExampleConfig() {
 	url := conf.AuthCodeURL("state", oauth2.AccessTypeOffline)
 	fmt.Printf("Visit the URL for the auth dialog: %v", url)
 
-	// Use the authorization code that is pushed to the redirect
-	// URL. Exchange will do the handshake to retrieve the
-	// initial access token. The HTTP Client returned by
-	// conf.Client will refresh the token as necessary.
+	// Use the authorization code that is pushed to the redirect URL.
+	// NewTransportWithCode will do the handshake to retrieve
+	// an access token and initiate a Transport that is
+	// authorized and authenticated by the retrieved token.
 	var code string
 	if _, err := fmt.Scan(&code); err != nil {
 		log.Fatal(err)
 	}
-	tok, err := conf.Exchange(ctx, code)
+	tok, err := conf.Exchange(oauth2.NoContext, code)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	client := conf.Client(ctx, tok)
+	client := conf.Client(oauth2.NoContext, tok)
 	client.Get("...")
 }

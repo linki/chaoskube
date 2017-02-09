@@ -32,9 +32,7 @@ var _ = math.Inf
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the proto package it is being compiled against.
-// A compilation error at this line likely means your copy of the
-// proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion1
 
 // Wrapper message for `double`.
 //
@@ -172,10 +170,6 @@ func init() {
 	proto.RegisterType((*BoolValue)(nil), "google.protobuf.BoolValue")
 	proto.RegisterType((*StringValue)(nil), "google.protobuf.StringValue")
 	proto.RegisterType((*BytesValue)(nil), "google.protobuf.BytesValue")
-}
-
-func init() {
-	proto.RegisterFile("github.com/golang/protobuf/ptypes/wrappers/wrappers.proto", fileDescriptor0)
 }
 
 var fileDescriptor0 = []byte{

@@ -26,9 +26,7 @@ var _ = math.Inf
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the proto package it is being compiled against.
-// A compilation error at this line likely means your copy of the
-// proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion1
 
 // `NullValue` is a singleton enumeration to represent the null value for the
 // `Value` type union.
@@ -63,7 +61,7 @@ func (NullValue) XXX_WellKnownType() string       { return "NullValue" }
 //
 // The JSON representation for `Struct` is JSON object.
 type Struct struct {
-	// Unordered map of dynamically typed values.
+	// Map of dynamically typed values.
 	Fields map[string]*Value `protobuf:"bytes,1,rep,name=fields" json:"fields,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 }
 
@@ -345,10 +343,6 @@ func init() {
 	proto.RegisterType((*Value)(nil), "google.protobuf.Value")
 	proto.RegisterType((*ListValue)(nil), "google.protobuf.ListValue")
 	proto.RegisterEnum("google.protobuf.NullValue", NullValue_name, NullValue_value)
-}
-
-func init() {
-	proto.RegisterFile("github.com/golang/protobuf/ptypes/struct/struct.proto", fileDescriptor0)
 }
 
 var fileDescriptor0 = []byte{

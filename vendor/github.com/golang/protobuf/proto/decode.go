@@ -390,12 +390,11 @@ func (o *Buffer) unmarshalType(st reflect.Type, prop *StructProperties, is_group
 		if !ok {
 			// Maybe it's an extension?
 			if prop.extendable {
-				if e, _ := extendable(structPointer_Interface(base, st)); isExtensionField(e, int32(tag)) {
+				if e := structPointer_Interface(base, st).(extendableProto); isExtensionField(e, int32(tag)) {
 					if err = o.skip(st, tag, wire); err == nil {
-						extmap := e.extensionsWrite()
-						ext := extmap[int32(tag)] // may be missing
+						ext := e.ExtensionMap()[int32(tag)] // may be missing
 						ext.enc = append(ext.enc, o.buf[oi:o.index]...)
-						extmap[int32(tag)] = ext
+						e.ExtensionMap()[int32(tag)] = ext
 					}
 					continue
 				}

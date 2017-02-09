@@ -25,9 +25,9 @@ func TestSDKConfig(t *testing.T) {
 		c, err := NewSDKConfig(tt.account)
 		if got, want := err != nil, tt.err; got != want {
 			if !tt.err {
-				t.Errorf("got %v, want nil", err)
+				t.Errorf("expected no error, got error: %v", tt.err, err)
 			} else {
-				t.Errorf("got nil, want error")
+				t.Errorf("expected error, got none")
 			}
 			continue
 		}
@@ -36,11 +36,11 @@ func TestSDKConfig(t *testing.T) {
 		}
 		tok := c.initialToken
 		if tok == nil {
-			t.Errorf("got nil, want %q", tt.accessToken)
+			t.Errorf("expected token %q, got: nil", tt.accessToken)
 			continue
 		}
 		if tok.AccessToken != tt.accessToken {
-			t.Errorf("got %q, want %q", tok.AccessToken, tt.accessToken)
+			t.Errorf("expected token %q, got: %q", tt.accessToken, tok.AccessToken)
 		}
 	}
 }

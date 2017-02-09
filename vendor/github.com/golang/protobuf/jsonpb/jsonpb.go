@@ -53,6 +53,10 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
+var (
+	byteArrayType = reflect.TypeOf([]byte{})
+)
+
 // Marshaler is a configurable object for converting between
 // protocol buffer objects and a JSON representation for them.
 type Marshaler struct {
@@ -75,7 +79,7 @@ type Marshaler struct {
 // Marshal marshals a protocol buffer into JSON.
 func (m *Marshaler) Marshal(out io.Writer, pb proto.Message) error {
 	writer := &errWriter{writer: out}
-	return m.marshalObject(writer, pb, "", "")
+	return m.marshalObject(writer, pb, "")
 }
 
 // MarshalToString converts a protocol buffer object to JSON string.
@@ -94,15 +98,14 @@ func (s int32Slice) Len() int           { return len(s) }
 func (s int32Slice) Less(i, j int) bool { return s[i] < s[j] }
 func (s int32Slice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
-type wkt interface {
-	XXX_WellKnownType() string
-}
-
 // marshalObject writes a struct to the Writer.
-func (m *Marshaler) marshalObject(out *errWriter, v proto.Message, indent, typeURL string) error {
+func (m *Marshaler) marshalObject(out *errWriter, v proto.Message, indent string) error {
 	s := reflect.ValueOf(v).Elem()
 
 	// Handle well-known types.
+	type wkt interface {
+		XXX_WellKnownType() string
+	}
 	if wkt, ok := v.(wkt); ok {
 		switch wkt.XXX_WellKnownType() {
 		case "DoubleValue", "FloatValue", "Int64Value", "UInt64Value",
@@ -111,9 +114,6 @@ func (m *Marshaler) marshalObject(out *errWriter, v proto.Message, indent, typeU
 			//  as the wrapped primitive type, ..."
 			sprop := proto.GetProperties(s.Type())
 			return m.marshalValue(out, sprop.Prop[0], s.Field(0), indent)
-		case "Any":
-			// Any is a bit more involved.
-			return m.marshalAny(out, v, indent)
 		case "Duration":
 			// "Generated output always contains 3, 6, or 9 fractional digits,
 			//  depending on required precision."
@@ -163,14 +163,6 @@ func (m *Marshaler) marshalObject(out *errWriter, v proto.Message, indent, typeU
 	}
 
 	firstField := true
-
-	if typeURL != "" {
-		if err := m.marshalTypeURL(out, indent, typeURL); err != nil {
-			return err
-		}
-		firstField = false
-	}
-
 	for i := 0; i < s.NumField(); i++ {
 		value := s.Field(i)
 		valueField := s.Type().Field(i)
@@ -229,14 +221,12 @@ func (m *Marshaler) marshalObject(out *errWriter, v proto.Message, indent, typeU
 	}
 
 	// Handle proto2 extensions.
-	if ep, ok := v.(proto.Message); ok {
+	if ep, ok := v.(extendableProto); ok {
 		extensions := proto.RegisteredExtensions(v)
+		extensionMap := ep.ExtensionMap()
 		// Sort extensions for stable output.
-		ids := make([]int32, 0, len(extensions))
-		for id, desc := range extensions {
-			if !proto.HasExtension(ep, desc) {
-				continue
-			}
+		ids := make([]int32, 0, len(extensionMap))
+		for id := range extensionMap {
 			ids = append(ids, id)
 		}
 		sort.Sort(int32Slice(ids))
@@ -281,76 +271,6 @@ func (m *Marshaler) writeSep(out *errWriter) {
 	}
 }
 
-func (m *Marshaler) marshalAny(out *errWriter, any proto.Message, indent string) error {
-	// "If the Any contains a value that has a special JSON mapping,
-	//  it will be converted as follows: {"@type": xxx, "value": yyy}.
-	//  Otherwise, the value will be converted into a JSON object,
-	//  and the "@type" field will be inserted to indicate the actual data type."
-	v := reflect.ValueOf(any).Elem()
-	turl := v.Field(0).String()
-	val := v.Field(1).Bytes()
-
-	// Only the part of type_url after the last slash is relevant.
-	mname := turl
-	if slash := strings.LastIndex(mname, "/"); slash >= 0 {
-		mname = mname[slash+1:]
-	}
-	mt := proto.MessageType(mname)
-	if mt == nil {
-		return fmt.Errorf("unknown message type %q", mname)
-	}
-	msg := reflect.New(mt.Elem()).Interface().(proto.Message)
-	if err := proto.Unmarshal(val, msg); err != nil {
-		return err
-	}
-
-	if _, ok := msg.(wkt); ok {
-		out.write("{")
-		if m.Indent != "" {
-			out.write("\n")
-		}
-		if err := m.marshalTypeURL(out, indent, turl); err != nil {
-			return err
-		}
-		m.writeSep(out)
-		if m.Indent != "" {
-			out.write(indent)
-			out.write(m.Indent)
-			out.write(`"value": `)
-		} else {
-			out.write(`"value":`)
-		}
-		if err := m.marshalObject(out, msg, indent+m.Indent, ""); err != nil {
-			return err
-		}
-		if m.Indent != "" {
-			out.write("\n")
-			out.write(indent)
-		}
-		out.write("}")
-		return out.err
-	}
-
-	return m.marshalObject(out, msg, indent, turl)
-}
-
-func (m *Marshaler) marshalTypeURL(out *errWriter, indent, typeURL string) error {
-	if m.Indent != "" {
-		out.write(indent)
-		out.write(m.Indent)
-	}
-	out.write(`"@type":`)
-	if m.Indent != "" {
-		out.write(" ")
-	}
-	b, err := json.Marshal(typeURL)
-	if err != nil {
-		return err
-	}
-	out.write(string(b))
-	return out.err
-}
-
 // marshalField writes field description and value to the Writer.
 func (m *Marshaler) marshalField(out *errWriter, prop *proto.Properties, v reflect.Value, indent string) error {
 	if m.Indent != "" {
@@ -376,7 +296,7 @@ func (m *Marshaler) marshalValue(out *errWriter, prop *proto.Properties, v refle
 	v = reflect.Indirect(v)
 
 	// Handle repeated elements.
-	if v.Kind() == reflect.Slice && v.Type().Elem().Kind() != reflect.Uint8 {
+	if v.Type() != byteArrayType && v.Kind() == reflect.Slice {
 		out.write("[")
 		comma := ""
 		for i := 0; i < v.Len(); i++ {
@@ -388,9 +308,7 @@ func (m *Marshaler) marshalValue(out *errWriter, prop *proto.Properties, v refle
 				out.write(m.Indent)
 				out.write(m.Indent)
 			}
-			if err := m.marshalValue(out, prop, sliceVal, indent+m.Indent); err != nil {
-				return err
-			}
+			m.marshalValue(out, prop, sliceVal, indent+m.Indent)
 			comma = ","
 		}
 		if m.Indent != "" {
@@ -440,7 +358,7 @@ func (m *Marshaler) marshalValue(out *errWriter, prop *proto.Properties, v refle
 
 	// Handle nested messages.
 	if v.Kind() == reflect.Struct {
-		return m.marshalObject(out, v.Addr().Interface().(proto.Message), indent+m.Indent, "")
+		return m.marshalObject(out, v.Addr().Interface().(proto.Message), indent+m.Indent)
 	}
 
 	// Handle maps.
@@ -518,7 +436,7 @@ func UnmarshalNext(dec *json.Decoder, pb proto.Message) error {
 	if err := dec.Decode(&inputValue); err != nil {
 		return err
 	}
-	return unmarshalValue(reflect.ValueOf(pb).Elem(), inputValue, nil)
+	return unmarshalValue(reflect.ValueOf(pb).Elem(), inputValue)
 }
 
 // Unmarshal unmarshals a JSON object stream into a protocol
@@ -537,14 +455,13 @@ func UnmarshalString(str string, pb proto.Message) error {
 }
 
 // unmarshalValue converts/copies a value into the target.
-// prop may be nil.
-func unmarshalValue(target reflect.Value, inputValue json.RawMessage, prop *proto.Properties) error {
+func unmarshalValue(target reflect.Value, inputValue json.RawMessage) error {
 	targetType := target.Type()
 
 	// Allocate memory for pointer fields.
 	if targetType.Kind() == reflect.Ptr {
 		target.Set(reflect.New(targetType.Elem()))
-		return unmarshalValue(target.Elem(), inputValue, prop)
+		return unmarshalValue(target.Elem(), inputValue)
 	}
 
 	// Handle well-known types.
@@ -559,9 +476,7 @@ func unmarshalValue(target reflect.Value, inputValue json.RawMessage, prop *prot
 			//  as the wrapped primitive type, except that null is allowed."
 			// encoding/json will turn JSON `null` into Go `nil`,
 			// so we don't have to do any extra work.
-			return unmarshalValue(target.Field(0), inputValue, prop)
-		case "Any":
-			return fmt.Errorf("unmarshaling Any not supported yet")
+			return unmarshalValue(target.Field(0), inputValue)
 		case "Duration":
 			unq, err := strconv.Unquote(string(inputValue))
 			if err != nil {
@@ -593,27 +508,6 @@ func unmarshalValue(target reflect.Value, inputValue json.RawMessage, prop *prot
 			target.Field(1).SetInt(ns)
 			return nil
 		}
-	}
-
-	// Handle enums, which have an underlying type of int32,
-	// and may appear as strings.
-	// The case of an enum appearing as a number is handled
-	// at the bottom of this function.
-	if inputValue[0] == '"' && prop != nil && prop.Enum != "" {
-		vmap := proto.EnumValueMap(prop.Enum)
-		// Don't need to do unquoting; valid enum names
-		// are from a limited character set.
-		s := inputValue[1 : len(inputValue)-1]
-		n, ok := vmap[string(s)]
-		if !ok {
-			return fmt.Errorf("unknown value %q for enum %s", s, prop.Enum)
-		}
-		if target.Kind() == reflect.Ptr { // proto2
-			target.Set(reflect.New(targetType.Elem()))
-			target = target.Elem()
-		}
-		target.SetInt(int64(n))
-		return nil
 	}
 
 	// Handle nested messages.
@@ -657,7 +551,30 @@ func unmarshalValue(target reflect.Value, inputValue json.RawMessage, prop *prot
 				continue
 			}
 
-			if err := unmarshalValue(target.Field(i), valueForField, sprops.Prop[i]); err != nil {
+			// Handle enums, which have an underlying type of int32,
+			// and may appear as strings. We do this while handling
+			// the struct so we have access to the enum info.
+			// The case of an enum appearing as a number is handled
+			// by the recursive call to unmarshalValue.
+			if enum := sprops.Prop[i].Enum; valueForField[0] == '"' && enum != "" {
+				vmap := proto.EnumValueMap(enum)
+				// Don't need to do unquoting; valid enum names
+				// are from a limited character set.
+				s := valueForField[1 : len(valueForField)-1]
+				n, ok := vmap[string(s)]
+				if !ok {
+					return fmt.Errorf("unknown value %q for enum %s", s, enum)
+				}
+				f := target.Field(i)
+				if f.Kind() == reflect.Ptr { // proto2
+					f.Set(reflect.New(f.Type().Elem()))
+					f = f.Elem()
+				}
+				f.SetInt(int64(n))
+				continue
+			}
+
+			if err := unmarshalValue(target.Field(i), valueForField); err != nil {
 				return err
 			}
 		}
@@ -670,7 +587,7 @@ func unmarshalValue(target reflect.Value, inputValue json.RawMessage, prop *prot
 				}
 				nv := reflect.New(oop.Type.Elem())
 				target.Field(oop.Field).Set(nv)
-				if err := unmarshalValue(nv.Elem().Field(0), raw, oop.Prop); err != nil {
+				if err := unmarshalValue(nv.Elem().Field(0), raw); err != nil {
 					return err
 				}
 			}
@@ -688,7 +605,7 @@ func unmarshalValue(target reflect.Value, inputValue json.RawMessage, prop *prot
 	}
 
 	// Handle arrays (which aren't encoded bytes)
-	if targetType.Kind() == reflect.Slice && targetType.Elem().Kind() != reflect.Uint8 {
+	if targetType != byteArrayType && targetType.Kind() == reflect.Slice {
 		var slc []json.RawMessage
 		if err := json.Unmarshal(inputValue, &slc); err != nil {
 			return err
@@ -696,7 +613,7 @@ func unmarshalValue(target reflect.Value, inputValue json.RawMessage, prop *prot
 		len := len(slc)
 		target.Set(reflect.MakeSlice(targetType, len, len))
 		for i := 0; i < len; i++ {
-			if err := unmarshalValue(target.Index(i), slc[i], prop); err != nil {
+			if err := unmarshalValue(target.Index(i), slc[i]); err != nil {
 				return err
 			}
 		}
@@ -710,13 +627,6 @@ func unmarshalValue(target reflect.Value, inputValue json.RawMessage, prop *prot
 			return err
 		}
 		target.Set(reflect.MakeMap(targetType))
-		var keyprop, valprop *proto.Properties
-		if prop != nil {
-			// These could still be nil if the protobuf metadata is broken somehow.
-			// TODO: This won't work because the fields are unexported.
-			// We should probably just reparse them.
-			//keyprop, valprop = prop.mkeyprop, prop.mvalprop
-		}
 		for ks, raw := range mp {
 			// Unmarshal map key. The core json library already decoded the key into a
 			// string, so we handle that specially. Other types were quoted post-serialization.
@@ -725,14 +635,14 @@ func unmarshalValue(target reflect.Value, inputValue json.RawMessage, prop *prot
 				k = reflect.ValueOf(ks)
 			} else {
 				k = reflect.New(targetType.Key()).Elem()
-				if err := unmarshalValue(k, json.RawMessage(ks), keyprop); err != nil {
+				if err := unmarshalValue(k, json.RawMessage(ks)); err != nil {
 					return err
 				}
 			}
 
 			// Unmarshal map value.
 			v := reflect.New(targetType.Elem()).Elem()
-			if err := unmarshalValue(v, raw, valprop); err != nil {
+			if err := unmarshalValue(v, raw); err != nil {
 				return err
 			}
 			target.SetMapIndex(k, v)
@@ -771,6 +681,13 @@ func acceptedJSONFieldNames(prop *proto.Properties) fieldNames {
 		opts.camel = prop.JSONName
 	}
 	return opts
+}
+
+// extendableProto is an interface implemented by any protocol buffer that may be extended.
+type extendableProto interface {
+	proto.Message
+	ExtensionRangeArray() []proto.ExtensionRange
+	ExtensionMap() map[int32]proto.Extension
 }
 
 // Writer wrapper inspired by https://blog.golang.org/errors-are-values

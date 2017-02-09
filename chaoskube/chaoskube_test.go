@@ -51,9 +51,9 @@ func TestCandidates(t *testing.T) {
 	})
 }
 
-// TestCandidatesWithLabelSelector tests that the list of pods available for
+// TestCandidatesLabelSelector tests that the list of pods available for
 // termination can be restricted by providing a label selector.
-func TestCandidatesWithLabelSelector(t *testing.T) {
+func TestCandidatesLabelSelector(t *testing.T) {
 	selector, err := labels.Parse("app=foo")
 	if err != nil {
 		t.Fatal(err)
@@ -68,6 +68,25 @@ func TestCandidatesWithLabelSelector(t *testing.T) {
 
 	validatePods(t, pods, []map[string]string{
 		{"namespace": "default", "name": "foo"},
+	})
+}
+
+// TestCandidatesExcludingLabelSelector tests that label selector supports exclusion
+func TestCandidatesExcludingLabelSelector(t *testing.T) {
+	selector, err := labels.Parse("app!=foo")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	chaoskube := setup(t, selector, false, 0)
+
+	pods, err := chaoskube.Candidates()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	validatePods(t, pods, []map[string]string{
+		{"namespace": "default", "name": "bar"},
 	})
 }
 
@@ -116,25 +135,6 @@ func TestAnotherVictimRespectsLabelSelector(t *testing.T) {
 
 	validatePod(t, victim, map[string]string{
 		"namespace": "default", "name": "foo",
-	})
-}
-
-// TestVictimRespectsLabelSelector tests that label selector supports exclusion
-func TestVictimRespectsLabelSelector(t *testing.T) {
-	selector, err := labels.Parse("app!=foo")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	chaoskube := setup(t, selector, false, 2000)
-
-	victim, err := chaoskube.Victim()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	validatePod(t, victim, map[string]string{
-		"namespace": "default", "name": "bar",
 	})
 }
 

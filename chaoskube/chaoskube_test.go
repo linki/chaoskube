@@ -24,8 +24,8 @@ func TestNew(t *testing.T) {
 		t.Errorf("expected %#v, got %#v", client, chaoskube.Client)
 	}
 
-	if chaoskube.Selector.String() != "foo=bar" {
-		t.Errorf("expected %s, got %s", "foo=bar", chaoskube.Selector.String())
+	if chaoskube.Labels.String() != "foo=bar" {
+		t.Errorf("expected %s, got %s", "foo=bar", chaoskube.Labels.String())
 	}
 
 	if chaoskube.Namespaces.String() != "qux" {
@@ -83,13 +83,30 @@ func TestCandidatesExcludingLabelSelector(t *testing.T) {
 // TestCandidatesNamespaces tests that the list of pods available for
 // termination can be restricted by namespaces.
 func TestCandidatesNamespaces(t *testing.T) {
-	namespaces, _ := labels.Parse("default")
+	foo := map[string]string{"namespace": "default", "name": "foo"}
+	bar := map[string]string{"namespace": "testing", "name": "bar"}
 
-	chaoskube := setup(t, labels.Everything(), namespaces, false, 0)
+	for _, test := range []struct {
+		namespaces string
+		pods       []map[string]string
+	}{
+		{"", []map[string]string{foo, bar}},
+		{"default", []map[string]string{foo}},
+		{"default,testing", []map[string]string{foo, bar}},
+		{"!testing", []map[string]string{foo}},
+		{"!default,!testing", []map[string]string{}},
+		{"default,!testing", []map[string]string{foo}},
+		{"default,!default", []map[string]string{}},
+	} {
+		namespaces, err := labels.Parse(test.namespaces)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	validateCandidates(t, chaoskube, []map[string]string{
-		{"namespace": "default", "name": "foo"},
-	})
+		chaoskube := setup(t, labels.Everything(), namespaces, false, 0)
+
+		validateCandidates(t, chaoskube, test.pods)
+	}
 }
 
 // TestVictim tests that a pod is chosen from the candidates

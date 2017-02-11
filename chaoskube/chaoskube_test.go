@@ -44,12 +44,7 @@ func TestNew(t *testing.T) {
 func TestCandidates(t *testing.T) {
 	chaoskube := setup(t, labels.Everything(), v1.NamespaceAll, false, 0)
 
-	pods, err := chaoskube.Candidates()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	validatePods(t, pods, []map[string]string{
+	validateCandidates(t, chaoskube, []map[string]string{
 		{"namespace": "default", "name": "foo"},
 		{"namespace": "testing", "name": "bar"},
 	})
@@ -65,12 +60,7 @@ func TestCandidatesLabelSelector(t *testing.T) {
 
 	chaoskube := setup(t, selector, v1.NamespaceAll, false, 0)
 
-	pods, err := chaoskube.Candidates()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	validatePods(t, pods, []map[string]string{
+	validateCandidates(t, chaoskube, []map[string]string{
 		{"namespace": "default", "name": "foo"},
 	})
 }
@@ -84,12 +74,7 @@ func TestCandidatesExcludingLabelSelector(t *testing.T) {
 
 	chaoskube := setup(t, selector, v1.NamespaceAll, false, 0)
 
-	pods, err := chaoskube.Candidates()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	validatePods(t, pods, []map[string]string{
+	validateCandidates(t, chaoskube, []map[string]string{
 		{"namespace": "testing", "name": "bar"},
 	})
 }
@@ -99,12 +84,7 @@ func TestCandidatesExcludingLabelSelector(t *testing.T) {
 func TestCandidatesNamespace(t *testing.T) {
 	chaoskube := setup(t, labels.Everything(), "default", false, 0)
 
-	pods, err := chaoskube.Candidates()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	validatePods(t, pods, []map[string]string{
+	validateCandidates(t, chaoskube, []map[string]string{
 		{"namespace": "default", "name": "foo"},
 	})
 }
@@ -113,12 +93,7 @@ func TestCandidatesNamespace(t *testing.T) {
 func TestVictim(t *testing.T) {
 	chaoskube := setup(t, labels.Everything(), v1.NamespaceAll, false, 2000)
 
-	victim, err := chaoskube.Victim()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	validatePod(t, victim, map[string]string{
+	validateVictim(t, chaoskube, map[string]string{
 		"namespace": "default", "name": "foo",
 	})
 }
@@ -127,12 +102,7 @@ func TestVictim(t *testing.T) {
 func TestAnotherVictim(t *testing.T) {
 	chaoskube := setup(t, labels.Everything(), v1.NamespaceAll, false, 4000)
 
-	victim, err := chaoskube.Victim()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	validatePod(t, victim, map[string]string{
+	validateVictim(t, chaoskube, map[string]string{
 		"namespace": "testing", "name": "bar",
 	})
 }
@@ -147,12 +117,7 @@ func TestAnotherVictimRespectsLabelSelector(t *testing.T) {
 
 	chaoskube := setup(t, selector, v1.NamespaceAll, false, 4000)
 
-	victim, err := chaoskube.Victim()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	validatePod(t, victim, map[string]string{
+	validateVictim(t, chaoskube, map[string]string{
 		"namespace": "default", "name": "foo",
 	})
 }
@@ -176,12 +141,7 @@ func TestDeletePod(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pods, err := chaoskube.Candidates()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	validatePods(t, pods, []map[string]string{
+	validateCandidates(t, chaoskube, []map[string]string{
 		{"namespace": "testing", "name": "bar"},
 	})
 }
@@ -196,18 +156,31 @@ func TestDeletePodDryRun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pods, err := chaoskube.Candidates()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	validatePods(t, pods, []map[string]string{
+	validateCandidates(t, chaoskube, []map[string]string{
 		{"namespace": "default", "name": "foo"},
 		{"namespace": "testing", "name": "bar"},
 	})
 }
 
 // helper functions
+
+func validateCandidates(t *testing.T, chaoskube *Chaoskube, expected []map[string]string) {
+	pods, err := chaoskube.Candidates()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	validatePods(t, pods, expected)
+}
+
+func validateVictim(t *testing.T, chaoskube *Chaoskube, expected map[string]string) {
+	victim, err := chaoskube.Victim()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	validatePod(t, victim, expected)
+}
 
 func validatePods(t *testing.T, pods []v1.Pod, expected []map[string]string) {
 	if len(pods) != len(expected) {

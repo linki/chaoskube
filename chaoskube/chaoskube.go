@@ -15,8 +15,8 @@ type Chaoskube struct {
 	Client kubernetes.Interface
 	// a label selector which restricts the pods to choose from
 	Selector labels.Selector
-	// a namespace which restricts the pods to choose from
-	Namespace string
+	// a namespace selector which restricts the pods to choose from
+	Namespace labels.Selector
 	// dry run will not allow any pod terminations
 	DryRun bool
 	// seed value for the randomizer
@@ -29,7 +29,7 @@ var ErrPodNotFound = errors.New("pod not found")
 // New returns a new instance of Chaoskube. It expects a kubernetes client, a
 // label selector and namespace to reduce the amount of affected pods as well as
 // whether to enable dryRun mode and a seed to seed the randomizer with.
-func New(client kubernetes.Interface, selector labels.Selector, namespace string, dryRun bool, seed int64) *Chaoskube {
+func New(client kubernetes.Interface, selector labels.Selector, namespace labels.Selector, dryRun bool, seed int64) *Chaoskube {
 	c := &Chaoskube{
 		Client:    client,
 		Selector:  selector,
@@ -48,7 +48,7 @@ func New(client kubernetes.Interface, selector labels.Selector, namespace string
 func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 	listOptions := v1.ListOptions{LabelSelector: c.Selector.String()}
 
-	podList, err := c.Client.Core().Pods(c.Namespace).List(listOptions)
+	podList, err := c.Client.Core().Pods(c.Namespace.String()).List(listOptions)
 	if err != nil {
 		return nil, err
 	}

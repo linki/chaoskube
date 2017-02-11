@@ -129,15 +129,15 @@ func newClient() (*kubernetes.Clientset, error) {
 
 	if inCluster {
 		config, err = rest.InClusterConfig()
-		log.Infof("Using in-cluster config.")
+		log.Debug("Using in-cluster config.")
 	} else {
 		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
-		log.Infof("Using current context from kubeconfig at %s.", kubeconfig)
+		log.Debugf("Using current context from kubeconfig at %s.", kubeconfig)
 	}
 	if err != nil {
 		return nil, err
 	}
-	log.Debugf("Targeting cluster at %s", config.Host)
+	log.Infof("Targeting cluster at %s", config.Host)
 
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {

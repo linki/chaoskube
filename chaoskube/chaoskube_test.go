@@ -12,9 +12,9 @@ import (
 func TestNew(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	selector, _ := labels.Parse("foo=bar")
-	namespace, _ := labels.Parse("qux")
+	namespaces, _ := labels.Parse("qux")
 
-	chaoskube := New(client, selector, namespace, false, 42)
+	chaoskube := New(client, selector, namespaces, false, 42)
 
 	if chaoskube == nil {
 		t.Errorf("expected Chaoskube but got nothing")
@@ -28,8 +28,8 @@ func TestNew(t *testing.T) {
 		t.Errorf("expected %s, got %s", "foo=bar", chaoskube.Selector.String())
 	}
 
-	if chaoskube.Namespace.String() != "qux" {
-		t.Errorf("expected %s, got %s", "qux", chaoskube.Namespace.String())
+	if chaoskube.Namespaces.String() != "qux" {
+		t.Errorf("expected %s, got %s", "qux", chaoskube.Namespaces.String())
 	}
 
 	if chaoskube.DryRun != false {
@@ -80,12 +80,12 @@ func TestCandidatesExcludingLabelSelector(t *testing.T) {
 	})
 }
 
-// TestCandidatesNamespace tests that the list of pods available for
-// termination can be restricted by a namespace.
-func TestCandidatesNamespace(t *testing.T) {
-	namespace, _ := labels.Parse("default")
+// TestCandidatesNamespaces tests that the list of pods available for
+// termination can be restricted by namespaces.
+func TestCandidatesNamespaces(t *testing.T) {
+	namespaces, _ := labels.Parse("default")
 
-	chaoskube := setup(t, labels.Everything(), namespace, false, 0)
+	chaoskube := setup(t, labels.Everything(), namespaces, false, 0)
 
 	validateCandidates(t, chaoskube, []map[string]string{
 		{"namespace": "default", "name": "foo"},
@@ -219,7 +219,7 @@ func newPod(namespace, name string) v1.Pod {
 	return pod
 }
 
-func setup(t *testing.T, selector labels.Selector, namespace labels.Selector, dryRun bool, seed int64) *Chaoskube {
+func setup(t *testing.T, selector labels.Selector, namespaces labels.Selector, dryRun bool, seed int64) *Chaoskube {
 	pods := []v1.Pod{
 		newPod("default", "foo"),
 		newPod("testing", "bar"),
@@ -233,5 +233,5 @@ func setup(t *testing.T, selector labels.Selector, namespace labels.Selector, dr
 		}
 	}
 
-	return New(client, selector, namespace, dryRun, seed)
+	return New(client, selector, namespaces, dryRun, seed)
 }

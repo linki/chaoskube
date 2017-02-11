@@ -38,7 +38,7 @@ var (
 
 func init() {
 	kingpin.Flag("labels", "A set of labels to restrict the list of affected pods. Defaults to everything.").Default(labels.Everything().String()).StringVar(&labelString)
-	kingpin.Flag("namespace", "The namespace affected pods have to be in. Defaults to everything.").Default(v1.NamespaceAll).StringVar(&nsString)
+	kingpin.Flag("namespaces", "A set of namespaces to restrict the list of affected pods. Defaults to everything.").Default(v1.NamespaceAll).StringVar(&nsString)
 	kingpin.Flag("kubeconfig", "Path to a kubeconfig file").Default(clientcmd.RecommendedHomeFile).StringVar(&kubeconfig)
 	kingpin.Flag("interval", "Interval between Pod terminations").Short('i').Default("10m").DurationVar(&interval)
 	kingpin.Flag("in-cluster", "If true, finds the Kubernetes cluster from the environment").Short('c').BoolVar(&inCluster)
@@ -94,16 +94,16 @@ func main() {
 		log.Infof("Filtering pods by label selector: %s", selector.String())
 	}
 
-	namespace, err := labels.Parse(nsString)
+	namespaces, err := labels.Parse(nsString)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if !namespace.Empty() {
-		log.Infof("Filtering pods by namespace: %s", namespace.String())
+	if !namespaces.Empty() {
+		log.Infof("Filtering pods by namespaces: %s", namespaces.String())
 	}
 
-	chaoskube := chaoskube.New(client, selector, namespace, dryRun, time.Now().UTC().UnixNano())
+	chaoskube := chaoskube.New(client, selector, namespaces, dryRun, time.Now().UTC().UnixNano())
 
 	for {
 		if err := terminateVictim(chaoskube); err != nil {
@@ -118,7 +118,7 @@ func main() {
 func terminateVictim(ck *chaoskube.Chaoskube) error {
 	victim, err := ck.Victim()
 	if err == chaoskube.ErrPodNotFound {
-		log.Warnf("No victim could be found. If that's surprising double-check your label selector and namespace filter.")
+		log.Warnf("No victim could be found. If that's surprising double-check your label and namespace selectors.")
 		return nil
 	}
 	if err != nil {

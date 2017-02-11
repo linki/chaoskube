@@ -2,7 +2,6 @@ package main
 
 import (
 	"os"
-	"strings"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -17,6 +16,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/linki/chaoskube/chaoskube"
+	"github.com/linki/chaoskube/util"
 )
 
 const (
@@ -150,8 +150,7 @@ func newClient() (*kubernetes.Clientset, error) {
 func generateManifest() *v1beta1.Deployment {
 	// modifies flags for deployment
 	args := append(os.Args[1:], "--in-cluster")
-	args = stripFlags(args, "--kubeconfig")
-	args = stripFlags(args, "--deploy")
+	args = util.StripElements(args, "--kubeconfig", "--deploy")
 
 	return &v1beta1.Deployment{
 		TypeMeta: unversioned.TypeMeta{
@@ -185,15 +184,4 @@ func generateManifest() *v1beta1.Deployment {
 			},
 		},
 	}
-}
-
-func stripFlags(elements []string, candidate string) []string {
-	for i := range elements {
-		if strings.Contains(elements[i], candidate) {
-			elements = append(elements[:i], elements[i+1:]...)
-			break
-		}
-	}
-
-	return elements
 }

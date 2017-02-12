@@ -13,42 +13,47 @@ Test how your system behaves under arbitrary pod failures.
 
 Running it will kill a pod in any namespace every 10 minutes by default.
 
-```shell
-Killing pod kube-system/kube-dns-v20-6ikos
-Killing pod chaoskube/nginx-701339712-u4fr3
-Killing pod kube-system/kube-proxy-gke-earthcoin-pool-3-5ee87f80-n72s
-Killing pod chaoskube/nginx-701339712-bfh2y
-Killing pod kube-system/heapster-v1.2.0-1107848163-bhtcw
-Killing pod kube-system/l7-default-backend-v1.0-o2hc9
-Killing pod kube-system/heapster-v1.2.0-1107848163-jlfcd
-Killing pod chaoskube/nginx-701339712-bfh2y
-Killing pod chaoskube/nginx-701339712-51nt8
+```console
+$ chaoskube
+...
+INFO[0000] Targeting cluster at https://kube.you.me
+INFO[0001] Killing pod kube-system/kube-dns-v20-6ikos
+INFO[0601] Killing pod chaoskube/nginx-701339712-u4fr3
+INFO[1201] Killing pod kube-system/kube-proxy-gke-earthcoin-pool-3-5ee87f80-n72s
+INFO[1802] Killing pod chaoskube/nginx-701339712-bfh2y
+INFO[2402] Killing pod kube-system/heapster-v1.2.0-1107848163-bhtcw
+INFO[3003] Killing pod kube-system/l7-default-backend-v1.0-o2hc9
+INFO[3603] Killing pod kube-system/heapster-v1.2.0-1107848163-jlfcd
+INFO[4203] Killing pod chaoskube/nginx-701339712-bfh2y
+INFO[4804] Killing pod chaoskube/nginx-701339712-51nt8
 ...
 ```
+
+[See below](#filtering-targets) for ways to limit the search space.
 
 ## How
 
 Get `chaoskube` via go get, make sure your current context points to your target cluster and use the `--deploy` flag.
 
-```shell
+```console
 $ go get -u github.com/linki/chaoskube
 $ chaoskube --deploy
 INFO[0000] Dry run enabled. I won't kill anything. Use --no-dry-run when you're ready.
-INFO[0000] Using current context from kubeconfig at /Users/you/.kube/config.
-INFO[0000] Deployed quay.io/linki/chaoskube:v0.3.1
+INFO[0000] Targeting cluster at https://kube.you.me
+INFO[0000] Deployed quay.io/linki/chaoskube:v0.4.0
 ```
 
 By default `chaoskube` will be friendly and not kill anything. When you validated your target cluster you may disable dry-run mode. You can also specify a more aggressive interval and other supported flags for your deployment.
 
-```shell
+```console
 $ chaoskube --interval=1m --no-dry-run --debug --deploy
-INFO[0000] Using current context from kubeconfig at /Users/you/.kube/config.
-DEBU[0000] Targeting cluster at https://kube.you.me:6443
-DEBU[0000] Deploying quay.io/linki/chaoskube:v0.3.1
-INFO[0000] Deployed quay.io/linki/chaoskube:v0.3.1
+DEBU[0000] Using current context from kubeconfig at /Users/you/.kube/config.
+INFO[0000] Targeting cluster at https://kube.you.me
+DEBU[0000] Deploying quay.io/linki/chaoskube:v0.4.0
+INFO[0000] Deployed quay.io/linki/chaoskube:v0.4.0
 ```
 
-Otherwise use the following manifest file or let it serve as an inspiration.
+Otherwise use the following equivalent manifest file or let it serve as an inspiration.
 
 ```yaml
 apiVersion: extensions/v1beta1
@@ -64,7 +69,7 @@ spec:
     spec:
       containers:
       - name: chaoskube
-        image: quay.io/linki/chaoskube:v0.3.1
+        image: quay.io/linki/chaoskube:v0.4.0
         args:
         - --in-cluster
         - --interval=1m
@@ -78,4 +83,41 @@ If you want to target a different cluster or want to run it locally provide a va
 
 If you want to increase or decrease the amount of chaos change the interval between killings with the `--interval` flag. Alternatively, you can increase the number of replicas of your `chaoskube` deployment.
 
-Remember that `chaoskube` kills any pod in all your namespaces, including system pods and itself.
+Remember that `chaoskube` by default kills any pod in all your namespaces, including system pods and itself.
+
+## Filtering targets
+
+However, you can limit the search space of `chaoskube` by providing both label and namespace selectors.
+
+```console
+$ chaoskube --labels 'app=mate,chaos,stage!=production'
+...
+INFO[0000] Filtering pods by label selector: app=mate,chaos,stage!=production
+```
+
+This selects all pods that have the label `app` set to `mate`, the label `chaos` set to anything and the label `stage` not set to `production` or unset.
+
+You can filter target pods by namespace selector as well.
+
+```console
+$ chaoskube --namespaces 'default,testing,staging'
+...
+INFO[0000] Filtering pods by namespaces: default,staging,testing
+```
+
+This will filter for pods in the three namespaces `default`, `staging` and `testing`.
+
+You can also exclude namespaces and mix and match with the label selector.
+
+```console
+$ chaoskube --labels 'app=mate,chaos,stage!=production' --namespaces '!kube-system,!production'
+...
+INFO[0000] Filtering pods by label selector: app=mate,chaos,stage!=production
+INFO[0000] Filtering pods by namespaces: !kube-system,!production
+```
+
+This further limits the search space of the above label selector by also excluding any pods in the `kube-system` and `production` namespaces.
+
+## Contributing
+
+Feel free to create issues or submit pull requests.

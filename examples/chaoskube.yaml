@@ -1,0 +1,27 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: chaoskube
+  labels:
+    app: chaoskube
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: chaoskube
+    spec:
+      containers:
+      - name: chaoskube
+        image: quay.io/linki/chaoskube:v0.4.0
+        args:
+        # target local cluster
+        - --in-cluster
+        # kill a pod every 10 minutes
+        - --interval=10m
+        # only target pods in the test environment
+        - --labels=environment=test
+        # exclude all pods in the kube-system namespace
+        - --namespaces=!kube-system
+        # do not actually kill anything
+        - --dry-run

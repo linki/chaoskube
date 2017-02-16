@@ -216,7 +216,7 @@ func TestTerminateNoVictimLogsInfo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	validateLog(t, "No victim could be found")
+	validateLog(t, msgVictimNotFound)
 }
 
 // helper functions

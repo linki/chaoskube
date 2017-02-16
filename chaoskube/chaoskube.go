@@ -32,6 +32,9 @@ type Chaoskube struct {
 // ErrPodNotFound is returned when no victim could be found
 var ErrPodNotFound = errors.New("pod not found")
 
+// msgVictimNotFound is the log message when no victim was found
+var msgVictimNotFound = "No victim could be found. If that's surprising double-check your label and namespace selectors."
+
 // New returns a new instance of Chaoskube. It expects a kubernetes client, a
 // label and namespace selector to reduce the amount of affected pods as well as
 // whether to enable dryRun mode and a seed to seed the randomizer with.
@@ -99,7 +102,7 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 func (c *Chaoskube) TerminateVictim() error {
 	victim, err := c.Victim()
 	if err == ErrPodNotFound {
-		c.Logger.Printf("No victim could be found. If that's surprising double-check your label and namespace selectors.")
+		c.Logger.Printf(msgVictimNotFound)
 		return nil
 	}
 	if err != nil {

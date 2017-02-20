@@ -1,11 +1,15 @@
 package main
 
 import (
+	"net/http"
 	"os"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"gopkg.in/alecthomas/kingpin.v2"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/unversioned"
@@ -35,6 +39,11 @@ var (
 	deploy      bool
 	dryRun      bool
 	debug       bool
+
+	counter = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "foobar",
+		Help: "help",
+	})
 )
 
 func init() {
@@ -47,6 +56,8 @@ func init() {
 	kingpin.Flag("deploy", "If true, deploys chaoskube in the current cluster with the provided configuration").Short('d').BoolVar(&deploy)
 	kingpin.Flag("dry-run", "If true, don't actually do anything.").Default("true").BoolVar(&dryRun)
 	kingpin.Flag("debug", "Enable debug logging.").BoolVar(&debug)
+
+	// prometheus.MustRegister(counter)
 }
 
 func main() {
@@ -116,10 +127,18 @@ func main() {
 
 	chaoskube := chaoskube.New(client, labelSelector, annotations, namespaces, log.StandardLogger(), dryRun, time.Now().UTC().UnixNano())
 
+	go func() {
+		// Expose the registered metrics via HTTP.
+		http.Handle("/metrics", promhttp.Handler())
+		log.Fatal(http.ListenAndServe(":8080", nil))
+	}()
+
 	for {
 		if err := chaoskube.TerminateVictim(); err != nil {
 			log.Fatal(err)
 		}
+
+		// counter.Inc()
 
 		log.Debugf("Sleeping for %s...", interval)
 		time.Sleep(interval)

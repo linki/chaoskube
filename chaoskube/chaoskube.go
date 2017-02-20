@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math/rand"
 
+	log "github.com/Sirupsen/logrus"
+
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/labels"
@@ -19,6 +21,8 @@ type Chaoskube struct {
 	Labels labels.Selector
 	// a namespace selector which restricts the pods to choose from
 	Namespaces labels.Selector
+	// an instance of logrus.StdLogger to write log messages to
+	Logger log.StdLogger
 	// dry run will not allow any pod terminations
 	DryRun bool
 	// seed value for the randomizer
@@ -28,14 +32,18 @@ type Chaoskube struct {
 // ErrPodNotFound is returned when no victim could be found
 var ErrPodNotFound = errors.New("pod not found")
 
+// msgVictimNotFound is the log message when no victim was found
+var msgVictimNotFound = "No victim could be found. If that's surprising double-check your label and namespace selectors."
+
 // New returns a new instance of Chaoskube. It expects a kubernetes client, a
 // label and namespace selector to reduce the amount of affected pods as well as
 // whether to enable dryRun mode and a seed to seed the randomizer with.
-func New(client kubernetes.Interface, labels labels.Selector, namespaces labels.Selector, dryRun bool, seed int64) *Chaoskube {
+func New(client kubernetes.Interface, labels labels.Selector, namespaces labels.Selector, logger log.StdLogger, dryRun bool, seed int64) *Chaoskube {
 	c := &Chaoskube{
 		Client:     client,
 		Labels:     labels,
 		Namespaces: namespaces,
+		Logger:     logger,
 		DryRun:     dryRun,
 		Seed:       seed,
 	}
@@ -81,11 +89,27 @@ func (c *Chaoskube) Victim() (v1.Pod, error) {
 
 // DeletePod deletes the passed in pod iff dry run mode is enabled.
 func (c *Chaoskube) DeletePod(victim v1.Pod) error {
+	c.Logger.Printf("Killing pod %s/%s", victim.Namespace, victim.Name)
+
 	if c.DryRun {
 		return nil
 	}
 
 	return c.Client.Core().Pods(victim.Namespace).Delete(victim.Name, nil)
+}
+
+// TerminateVictim picks and deletes a victim if found.
+func (c *Chaoskube) TerminateVictim() error {
+	victim, err := c.Victim()
+	if err == ErrPodNotFound {
+		c.Logger.Printf(msgVictimNotFound)
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	return c.DeletePod(victim)
 }
 
 // filterPodsByNamespaceSelector filters a list of pods by a given namespace selector.

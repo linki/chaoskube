@@ -29,7 +29,8 @@ INFO[4804] Killing pod chaoskube/nginx-701339712-51nt8
 ...
 ```
 
-[See below](#filtering-targets) for ways to limit the search space.
+`chaoskube` allows to filter target pods by namespaces, labels and annotations.
+[See below](#filtering-targets) for details.
 
 ## How
 
@@ -87,12 +88,12 @@ Remember that `chaoskube` by default kills any pod in all your namespaces, inclu
 
 ## Filtering targets
 
-However, you can limit the search space of `chaoskube` by providing both label and namespace selectors.
+However, you can limit the search space of `chaoskube` by providing label, annotations and namespace selectors.
 
 ```console
 $ chaoskube --labels 'app=mate,chaos,stage!=production'
 ...
-INFO[0000] Filtering pods by label selector: app=mate,chaos,stage!=production
+INFO[0000] Filtering pods by labels: app=mate,chaos,stage!=production
 ```
 
 This selects all pods that have the label `app` set to `mate`, the label `chaos` set to anything and the label `stage` not set to `production` or unset.
@@ -107,16 +108,46 @@ INFO[0000] Filtering pods by namespaces: default,staging,testing
 
 This will filter for pods in the three namespaces `default`, `staging` and `testing`.
 
-You can also exclude namespaces and mix and match with the label selector.
+You can also exclude namespaces and mix and match with the label and annotations selectors.
 
 ```console
-$ chaoskube --labels 'app=mate,chaos,stage!=production' --namespaces '!kube-system,!production'
+$ chaoskube \
+  --labels 'app=mate,chaos,stage!=production' \
+  --annotations '!scheduler.alpha.kubernetes.io/critical-pod' \
+  --namespaces '!kube-system,!production'
 ...
-INFO[0000] Filtering pods by label selector: app=mate,chaos,stage!=production
+INFO[0000] Filtering pods by labels: app=mate,chaos,stage!=production
+INFO[0000] Filtering pods by annotations: !scheduler.alpha.kubernetes.io/critical-pod
 INFO[0000] Filtering pods by namespaces: !kube-system,!production
 ```
 
-This further limits the search space of the above label selector by also excluding any pods in the `kube-system` and `production` namespaces.
+This further limits the search space of the above label selector by also excluding any pods in the `kube-system` and `production` namespaces as well as ignore all pods that are marked as critical.
+
+The annotation selector can also be used to run `chaoskube` as a cluster addon and allow pods to opt-in to being terminated as you see fit. For example, you could run `chaoskube` like this:
+
+```console
+$ chaoskube --annotations 'chaos.alpha.kubernetes.io/enabled=true'
+...
+INFO[0000] Filtering pods by annotations: chaos.alpha.kubernetes.io/enabled=true
+INFO[0000] No victim could be found. If that's surprising double-check your label and namespace selectors.
+```
+
+Unless you already use that annotation somewhere, this will initially ignore all of your pods. You could then selectively opt-in individual deployments to chaos mode by annotating their pods with `chaos.alpha.kubernetes.io/enabled=true`.
+
+```yaml
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: my-app
+spec:
+  replicas: 3
+  template:
+    metadata:
+      annotations:
+        chaos.alpha.kubernetes.io/enabled: "true"
+    spec:
+      ...
+```
 
 ## Contributing
 

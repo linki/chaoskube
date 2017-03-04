@@ -93,7 +93,7 @@ func main() {
 	}
 
 	if !labelSelector.Empty() {
-		log.Infof("Filtering pods by label selector: %s", labelSelector.String())
+		log.Infof("Filtering pods by labels: %s", labelSelector.String())
 	}
 
 	annotations, err := labels.Parse(annString)
@@ -102,7 +102,7 @@ func main() {
 	}
 
 	if !annotations.Empty() {
-		log.Infof("Filtering pods by annotation selector: %s", annotations.String())
+		log.Infof("Filtering pods by annotations: %s", annotations.String())
 	}
 
 	namespaces, err := labels.Parse(nsString)

@@ -19,6 +19,8 @@ type Chaoskube struct {
 	Client kubernetes.Interface
 	// a label selector which restricts the pods to choose from
 	Labels labels.Selector
+	// an annotation selector which restricts the pods to choose from
+	Annotations labels.Selector
 	// a namespace selector which restricts the pods to choose from
 	Namespaces labels.Selector
 	// an instance of logrus.StdLogger to write log messages to
@@ -33,19 +35,20 @@ type Chaoskube struct {
 var ErrPodNotFound = errors.New("pod not found")
 
 // msgVictimNotFound is the log message when no victim was found
-var msgVictimNotFound = "No victim could be found. If that's surprising double-check your label and namespace selectors."
+var msgVictimNotFound = "No victim could be found. If that's surprising double-check your selectors."
 
 // New returns a new instance of Chaoskube. It expects a kubernetes client, a
 // label and namespace selector to reduce the amount of affected pods as well as
 // whether to enable dryRun mode and a seed to seed the randomizer with.
-func New(client kubernetes.Interface, labels labels.Selector, namespaces labels.Selector, logger log.StdLogger, dryRun bool, seed int64) *Chaoskube {
+func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, logger log.StdLogger, dryRun bool, seed int64) *Chaoskube {
 	c := &Chaoskube{
-		Client:     client,
-		Labels:     labels,
-		Namespaces: namespaces,
-		Logger:     logger,
-		DryRun:     dryRun,
-		Seed:       seed,
+		Client:      client,
+		Labels:      labels,
+		Annotations: annotations,
+		Namespaces:  namespaces,
+		Logger:      logger,
+		DryRun:      dryRun,
+		Seed:        seed,
 	}
 
 	rand.Seed(c.Seed)
@@ -63,7 +66,12 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 		return nil, err
 	}
 
-	pods, err := filterPodsByNamespaceSelector(podList.Items, c.Namespaces)
+	pods, err := filterByNamespaces(podList.Items, c.Namespaces)
+	if err != nil {
+		return nil, err
+	}
+
+	pods, err = filterByAnnotations(pods, c.Annotations)
 	if err != nil {
 		return nil, err
 	}
@@ -112,8 +120,8 @@ func (c *Chaoskube) TerminateVictim() error {
 	return c.DeletePod(victim)
 }
 
-// filterPodsByNamespaceSelector filters a list of pods by a given namespace selector.
-func filterPodsByNamespaceSelector(pods []v1.Pod, namespaces labels.Selector) ([]v1.Pod, error) {
+// filterByNamespaces filters a list of pods by a given namespace selector.
+func filterByNamespaces(pods []v1.Pod, namespaces labels.Selector) ([]v1.Pod, error) {
 	// empty filter returns original list
 	if namespaces.Empty() {
 		return pods, nil
@@ -142,11 +150,11 @@ func filterPodsByNamespaceSelector(pods []v1.Pod, namespaces labels.Selector) ([
 		included := len(reqIncl) == 0
 
 		// convert the pod's namespace to an equivalent label selector
-		nsSelector := labels.Set{pod.Namespace: ""}
+		selector := labels.Set{pod.Namespace: ""}
 
 		// include pod if one including requirement matches
 		for _, req := range reqIncl {
-			if req.Matches(nsSelector) {
+			if req.Matches(selector) {
 				included = true
 				break
 			}
@@ -154,13 +162,35 @@ func filterPodsByNamespaceSelector(pods []v1.Pod, namespaces labels.Selector) ([
 
 		// exclude pod if it is filtered out by at least one excluding requirement
 		for _, req := range reqExcl {
-			if !req.Matches(nsSelector) {
+			if !req.Matches(selector) {
 				included = false
 				break
 			}
 		}
 
 		if included {
+			filteredList = append(filteredList, pod)
+		}
+	}
+
+	return filteredList, nil
+}
+
+// filterByAnnotations filters a list of pods by a given annotation selector.
+func filterByAnnotations(pods []v1.Pod, annotations labels.Selector) ([]v1.Pod, error) {
+	// empty filter returns original list
+	if annotations.Empty() {
+		return pods, nil
+	}
+
+	filteredList := []v1.Pod{}
+
+	for _, pod := range pods {
+		// convert the pod's annotations to an equivalent label selector
+		selector := labels.Set(pod.Annotations)
+
+		// include pod if its annotations match the selector
+		if annotations.Matches(selector) {
 			filteredList = append(filteredList, pod)
 		}
 	}

@@ -35,7 +35,7 @@ type Chaoskube struct {
 var ErrPodNotFound = errors.New("pod not found")
 
 // msgVictimNotFound is the log message when no victim was found
-var msgVictimNotFound = "No victim could be found. If that's surprising double-check your label and namespace selectors."
+var msgVictimNotFound = "No victim could be found. If that's surprising double-check your selectors."
 
 // New returns a new instance of Chaoskube. It expects a kubernetes client, a
 // label and namespace selector to reduce the amount of affected pods as well as

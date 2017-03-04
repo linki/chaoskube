@@ -41,7 +41,7 @@ $ go get -u github.com/linki/chaoskube
 $ chaoskube --deploy
 INFO[0000] Dry run enabled. I won't kill anything. Use --no-dry-run when you're ready.
 INFO[0000] Targeting cluster at https://kube.you.me
-INFO[0000] Deployed quay.io/linki/chaoskube:v0.4.0
+INFO[0000] Deployed quay.io/linki/chaoskube:v0.5.0
 ```
 
 By default `chaoskube` will be friendly and not kill anything. When you validated your target cluster you may disable dry-run mode. You can also specify a more aggressive interval and other supported flags for your deployment.
@@ -50,8 +50,8 @@ By default `chaoskube` will be friendly and not kill anything. When you validate
 $ chaoskube --interval=1m --no-dry-run --debug --deploy
 DEBU[0000] Using current context from kubeconfig at /Users/you/.kube/config.
 INFO[0000] Targeting cluster at https://kube.you.me
-DEBU[0000] Deploying quay.io/linki/chaoskube:v0.4.0
-INFO[0000] Deployed quay.io/linki/chaoskube:v0.4.0
+DEBU[0000] Deploying quay.io/linki/chaoskube:v0.5.0
+INFO[0000] Deployed quay.io/linki/chaoskube:v0.5.0
 ```
 
 Otherwise use the following equivalent manifest file or let it serve as an inspiration.
@@ -70,7 +70,7 @@ spec:
     spec:
       containers:
       - name: chaoskube
-        image: quay.io/linki/chaoskube:v0.4.0
+        image: quay.io/linki/chaoskube:v0.5.0
         args:
         - --in-cluster
         - --interval=1m

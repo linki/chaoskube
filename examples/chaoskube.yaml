@@ -21,6 +21,8 @@ spec:
         - --interval=10m
         # only target pods in the test environment
         - --labels=environment=test
+        # only consider pods with this annotation
+        - --annotations=chaos.alpha.kubernetes.io/enabled=true
         # exclude all pods in the kube-system namespace
         - --namespaces=!kube-system
         # do not actually kill anything

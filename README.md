@@ -2,6 +2,7 @@
 [![Build Status](https://travis-ci.org/linki/chaoskube.svg?branch=master)](https://travis-ci.org/linki/chaoskube)
 [![Coverage Status](https://coveralls.io/repos/github/linki/chaoskube/badge.svg?branch=master)](https://coveralls.io/github/linki/chaoskube?branch=master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/linki/chaoskube)](https://goreportcard.com/report/github.com/linki/chaoskube)
+[![go-doc](https://godoc.org/github.com/linki/chaoskube/chaoskube?status.svg)](https://godoc.org/github.com/linki/chaoskube/chaoskube)
 
 `chaoskube` periodically kills random pods in your Kubernetes cluster.
 

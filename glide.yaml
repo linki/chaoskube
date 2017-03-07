@@ -5,12 +5,13 @@ import:
 - package: gopkg.in/alecthomas/kingpin.v2
   version: ~2.2.3
 - package: k8s.io/client-go
-  version: ~2.0.0-alpha.1
+  version: ~2.0.0
   subpackages:
   - kubernetes
   - pkg/api/unversioned
   - pkg/api/v1
   - pkg/apis/extensions/v1beta1
   - pkg/labels
+  - pkg/selection
   - rest
   - tools/clientcmd

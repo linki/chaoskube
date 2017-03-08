@@ -1,0 +1,17 @@
+steps:
+- name: gcr.io/cloud-builders/go
+  args:
+  - build
+  - -o=build/chaoskube
+  - .
+  env:
+  - PROJECT_ROOT=github.com/linki/chaoskube
+- name: gcr.io/cloud-builders/docker
+  args:
+  - build
+  - --file=Dockerfile.google
+  - --tag=gcr.io/$PROJECT_ID/chaoskube
+  - .
+
+images:
+- gcr.io/$PROJECT_ID/chaoskube

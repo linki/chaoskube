@@ -7,6 +7,8 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/labels"
@@ -31,11 +33,38 @@ type Chaoskube struct {
 	Seed int64
 }
 
+var metrics = struct {
+	Total  *prometheus.CounterVec
+	Failed *prometheus.CounterVec
+}{
+	Total: prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "chaoskube",
+			Name:      "pod_evictions_total",
+			Help:      "Total number of Pod evictions",
+		},
+		[]string{"namespace"},
+	),
+	Failed: prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "chaoskube",
+			Name:      "pod_evictions_failed",
+			Help:      "Number of failed Pod evictions",
+		},
+		[]string{"namespace"},
+	),
+}
+
 // ErrPodNotFound is returned when no victim could be found
 var ErrPodNotFound = errors.New("pod not found")
 
 // msgVictimNotFound is the log message when no victim was found
 var msgVictimNotFound = "No victim could be found. If that's surprising double-check your selectors."
+
+func init() {
+	prometheus.MustRegister(metrics.Total)
+	prometheus.MustRegister(metrics.Failed)
+}
 
 // New returns a new instance of Chaoskube. It expects a kubernetes client, a
 // label and namespace selector to reduce the amount of affected pods as well as
@@ -114,10 +143,19 @@ func (c *Chaoskube) TerminateVictim() error {
 		return nil
 	}
 	if err != nil {
+		metrics.Failed.WithLabelValues("unknown").Inc()
 		return err
 	}
 
-	return c.DeletePod(victim)
+	err = c.DeletePod(victim)
+	if err != nil {
+		metrics.Failed.WithLabelValues("unknown").Inc()
+		return err
+	}
+
+	metrics.Total.WithLabelValues("unknown").Inc()
+
+	return nil
 }
 
 // filterByNamespaces filters a list of pods by a given namespace selector.

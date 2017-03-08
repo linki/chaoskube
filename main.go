@@ -8,7 +8,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"gopkg.in/alecthomas/kingpin.v2"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"k8s.io/client-go/kubernetes"
@@ -41,28 +40,6 @@ var (
 	debug       bool
 )
 
-var metrics = struct {
-	Total  *prometheus.CounterVec
-	Failed *prometheus.CounterVec
-}{
-	Total: prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: "chaoskube",
-			Name:      "pod_evictions_total",
-			Help:      "Total number of Pod evictions",
-		},
-		[]string{"namespace"},
-	),
-	Failed: prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: "chaoskube",
-			Name:      "pod_evictions_failed",
-			Help:      "Number of failed Pod evictions",
-		},
-		[]string{"namespace"},
-	),
-}
-
 func init() {
 	kingpin.Flag("labels", "A set of labels to restrict the list of affected pods. Defaults to everything.").Default(labels.Everything().String()).StringVar(&labelString)
 	kingpin.Flag("annotations", "A set of annotations to restrict the list of affected pods. Defaults to everything.").Default(labels.Everything().String()).StringVar(&annString)
@@ -73,9 +50,6 @@ func init() {
 	kingpin.Flag("deploy", "If true, deploys chaoskube in the current cluster with the provided configuration").Short('d').BoolVar(&deploy)
 	kingpin.Flag("dry-run", "If true, don't actually do anything.").Default("true").BoolVar(&dryRun)
 	kingpin.Flag("debug", "Enable debug logging.").BoolVar(&debug)
-
-	prometheus.MustRegister(metrics.Total)
-	prometheus.MustRegister(metrics.Failed)
 }
 
 func main() {
@@ -148,10 +122,7 @@ func main() {
 	chaoskube := chaoskube.New(client, labelSelector, annotations, namespaces, log.StandardLogger(), dryRun, time.Now().UTC().UnixNano())
 
 	for {
-		if err := chaoskube.TerminateVictim(); err == nil {
-			metrics.Total.WithLabelValues("unknown").Inc()
-		} else {
-			metrics.Failed.WithLabelValues("unknown").Inc()
+		if err := chaoskube.TerminateVictim(); err != nil {
 			log.Error(err)
 		}
 

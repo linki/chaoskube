@@ -1,6 +1,5 @@
-FROM golang:1.7.5-alpine
+FROM alpine:3.5
 
-COPY . /go/src/github.com/linki/chaoskube
-RUN go install -v github.com/linki/chaoskube
+COPY build/chaoskube /chaoskube
 
-ENTRYPOINT ["/go/bin/chaoskube"]
+ENTRYPOINT ["/chaoskube"]

@@ -39,12 +39,29 @@ var (
 	deploy      bool
 	dryRun      bool
 	debug       bool
-
-	counter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "foobar",
-		Help: "help",
-	})
 )
+
+var metrics = struct {
+	Total  *prometheus.CounterVec
+	Failed *prometheus.CounterVec
+}{
+	Total: prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "chaoskube",
+			Name:      "pod_evictions_total",
+			Help:      "Total number of Pod evictions",
+		},
+		[]string{"namespace"},
+	),
+	Failed: prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "chaoskube",
+			Name:      "pod_evictions_failed",
+			Help:      "Number of failed Pod evictions",
+		},
+		[]string{"namespace"},
+	),
+}
 
 func init() {
 	kingpin.Flag("labels", "A set of labels to restrict the list of affected pods. Defaults to everything.").Default(labels.Everything().String()).StringVar(&labelString)
@@ -57,7 +74,8 @@ func init() {
 	kingpin.Flag("dry-run", "If true, don't actually do anything.").Default("true").BoolVar(&dryRun)
 	kingpin.Flag("debug", "Enable debug logging.").BoolVar(&debug)
 
-	// prometheus.MustRegister(counter)
+	prometheus.MustRegister(metrics.Total)
+	prometheus.MustRegister(metrics.Failed)
 }
 
 func main() {
@@ -98,6 +116,8 @@ func main() {
 		os.Exit(0)
 	}
 
+	go serveMetrics()
+
 	labelSelector, err := labels.Parse(labelString)
 	if err != nil {
 		log.Fatal(err)
@@ -127,18 +147,13 @@ func main() {
 
 	chaoskube := chaoskube.New(client, labelSelector, annotations, namespaces, log.StandardLogger(), dryRun, time.Now().UTC().UnixNano())
 
-	go func() {
-		// Expose the registered metrics via HTTP.
-		http.Handle("/metrics", promhttp.Handler())
-		log.Fatal(http.ListenAndServe(":8080", nil))
-	}()
-
 	for {
-		if err := chaoskube.TerminateVictim(); err != nil {
-			log.Fatal(err)
+		if err := chaoskube.TerminateVictim(); err == nil {
+			metrics.Total.WithLabelValues("unknown").Inc()
+		} else {
+			metrics.Failed.WithLabelValues("unknown").Inc()
+			log.Error(err)
 		}
-
-		// counter.Inc()
 
 		log.Debugf("Sleeping for %s...", interval)
 		time.Sleep(interval)
@@ -208,4 +223,9 @@ func generateManifest() *v1beta1.Deployment {
 			},
 		},
 	}
+}
+
+func serveMetrics() {
+	http.Handle("/metrics", promhttp.Handler())
+	log.Fatal(http.ListenAndServe(":9099", nil))
 }

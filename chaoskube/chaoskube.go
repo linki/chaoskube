@@ -7,9 +7,6 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
-	"github.com/davecgh/go-spew/spew"
-	"github.com/prometheus/client_golang/prometheus"
-
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/labels"
@@ -39,15 +36,6 @@ var ErrPodNotFound = errors.New("pod not found")
 
 // msgVictimNotFound is the log message when no victim was found
 var msgVictimNotFound = "No victim could be found. If that's surprising double-check your selectors."
-
-var counter2 = prometheus.NewCounter(prometheus.CounterOpts{
-	Name: "foobar2",
-	Help: "help2",
-})
-
-func init() {
-	prometheus.MustRegister(counter2)
-}
 
 // New returns a new instance of Chaoskube. It expects a kubernetes client, a
 // label and namespace selector to reduce the amount of affected pods as well as
@@ -110,9 +98,6 @@ func (c *Chaoskube) Victim() (v1.Pod, error) {
 // DeletePod deletes the passed in pod iff dry run mode is enabled.
 func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 	c.Logger.Printf("Killing pod %s/%s", victim.Namespace, victim.Name)
-
-	spew.Dump("foo")
-	counter2.Inc()
 
 	if c.DryRun {
 		return nil

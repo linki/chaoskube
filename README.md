@@ -55,6 +55,14 @@ DEBU[0000] Deploying quay.io/linki/chaoskube:v0.5.0
 INFO[0000] Deployed quay.io/linki/chaoskube:v0.5.0
 ```
 
+You can also install `chaoskube` with [`Helm`](https://github.com/kubernetes/helm). Follow [Helm's Quickstart Guide](https://github.com/kubernetes/helm/blob/master/docs/quickstart.md) and then install the `chaoskube` chart.
+
+```
+$ helm install stable/chaoskube --version 0.5.0 --set interval=1m,dryRun=false
+```
+
+Refer to [chaoskube on kubeapps.com](https://kubeapps.com/charts/stable/chaoskube) to learn how to configure it and to find other useful Helm charts.
+
 Otherwise use the following equivalent manifest file or let it serve as an inspiration.
 
 ```yaml
@@ -76,7 +84,6 @@ spec:
         - --in-cluster
         - --interval=1m
         - --no-dry-run
-        - --debug
 ```
 
 If you're running in a Kubernetes cluster and want to target the same cluster use the `--in-cluster` flag as shown.

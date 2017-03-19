@@ -5,13 +5,16 @@ import (
 	"fmt"
 	"math/rand"
 
-	log "github.com/Sirupsen/logrus"
-
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/labels"
 	"k8s.io/client-go/pkg/selection"
 )
+
+// Logger TODO
+type Logger interface {
+	Log(keyvals ...interface{}) error
+}
 
 // Chaoskube represents an instance of chaoskube
 type Chaoskube struct {
@@ -24,7 +27,7 @@ type Chaoskube struct {
 	// a namespace selector which restricts the pods to choose from
 	Namespaces labels.Selector
 	// an instance of logrus.StdLogger to write log messages to
-	Logger log.StdLogger
+	Logger Logger
 	// dry run will not allow any pod terminations
 	DryRun bool
 	// seed value for the randomizer
@@ -40,7 +43,7 @@ var msgVictimNotFound = "No victim could be found. If that's surprising double-c
 // New returns a new instance of Chaoskube. It expects a kubernetes client, a
 // label and namespace selector to reduce the amount of affected pods as well as
 // whether to enable dryRun mode and a seed to seed the randomizer with.
-func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, logger log.StdLogger, dryRun bool, seed int64) *Chaoskube {
+func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, logger Logger, dryRun bool, seed int64) *Chaoskube {
 	c := &Chaoskube{
 		Client:      client,
 		Labels:      labels,
@@ -97,7 +100,7 @@ func (c *Chaoskube) Victim() (v1.Pod, error) {
 
 // DeletePod deletes the passed in pod iff dry run mode is enabled.
 func (c *Chaoskube) DeletePod(victim v1.Pod) error {
-	c.Logger.Printf("Killing pod %s/%s", victim.Namespace, victim.Name)
+	c.Logger.Log("msg", "killing pod", "namespace", victim.Namespace, "name", victim.Name)
 
 	if c.DryRun {
 		return nil
@@ -110,7 +113,7 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 func (c *Chaoskube) TerminateVictim() error {
 	victim, err := c.Victim()
 	if err == ErrPodNotFound {
-		c.Logger.Printf(msgVictimNotFound)
+		c.Logger.Log("msg", msgVictimNotFound)
 		return nil
 	}
 	if err != nil {

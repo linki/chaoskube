@@ -4,7 +4,7 @@ import (
 	"os"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/go-kit/kit/log"
 	"gopkg.in/alecthomas/kingpin.v2"
 
 	"k8s.io/client-go/kubernetes"
@@ -53,21 +53,23 @@ func main() {
 	kingpin.Version(version)
 	kingpin.Parse()
 
-	if debug {
-		log.SetLevel(log.DebugLevel)
-	}
+	logger := log.NewLogfmtLogger(log.NewSyncWriter(os.Stdout))
+	logger = log.With(logger, "time", log.Valuer(func() interface{} {
+		return time.Now().UTC().Format(time.RFC3339)
+	}), "caller", log.DefaultCaller)
 
 	if dryRun {
-		log.Infof("Dry run enabled. I won't kill anything. Use --no-dry-run when you're ready.")
+		logger.Log("msg", "Dry run enabled. I won't kill anything. Use --no-dry-run when you're ready.")
 	}
 
-	client, err := newClient()
+	client, err := newClient(logger)
 	if err != nil {
-		log.Fatal(err)
+		logger.Log("error", err.Error())
+		os.Exit(1)
 	}
 
 	if deploy {
-		log.Debugf("Deploying %s:%s", image, version)
+		logger.Log("msg", "deploying container", "image", image, "version", version)
 
 		manifest := generateManifest()
 
@@ -80,53 +82,48 @@ func main() {
 			_, err = deployment.Update(manifest)
 		}
 		if err != nil {
-			log.Fatal(err)
+			logger.Log("error", err.Error())
+			os.Exit(1)
 		}
 
-		log.Infof("Deployed %s:%s", image, version)
+		logger.Log("msg", "deployed container", "image", image, "version", version)
 		os.Exit(0)
 	}
 
 	labelSelector, err := labels.Parse(labelString)
 	if err != nil {
-		log.Fatal(err)
-	}
-
-	if !labelSelector.Empty() {
-		log.Infof("Filtering pods by labels: %s", labelSelector.String())
+		logger.Log("error", err.Error())
+		os.Exit(1)
 	}
 
 	annotations, err := labels.Parse(annString)
 	if err != nil {
-		log.Fatal(err)
-	}
-
-	if !annotations.Empty() {
-		log.Infof("Filtering pods by annotations: %s", annotations.String())
+		logger.Log("error", err.Error())
+		os.Exit(1)
 	}
 
 	namespaces, err := labels.Parse(nsString)
 	if err != nil {
-		log.Fatal(err)
+		logger.Log("error", err.Error())
+		os.Exit(1)
 	}
 
-	if !namespaces.Empty() {
-		log.Infof("Filtering pods by namespaces: %s", namespaces.String())
-	}
+	logger.Log("msg", "filter pods", "labels", labelSelector.String(), "annotations", annotations.String(), "namespaces", namespaces.String())
 
-	chaoskube := chaoskube.New(client, labelSelector, annotations, namespaces, log.StandardLogger(), dryRun, time.Now().UTC().UnixNano())
+	chaoskube := chaoskube.New(client, labelSelector, annotations, namespaces, logger, dryRun, time.Now().UTC().UnixNano())
 
 	for {
 		if err := chaoskube.TerminateVictim(); err != nil {
-			log.Fatal(err)
+			logger.Log("error", err.Error())
+			os.Exit(1)
 		}
 
-		log.Debugf("Sleeping for %s...", interval)
+		logger.Log("msg", "sleeping", "interval", interval)
 		time.Sleep(interval)
 	}
 }
 
-func newClient() (*kubernetes.Clientset, error) {
+func newClient(logger chaoskube.Logger) (*kubernetes.Clientset, error) {
 	var (
 		config *rest.Config
 		err    error
@@ -134,15 +131,15 @@ func newClient() (*kubernetes.Clientset, error) {
 
 	if inCluster {
 		config, err = rest.InClusterConfig()
-		log.Debug("Using in-cluster config.")
+		logger.Log("msg", "Using in-cluster config.")
 	} else {
 		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
-		log.Debugf("Using current context from kubeconfig at %s.", kubeconfig)
+		logger.Log("kubeconfig", kubeconfig)
 	}
 	if err != nil {
 		return nil, err
 	}
-	log.Infof("Targeting cluster at %s", config.Host)
+	logger.Log("cluster", config.Host)
 
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {

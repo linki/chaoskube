@@ -2,9 +2,10 @@ package chaoskube
 
 import (
 	"bytes"
-	"log"
 	"strings"
 	"testing"
+
+	"github.com/go-kit/kit/log"
 
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/pkg/api/v1"
@@ -12,7 +13,7 @@ import (
 )
 
 var logOutput = bytes.NewBuffer([]byte{})
-var logger = log.New(logOutput, "", 0)
+var logger = log.NewLogfmtLogger(log.NewSyncWriter(logOutput))
 
 // TestNew tests that arguments are passed to the new instance correctly
 func TestNew(t *testing.T) {
@@ -205,7 +206,7 @@ func TestDeletePod(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	validateLog(t, "Killing pod default/foo")
+	validateLog(t, `namespace=default name=foo msg="killing pod"`)
 
 	validateCandidates(t, chaoskube, []map[string]string{
 		{"namespace": "testing", "name": "bar"},
@@ -250,7 +251,7 @@ func TestTerminateNoVictimLogsInfo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	validateLog(t, msgVictimNotFound)
+	validateLog(t, `msg="pod not found"`)
 }
 
 // helper functions

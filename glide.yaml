@@ -2,6 +2,11 @@ package: github.com/linki/chaoskube
 import:
 - package: github.com/Sirupsen/logrus
   version: ~0.11.2
+- package: github.com/prometheus/client_golang
+  version: ~0.8.0
+  subpackages:
+  - prometheus
+  - prometheus/promhttp
 - package: gopkg.in/alecthomas/kingpin.v2
   version: ~2.2.3
 - package: k8s.io/client-go
@@ -15,3 +20,7 @@ import:
   - pkg/selection
   - rest
   - tools/clientcmd
+testImport:
+- package: github.com/prometheus/client_model
+  subpackages:
+  - go

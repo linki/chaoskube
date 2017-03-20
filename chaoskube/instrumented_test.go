@@ -7,29 +7,25 @@ import (
 	prommodel "github.com/prometheus/client_model/go"
 
 	"k8s.io/client-go/pkg/labels"
-
-	"github.com/linki/chaoskube/metrics"
 )
 
-var _ Interface = &InstrumentedChaoskube{}
+var _ Chaoskube = &Instrumented{}
 
-//
 func TestDeletePodMetrics(t *testing.T) {
-	chaoskube := NewInstrumented(setup(t, labels.Everything(), labels.Everything(), labels.Everything(), false, 0))
+	chaoskube := setupInstrumented(t)
 
 	victim := newPod("default", "foo")
-
-	metrics.NumEvictions.Reset()
 
 	if err := chaoskube.DeletePod(victim); err != nil {
 		t.Fatal(err)
 	}
 
-	validateCandidates(t, chaoskube.Interface.(*Chaoskube), []map[string]string{
+	// remove when we run the base tests against this implementation
+	validateCandidates(t, chaoskube.Chaoskube, []map[string]string{
 		{"namespace": "testing", "name": "bar"},
 	})
 
-	metric, err := metrics.NumEvictions.GetMetricWith(prometheus.Labels{"pod_namespace": "default"})
+	metric, err := NumEvictions.GetMetricWith(prometheus.Labels{"pod_namespace": "default"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,4 +43,10 @@ func validateCounter(t *testing.T, counter prometheus.Counter, value int) {
 	if counterValue != value {
 		t.Errorf("expected %d, got %d", value, counterValue)
 	}
+}
+
+func setupInstrumented(t *testing.T) *Instrumented {
+	NumEvictions.Reset()
+
+	return NewInstrumented(setup(t, labels.Everything(), labels.Everything(), labels.Everything(), false, 0))
 }

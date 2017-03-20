@@ -10,7 +10,7 @@ import (
 	"k8s.io/client-go/pkg/labels"
 )
 
-var _ Interface = &LoggedChaoskube{}
+var _ Chaoskube = &Logged{}
 
 var logOutput = bytes.NewBuffer([]byte{})
 var logger = log.New(logOutput, "", 0)
@@ -23,11 +23,8 @@ func TestNewLogged(t *testing.T) {
 	}
 }
 
-// TestDeletePod tests deleting a particular pod
 func TestDeletePodLog(t *testing.T) {
-	logOutput.Reset()
-
-	chaoskube := NewLogged(logger, setup(t, labels.Everything(), labels.Everything(), labels.Everything(), false, 0))
+	chaoskube := setupLogged(t)
 
 	victim := newPod("default", "foo")
 
@@ -37,25 +34,25 @@ func TestDeletePodLog(t *testing.T) {
 
 	validateLog(t, "Killing pod default/foo")
 
-	validateCandidates(t, chaoskube.Interface.(*Chaoskube), []map[string]string{
+	// replace once we run base tests against this one
+	validateCandidates(t, chaoskube.Chaoskube, []map[string]string{
 		{"namespace": "testing", "name": "bar"},
 	})
 }
 
-// TestTerminateVictim tests that the correct victim pod is chosen and deleted
+// TODO: replace when we run all tests against this
 func TestTerminateVictimTerminates(t *testing.T) {
-	chaoskube := NewLogged(logger, setup(t, labels.Everything(), labels.Everything(), labels.Everything(), false, 2000))
+	chaoskube := setupLogged(t)
 
 	if err := chaoskube.TerminateVictim(); err != nil {
 		t.Fatal(err)
 	}
 
-	validateCandidates(t, chaoskube.Interface.(*Chaoskube), []map[string]string{
+	validateCandidates(t, chaoskube.Chaoskube, []map[string]string{
 		{"namespace": "testing", "name": "bar"},
 	})
 }
 
-// TestTerminateNoVictimLogsInfo tests that missing victim prints a log message
 func TestTerminateNoVictimLogs(t *testing.T) {
 	logOutput.Reset()
 
@@ -68,10 +65,16 @@ func TestTerminateNoVictimLogs(t *testing.T) {
 	validateLog(t, msgVictimNotFound)
 }
 
-//
+// helpers
 
 func validateLog(t *testing.T, msg string) {
 	if !strings.Contains(logOutput.String(), msg) {
 		t.Errorf("expected string '%s' in '%s'.", msg, logOutput.String())
 	}
+}
+
+func setupLogged(t *testing.T) *Logged {
+	logOutput.Reset()
+
+	return NewLogged(logger, setup(t, labels.Everything(), labels.Everything(), labels.Everything(), false, 2000))
 }

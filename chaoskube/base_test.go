@@ -195,8 +195,6 @@ func TestDeletePod(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// validateLog(t, "Killing pod default/foo")
-
 	validateCandidates(t, chaoskube, []map[string]string{
 		{"namespace": "testing", "name": "bar"},
 	})
@@ -231,7 +229,7 @@ func TestTerminateVictim(t *testing.T) {
 	})
 }
 
-func TestTerminateNoVictim(t *testing.T) {
+func TestTerminateNoVictimReturnsError(t *testing.T) {
 	chaoskube := New(fake.NewSimpleClientset(), labels.Everything(), labels.Everything(), labels.Everything(), false, 0)
 
 	if err := chaoskube.TerminateVictim(); err != ErrPodNotFound {
@@ -241,7 +239,7 @@ func TestTerminateNoVictim(t *testing.T) {
 
 // helper functions
 
-func validateCandidates(t *testing.T, chaoskube *Chaoskube, expected []map[string]string) {
+func validateCandidates(t *testing.T, chaoskube Chaoskube, expected []map[string]string) {
 	pods, err := chaoskube.Candidates()
 	if err != nil {
 		t.Fatal(err)
@@ -250,7 +248,7 @@ func validateCandidates(t *testing.T, chaoskube *Chaoskube, expected []map[strin
 	validatePods(t, pods, expected)
 }
 
-func validateVictim(t *testing.T, chaoskube *Chaoskube, expected map[string]string) {
+func validateVictim(t *testing.T, chaoskube Chaoskube, expected map[string]string) {
 	victim, err := chaoskube.Victim()
 	if err != nil {
 		t.Fatal(err)
@@ -296,7 +294,7 @@ func newPod(namespace, name string) v1.Pod {
 	return pod
 }
 
-func setup(t *testing.T, labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, dryRun bool, seed int64) *Chaoskube {
+func setup(t *testing.T, labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, dryRun bool, seed int64) *Base {
 	pods := []v1.Pod{
 		newPod("default", "foo"),
 		newPod("testing", "bar"),

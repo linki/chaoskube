@@ -34,8 +34,8 @@ func NewInstrumented(base Chaoskube) *Instrumented {
 }
 
 // DeletePod delegates to the parent and if successful counts it.
-func (c *Instrumented) DeletePod(victim v1.Pod) error {
-	err := c.Chaoskube.DeletePod(victim)
+func (c *Instrumented) DeletePod(victim v1.Pod, cb ...Callback) error {
+	err := c.Chaoskube.DeletePod(victim, cb...)
 	if err != nil {
 		return err
 	}

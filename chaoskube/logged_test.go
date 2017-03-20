@@ -44,7 +44,7 @@ func TestDeletePodLog(t *testing.T) {
 func TestTerminateVictimTerminates(t *testing.T) {
 	chaoskube := setupLogged(t)
 
-	if err := chaoskube.TerminateVictim(); err != nil {
+	if err := chaoskube.TerminateVictim(nil, nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -58,7 +58,7 @@ func TestTerminateNoVictimLogs(t *testing.T) {
 
 	chaoskube := NewLogged(logger, New(fake.NewSimpleClientset(), labels.Everything(), labels.Everything(), labels.Everything(), false, 0))
 
-	if err := chaoskube.TerminateVictim(); err != nil {
+	if err := chaoskube.TerminateVictim(nil, nil); err != nil {
 		t.Fatal(err)
 	}
 

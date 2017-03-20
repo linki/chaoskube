@@ -220,7 +220,7 @@ func TestDeletePodDryRun(t *testing.T) {
 func TestTerminateVictim(t *testing.T) {
 	chaoskube := setup(t, labels.Everything(), labels.Everything(), labels.Everything(), false, 2000)
 
-	if err := chaoskube.TerminateVictim(); err != nil {
+	if err := chaoskube.TerminateVictim(nil, nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -232,7 +232,7 @@ func TestTerminateVictim(t *testing.T) {
 func TestTerminateNoVictimReturnsError(t *testing.T) {
 	chaoskube := New(fake.NewSimpleClientset(), labels.Everything(), labels.Everything(), labels.Everything(), false, 0)
 
-	if err := chaoskube.TerminateVictim(); err != ErrPodNotFound {
+	if err := chaoskube.TerminateVictim(nil, nil); err != ErrPodNotFound {
 		t.Fatalf("expected %v, got %v", ErrPodNotFound, err)
 	}
 }

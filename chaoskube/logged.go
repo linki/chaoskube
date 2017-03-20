@@ -23,22 +23,24 @@ func NewLogged(logger log.StdLogger, base Chaoskube) *Logged {
 }
 
 // DeletePod logs a message about the pod being terminated then delegates the call.
-func (c *Logged) DeletePod(victim v1.Pod) error {
-	c.Logger.Printf("Killing pod %s/%s", victim.Namespace, victim.Name)
+func (c *Logged) DeletePod(victim v1.Pod, cb ...Callback) error {
+	cb = append(cb, func() { c.Logger.Printf("Killing pod %s/%s", victim.Namespace, victim.Name) })
 
-	return c.Chaoskube.DeletePod(victim)
+	return c.Chaoskube.DeletePod(victim, cb...)
 }
 
 // TerminateVictim handles a missing victim error and logs it instead of failing.
-func (c *Logged) TerminateVictim() error {
-	victim, err := c.Victim()
-	if err == ErrPodNotFound {
-		c.Logger.Printf(msgVictimNotFound)
-		return nil
-	}
-	if err != nil {
-		return err
+func (c *Logged) TerminateVictim(ifNotFound func() error, deleteFunc func(victim v1.Pod, cb ...Callback) error) error {
+	if ifNotFound == nil {
+		ifNotFound = func() error {
+			c.Logger.Printf(msgVictimNotFound)
+			return nil
+		}
 	}
 
-	return c.DeletePod(victim)
+	if deleteFunc == nil {
+		deleteFunc = c.DeletePod
+	}
+
+	return c.Chaoskube.TerminateVictim(ifNotFound, deleteFunc)
 }

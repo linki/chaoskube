@@ -88,7 +88,11 @@ func (c *Base) Victim() (v1.Pod, error) {
 }
 
 // DeletePod deletes the passed in pod iff dry run mode is enabled.
-func (c *Base) DeletePod(victim v1.Pod) error {
+func (c *Base) DeletePod(victim v1.Pod, cb ...Callback) error {
+	for _, back := range cb {
+		back()
+	}
+
 	if c.DryRun {
 		return nil
 	}
@@ -97,13 +101,23 @@ func (c *Base) DeletePod(victim v1.Pod) error {
 }
 
 // TerminateVictim picks and deletes a victim if found.
-func (c *Base) TerminateVictim() error {
+func (c *Base) TerminateVictim(ifNotFound func() error, deleteFunc func(victim v1.Pod, cb ...Callback) error) error {
 	victim, err := c.Victim()
+	if err == ErrPodNotFound {
+		if ifNotFound == nil {
+			return err
+		}
+
+		return ifNotFound()
+	}
 	if err != nil {
 		return err
 	}
 
-	return c.DeletePod(victim)
+	if deleteFunc == nil {
+		deleteFunc = c.DeletePod
+	}
+	return deleteFunc(victim)
 }
 
 // filterByNamespaces filters a list of pods by a given namespace selector.

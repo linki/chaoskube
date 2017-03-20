@@ -122,7 +122,7 @@ func main() {
 	chaoskube := chaoskube.NewLogged(log.StandardLogger(), chaoskube.NewInstrumented(chaoskube.New(client, labelSelector, annotations, namespaces, dryRun, time.Now().UTC().UnixNano())))
 
 	for {
-		if err := chaoskube.TerminateVictim(); err != nil {
+		if err := chaoskube.TerminateVictim(nil, nil); err != nil {
 			log.Error(err)
 		}
 

@@ -119,7 +119,7 @@ func main() {
 		log.Infof("Filtering pods by namespaces: %s", namespaces.String())
 	}
 
-	chaoskube := chaoskube.New(client, labelSelector, annotations, namespaces, log.StandardLogger(), dryRun, time.Now().UTC().UnixNano())
+	chaoskube := chaoskube.NewInstrumented(client, labelSelector, annotations, namespaces, log.StandardLogger(), dryRun, time.Now().UTC().UnixNano())
 
 	for {
 		if err := chaoskube.TerminateVictim(); err != nil {

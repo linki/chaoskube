@@ -6,14 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/prometheus/client_golang/prometheus"
-	prommodel "github.com/prometheus/client_model/go"
-
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/labels"
-
-	"github.com/linki/chaoskube/metrics"
 )
 
 var logOutput = bytes.NewBuffer([]byte{})
@@ -233,26 +228,6 @@ func TestDeletePodDryRun(t *testing.T) {
 	})
 }
 
-//
-func TestDeletePodMetrics(t *testing.T) {
-	chaoskube := setup(t, labels.Everything(), labels.Everything(), labels.Everything(), false, 0)
-
-	victim := newPod("default", "foo")
-
-	metrics.NumEvictions.Reset()
-
-	if err := chaoskube.DeletePod(victim); err != nil {
-		t.Fatal(err)
-	}
-
-	metric, err := metrics.NumEvictions.GetMetricWith(prometheus.Labels{"namespace": "default"})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	validateCounter(t, metric, 1)
-}
-
 // TestTerminateVictim tests that the correct victim pod is chosen and deleted
 func TestTerminateVictim(t *testing.T) {
 	chaoskube := setup(t, labels.Everything(), labels.Everything(), labels.Everything(), false, 2000)
@@ -321,16 +296,6 @@ func validatePod(t *testing.T, pod v1.Pod, expected map[string]string) {
 func validateLog(t *testing.T, msg string) {
 	if !strings.Contains(logOutput.String(), msg) {
 		t.Errorf("expected string '%s' in '%s'.", msg, logOutput.String())
-	}
-}
-
-func validateCounter(t *testing.T, counter prometheus.Counter, value int) {
-	rawMetric := prommodel.Metric{}
-	counter.Write(&rawMetric)
-	counterValue := int(rawMetric.Counter.GetValue())
-
-	if counterValue != value {
-		t.Errorf("expected %d, got %d", value, counterValue)
 	}
 }
 

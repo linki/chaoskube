@@ -9,7 +9,7 @@ var (
 			Name:      "pod_evictions_total",
 			Help:      "Total number of Pod evictions",
 		},
-		[]string{"namespace"},
+		[]string{"pod_namespace"},
 	)
 )
 

@@ -11,8 +11,6 @@ import (
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/labels"
 	"k8s.io/client-go/pkg/selection"
-
-	"github.com/linki/chaoskube/metrics"
 )
 
 // Chaoskube represents an instance of chaoskube
@@ -105,14 +103,7 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 		return nil
 	}
 
-	err := c.Client.Core().Pods(victim.Namespace).Delete(victim.Name, nil)
-	if err != nil {
-		return err
-	}
-
-	metrics.NumEvictions.WithLabelValues(victim.Namespace).Inc()
-
-	return nil
+	return c.Client.Core().Pods(victim.Namespace).Delete(victim.Name, nil)
 }
 
 // TerminateVictim picks and deletes a victim if found.
@@ -126,12 +117,7 @@ func (c *Chaoskube) TerminateVictim() error {
 		return err
 	}
 
-	err = c.DeletePod(victim)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return c.DeletePod(victim)
 }
 
 // filterByNamespaces filters a list of pods by a given namespace selector.

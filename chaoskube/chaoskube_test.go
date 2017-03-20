@@ -1,18 +1,12 @@
 package chaoskube
 
 import (
-	"bytes"
-	"log"
-	"strings"
 	"testing"
 
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/labels"
 )
-
-var logOutput = bytes.NewBuffer([]byte{})
-var logger = log.New(logOutput, "", 0)
 
 // TestNew tests that arguments are passed to the new instance correctly
 func TestNew(t *testing.T) {
@@ -21,7 +15,7 @@ func TestNew(t *testing.T) {
 	annotations, _ := labels.Parse("baz=waldo")
 	namespaces, _ := labels.Parse("qux")
 
-	chaoskube := New(client, labelSelector, annotations, namespaces, logger, false, 42)
+	chaoskube := New(client, labelSelector, annotations, namespaces, false, 42)
 
 	if chaoskube == nil {
 		t.Errorf("expected Chaoskube but got nothing")
@@ -41,10 +35,6 @@ func TestNew(t *testing.T) {
 
 	if chaoskube.Namespaces.String() != "qux" {
 		t.Errorf("expected %s, got %s", "qux", chaoskube.Namespaces.String())
-	}
-
-	if chaoskube.Logger != logger {
-		t.Errorf("expected %#v, got %#v", logger, chaoskube.Logger)
 	}
 
 	if chaoskube.DryRun != false {
@@ -188,7 +178,7 @@ func TestAnotherVictimRespectsLabelSelector(t *testing.T) {
 
 // TestNoVictimReturnsError tests that on missing victim it returns a known error
 func TestNoVictimReturnsError(t *testing.T) {
-	chaoskube := New(fake.NewSimpleClientset(), labels.Everything(), labels.Everything(), labels.Everything(), logger, false, 2000)
+	chaoskube := New(fake.NewSimpleClientset(), labels.Everything(), labels.Everything(), labels.Everything(), false, 2000)
 
 	if _, err := chaoskube.Victim(); err != ErrPodNotFound {
 		t.Errorf("expected %#v, got %#v", ErrPodNotFound, err)
@@ -205,7 +195,7 @@ func TestDeletePod(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	validateLog(t, "Killing pod default/foo")
+	// validateLog(t, "Killing pod default/foo")
 
 	validateCandidates(t, chaoskube, []map[string]string{
 		{"namespace": "testing", "name": "bar"},
@@ -241,16 +231,12 @@ func TestTerminateVictim(t *testing.T) {
 	})
 }
 
-// TestTerminateNoVictimLogsInfo tests that missing victim prints a log message
-func TestTerminateNoVictimLogsInfo(t *testing.T) {
-	logOutput.Reset()
-	chaoskube := New(fake.NewSimpleClientset(), labels.Everything(), labels.Everything(), labels.Everything(), logger, false, 0)
+func TestTerminateNoVictim(t *testing.T) {
+	chaoskube := New(fake.NewSimpleClientset(), labels.Everything(), labels.Everything(), labels.Everything(), false, 0)
 
-	if err := chaoskube.TerminateVictim(); err != nil {
-		t.Fatal(err)
+	if err := chaoskube.TerminateVictim(); err != ErrPodNotFound {
+		t.Fatalf("expected %v, got %v", ErrPodNotFound, err)
 	}
-
-	validateLog(t, msgVictimNotFound)
 }
 
 // helper functions
@@ -293,12 +279,6 @@ func validatePod(t *testing.T, pod v1.Pod, expected map[string]string) {
 	}
 }
 
-func validateLog(t *testing.T, msg string) {
-	if !strings.Contains(logOutput.String(), msg) {
-		t.Errorf("expected string '%s' in '%s'.", msg, logOutput.String())
-	}
-}
-
 func newPod(namespace, name string) v1.Pod {
 	pod := v1.Pod{
 		ObjectMeta: v1.ObjectMeta{
@@ -330,7 +310,5 @@ func setup(t *testing.T, labelSelector labels.Selector, annotations labels.Selec
 		}
 	}
 
-	logOutput.Reset()
-
-	return New(client, labelSelector, annotations, namespaces, logger, dryRun, seed)
+	return New(client, labelSelector, annotations, namespaces, dryRun, seed)
 }

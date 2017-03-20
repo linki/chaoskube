@@ -11,11 +11,11 @@ import (
 	"github.com/linki/chaoskube/metrics"
 )
 
+var _ Interface = &InstrumentedChaoskube{}
+
 //
 func TestDeletePodMetrics(t *testing.T) {
-	chaoskubeOld := setup(t, labels.Everything(), labels.Everything(), labels.Everything(), false, 0)
-
-	chaoskube := &InstrumentedChaoskube{chaoskubeOld}
+	chaoskube := NewInstrumented(setup(t, labels.Everything(), labels.Everything(), labels.Everything(), false, 0))
 
 	victim := newPod("default", "foo")
 
@@ -25,7 +25,9 @@ func TestDeletePodMetrics(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	validateLog(t, "Killing pod default/foo")
+	validateCandidates(t, chaoskube.Interface.(*Chaoskube), []map[string]string{
+		{"namespace": "testing", "name": "bar"},
+	})
 
 	metric, err := metrics.NumEvictions.GetMetricWith(prometheus.Labels{"pod_namespace": "default"})
 	if err != nil {

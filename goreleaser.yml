@@ -1,0 +1,14 @@
+build:
+  goos:
+  - darwin
+  - linux
+  goarch:
+  - amd64
+  - arm
+archive:
+  format: tar.gz
+  name_template: "{{.Binary}}-v{{.Version}}-{{.Os}}-{{.Arch}}{{ if .Arm }}v{{ .Arm }}{{ end }}"
+  replacements:
+    amd64: amd64
+    darwin: darwin
+    linux: linux

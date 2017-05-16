@@ -22,7 +22,6 @@ import (
 const (
 	appName = "chaoskube"
 	image   = "quay.io/linki/chaoskube"
-	version = "v0.5.0"
 )
 
 var (
@@ -35,6 +34,7 @@ var (
 	deploy      bool
 	dryRun      bool
 	debug       bool
+	version     = "master"
 )
 
 func init() {

@@ -81,14 +81,13 @@ spec:
       - name: chaoskube
         image: quay.io/linki/chaoskube:v0.5.0
         args:
-        - --in-cluster
         - --interval=1m
         - --no-dry-run
 ```
 
-If you're running in a Kubernetes cluster and want to target the same cluster use the `--in-cluster` flag as shown.
+If you're running in a Kubernetes cluster and want to target the same cluster then this is all you need to do.
 
-If you want to target a different cluster or want to run it locally provide a valid kubeconfig via `--kubeconfig` and drop the `--in-cluster` flag. By default, it uses your standard kubeconfig path in your home. Whatever is the current context in there will be targeted.
+If you want to target a different cluster or want to run it locally specify your cluster via the `--master` flag or provide a valid kubeconfig via the `--kubeconfig` flag. By default, it uses your standard kubeconfig path in your home. That means, whatever is the current context in there will be targeted.
 
 If you want to increase or decrease the amount of chaos change the interval between killings with the `--interval` flag. Alternatively, you can increase the number of replicas of your `chaoskube` deployment.
 

@@ -7,7 +7,7 @@ language: go
 
 go:
 - 1.8
-- 1.9
+- 1.9beta2
 - tip
 
 before_install:

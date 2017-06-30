@@ -11,6 +11,7 @@ spec:
       labels:
         app: chaoskube
     spec:
+      serviceAccountName: chaoskube
       containers:
       - name: chaoskube
         image: quay.io/linki/chaoskube:v0.5.0
@@ -25,3 +26,10 @@ spec:
         - --namespaces=!kube-system
         # terminate pods for real: this disables dry-run mode which is on by default
         - --no-dry-run
+
+---
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: chaoskube

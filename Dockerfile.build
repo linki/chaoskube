@@ -1,0 +1,8 @@
+FROM golang:1.9-alpine
+
+RUN addgroup -S chaoskube && adduser -S -g chaoskube chaoskube \
+ && apk add --no-cache git \
+ && CGO_ENABLED=0 go get github.com/linki/chaoskube
+
+USER chaoskube
+ENTRYPOINT ["/go/bin/chaoskube"]

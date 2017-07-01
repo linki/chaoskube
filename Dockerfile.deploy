@@ -1,0 +1,4 @@
+FROM scratch
+COPY ./chaoskube /chaoskube
+
+ENTRYPOINT ["/chaoskube"]

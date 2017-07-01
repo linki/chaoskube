@@ -1,0 +1,8 @@
+#!/bin/bash
+
+docker build -t chaoskube-build -f ./Dockerfile.build .
+id=$(docker create chaoskube-build)
+docker cp $id:/go/bin/chaoskube ./chaoskube
+chmod 755 ./chaoskube
+docker build -t chaoskube-deploy  -f ./Dockerfile.deploy .
+rm ./chaoskube

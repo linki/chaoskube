@@ -79,6 +79,15 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 	return pods, nil
 }
 
+// Returns the number of deletable candidates
+func (c *Chaoskube) NumberOfCandidates() (int, error) {
+	pods, err := c.Candidates()
+	if err != nil {
+		return -1, err
+	}
+	return len(pods), nil
+}
+
 // Victim returns a random pod from the list of Candidates.
 func (c *Chaoskube) Victim() (v1.Pod, error) {
 	pods, err := c.Candidates()

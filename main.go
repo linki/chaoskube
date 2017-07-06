@@ -150,7 +150,7 @@ func newClient() (*kubernetes.Clientset, error) {
 
 func generateManifest() *v1beta1.Deployment {
 	// modifies flags for deployment
-	args := util.StripElements(os.Args[1:], "--master", "--kubeconfig", "--deploy")
+	args := util.StripElements(os.Args[1:], "--deploy")
 
 	return &v1beta1.Deployment{
 		TypeMeta: unversioned.TypeMeta{

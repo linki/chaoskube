@@ -12,7 +12,6 @@ import (
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 	"k8s.io/client-go/pkg/labels"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/linki/chaoskube/chaoskube"
@@ -29,6 +28,7 @@ var (
 	labelString string
 	annString   string
 	nsString    string
+	master      string
 	kubeconfig  string
 	interval    time.Duration
 	inCluster   bool
@@ -42,9 +42,9 @@ func init() {
 	kingpin.Flag("labels", "A set of labels to restrict the list of affected pods. Defaults to everything.").Default(labels.Everything().String()).StringVar(&labelString)
 	kingpin.Flag("annotations", "A set of annotations to restrict the list of affected pods. Defaults to everything.").Default(labels.Everything().String()).StringVar(&annString)
 	kingpin.Flag("namespaces", "A set of namespaces to restrict the list of affected pods. Defaults to everything.").Default(v1.NamespaceAll).StringVar(&nsString)
-	kingpin.Flag("kubeconfig", "Path to a kubeconfig file").Default(clientcmd.RecommendedHomeFile).StringVar(&kubeconfig)
+	kingpin.Flag("master", "The address of the Kubernetes cluster to target").StringVar(&master)
+	kingpin.Flag("kubeconfig", "Path to a kubeconfig file").StringVar(&kubeconfig)
 	kingpin.Flag("interval", "Interval between Pod terminations").Short('i').DurationVar(&interval)
-	kingpin.Flag("in-cluster", "If true, finds the Kubernetes cluster from the environment").Short('c').BoolVar(&inCluster)
 	kingpin.Flag("deploy", "If true, deploys chaoskube in the current cluster with the provided configuration").Short('d').BoolVar(&deploy)
 	kingpin.Flag("dry-run", "If true, don't actually do anything.").Default("true").BoolVar(&dryRun)
 	kingpin.Flag("debug", "Enable debug logging.").BoolVar(&debug)
@@ -158,21 +158,17 @@ func calculateInterval(chaoskube *chaoskube.Chaoskube, percentage int) time.Dura
 }
 
 func newClient() (*kubernetes.Clientset, error) {
-	var (
-		config *rest.Config
-		err    error
-	)
-
-	if inCluster {
-		config, err = rest.InClusterConfig()
-		log.Debug("Using in-cluster config.")
-	} else {
-		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
-		log.Debugf("Using current context from kubeconfig at %s.", kubeconfig)
+	if kubeconfig == "" {
+		if _, err := os.Stat(clientcmd.RecommendedHomeFile); err == nil {
+			kubeconfig = clientcmd.RecommendedHomeFile
+		}
 	}
+
+	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
 	if err != nil {
 		return nil, err
 	}
+
 	log.Infof("Targeting cluster at %s", config.Host)
 
 	client, err := kubernetes.NewForConfig(config)
@@ -185,8 +181,7 @@ func newClient() (*kubernetes.Clientset, error) {
 
 func generateManifest() *v1beta1.Deployment {
 	// modifies flags for deployment
-	args := append(os.Args[1:], "--in-cluster")
-	args = util.StripElements(args, "--kubeconfig", "--deploy")
+	args := util.StripElements(os.Args[1:], "--deploy")
 
 	return &v1beta1.Deployment{
 		TypeMeta: unversioned.TypeMeta{

@@ -35,6 +35,7 @@ var (
 	deploy      bool
 	dryRun      bool
 	debug       bool
+	percentage  int
 )
 
 func init() {
@@ -43,15 +44,20 @@ func init() {
 	kingpin.Flag("namespaces", "A set of namespaces to restrict the list of affected pods. Defaults to everything.").Default(v1.NamespaceAll).StringVar(&nsString)
 	kingpin.Flag("master", "The address of the Kubernetes cluster to target").StringVar(&master)
 	kingpin.Flag("kubeconfig", "Path to a kubeconfig file").StringVar(&kubeconfig)
-	kingpin.Flag("interval", "Interval between Pod terminations").Short('i').Default("10m").DurationVar(&interval)
+	kingpin.Flag("interval", "Interval between Pod terminations").Short('i').DurationVar(&interval)
 	kingpin.Flag("deploy", "If true, deploys chaoskube in the current cluster with the provided configuration").Short('d').BoolVar(&deploy)
 	kingpin.Flag("dry-run", "If true, don't actually do anything.").Default("true").BoolVar(&dryRun)
 	kingpin.Flag("debug", "Enable debug logging.").BoolVar(&debug)
+	kingpin.Flag("percentage", "Percentage of pods to be terminated per hour").Short('p').IntVar(&percentage)
 }
 
 func main() {
 	kingpin.Version(version)
 	kingpin.Parse()
+
+	if (interval.Nanoseconds() != 0 && percentage != 0) || (interval.Nanoseconds() == 0 && percentage == 0) {
+		log.Fatal("Needs exactly one of 'interval' or 'percentage' to be set.")
+	}
 
 	if debug {
 		log.SetLevel(log.DebugLevel)
@@ -115,15 +121,40 @@ func main() {
 	}
 
 	chaoskube := chaoskube.New(client, labelSelector, annotations, namespaces, log.StandardLogger(), dryRun, time.Now().UTC().UnixNano())
-
+	ticker := updatedTicker(chaoskube, percentage)
 	for {
-		if err := chaoskube.TerminateVictim(); err != nil {
-			log.Fatal(err)
+		select {
+		case <-ticker.C:
+			ticker.Stop()
+			if err := chaoskube.TerminateVictim(); err != nil {
+				log.Fatal(err)
+			}
+			ticker = updatedTicker(chaoskube, percentage)
 		}
-
-		log.Debugf("Sleeping for %s...", interval)
-		time.Sleep(interval)
 	}
+}
+
+func updatedTicker(chaoskube *chaoskube.Chaoskube, percentage int) *time.Ticker {
+	oldInterval := interval
+	if interval.Nanoseconds() == 0 {
+		interval = calculateInterval(chaoskube, percentage)
+	}
+	if interval < 1 {
+		interval = 0
+	}
+	ticker := time.NewTicker(interval)
+	if interval != oldInterval {
+		log.Infof("Changing interval to: %s", interval)
+	}
+	return ticker
+}
+
+func calculateInterval(chaoskube *chaoskube.Chaoskube, percentage int) time.Duration {
+	num, err := chaoskube.NumberOfCandidates()
+	if err != nil {
+		log.Fatal(err)
+	}
+	return (time.Millisecond * (time.Duration(int((3600000.0 / float32(num)) * (100.0 / float32(percentage))))))
 }
 
 func newClient() (*kubernetes.Clientset, error) {

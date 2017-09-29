@@ -16,7 +16,7 @@ Test how your system behaves under arbitrary pod failures.
 Running it will kill a pod in any namespace every 10 minutes by default.
 
 ```console
-$ chaoskube
+$ ./chaoskube
 ...
 INFO[0000] Targeting cluster at https://kube.you.me
 INFO[0001] Killing pod kube-system/kube-dns-v20-6ikos
@@ -36,30 +36,10 @@ INFO[4804] Killing pod chaoskube/nginx-701339712-51nt8
 
 ## How
 
-Get `chaoskube` via go get, make sure your current context points to your target cluster and use the `--deploy` flag.
-
-```console
-$ go get -u github.com/linki/chaoskube
-$ chaoskube --deploy
-INFO[0000] Dry run enabled. I won't kill anything. Use --no-dry-run when you're ready.
-INFO[0000] Targeting cluster at https://kube.you.me
-INFO[0000] Deployed quay.io/linki/chaoskube:v0.5.0
-```
-
-By default `chaoskube` will be friendly and not kill anything. When you validated your target cluster you may disable dry-run mode. You can also specify a more aggressive interval and other supported flags for your deployment.
-
-```console
-$ chaoskube --interval=1m --no-dry-run --debug --deploy
-DEBU[0000] Using current context from kubeconfig at /Users/you/.kube/config.
-INFO[0000] Targeting cluster at https://kube.you.me
-DEBU[0000] Deploying quay.io/linki/chaoskube:v0.5.0
-INFO[0000] Deployed quay.io/linki/chaoskube:v0.5.0
-```
-
-You can also install `chaoskube` with [`Helm`](https://github.com/kubernetes/helm). Follow [Helm's Quickstart Guide](https://github.com/kubernetes/helm/blob/master/docs/quickstart.md) and then install the `chaoskube` chart.
+You can install `chaoskube` with [`Helm`](https://github.com/kubernetes/helm). Follow [Helm's Quickstart Guide](https://github.com/kubernetes/helm/blob/master/docs/quickstart.md) and then install the `chaoskube` chart.
 
 ```
-$ helm install stable/chaoskube --version 0.5.0 --set interval=1m,dryRun=false
+$ helm install stable/chaoskube --version 0.6.0 --set interval=1m,dryRun=false
 ```
 
 Refer to [chaoskube on kubeapps.com](https://kubeapps.com/charts/stable/chaoskube) to learn how to configure it and to find other useful Helm charts.
@@ -80,11 +60,13 @@ spec:
     spec:
       containers:
       - name: chaoskube
-        image: quay.io/linki/chaoskube:v0.5.0
+        image: quay.io/linki/chaoskube:v0.6.0
         args:
         - --interval=1m
         - --no-dry-run
 ```
+
+By default `chaoskube` will be friendly and not kill anything. When you validated your target cluster you may disable dry-run mode. You can also specify a more aggressive interval and other supported flags for your deployment.
 
 If you're running in a Kubernetes cluster and want to target the same cluster then this is all you need to do.
 

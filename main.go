@@ -22,7 +22,6 @@ var (
 	kubeconfig  string
 	interval    time.Duration
 	inCluster   bool
-	deploy      bool
 	dryRun      bool
 	debug       bool
 	version     string

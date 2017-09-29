@@ -8,20 +8,10 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/api/unversioned"
-	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 	"k8s.io/client-go/pkg/labels"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/linki/chaoskube/chaoskube"
-	"github.com/linki/chaoskube/util"
-)
-
-const (
-	appName = "chaoskube"
-	image   = "quay.io/linki/chaoskube"
-	version = "v0.5.0"
 )
 
 var (
@@ -35,16 +25,16 @@ var (
 	deploy      bool
 	dryRun      bool
 	debug       bool
+	version     string
 )
 
 func init() {
-	kingpin.Flag("labels", "A set of labels to restrict the list of affected pods. Defaults to everything.").Default(labels.Everything().String()).StringVar(&labelString)
-	kingpin.Flag("annotations", "A set of annotations to restrict the list of affected pods. Defaults to everything.").Default(labels.Everything().String()).StringVar(&annString)
-	kingpin.Flag("namespaces", "A set of namespaces to restrict the list of affected pods. Defaults to everything.").Default(v1.NamespaceAll).StringVar(&nsString)
+	kingpin.Flag("labels", "A set of labels to restrict the list of affected pods. Defaults to everything.").StringVar(&labelString)
+	kingpin.Flag("annotations", "A set of annotations to restrict the list of affected pods. Defaults to everything.").StringVar(&annString)
+	kingpin.Flag("namespaces", "A set of namespaces to restrict the list of affected pods. Defaults to everything.").StringVar(&nsString)
 	kingpin.Flag("master", "The address of the Kubernetes cluster to target").StringVar(&master)
 	kingpin.Flag("kubeconfig", "Path to a kubeconfig file").StringVar(&kubeconfig)
-	kingpin.Flag("interval", "Interval between Pod terminations").Short('i').Default("10m").DurationVar(&interval)
-	kingpin.Flag("deploy", "If true, deploys chaoskube in the current cluster with the provided configuration").Short('d').BoolVar(&deploy)
+	kingpin.Flag("interval", "Interval between Pod terminations").Default("10m").DurationVar(&interval)
 	kingpin.Flag("dry-run", "If true, don't actually do anything.").Default("true").BoolVar(&dryRun)
 	kingpin.Flag("debug", "Enable debug logging.").BoolVar(&debug)
 }
@@ -66,28 +56,17 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if deploy {
-		log.Debugf("Deploying %s:%s", image, version)
-
-		manifest := generateManifest()
-
-		deployment := client.Extensions().Deployments(manifest.Namespace)
-
-		_, err := deployment.Get(manifest.Name)
-		if err != nil {
-			_, err = deployment.Create(manifest)
-		} else {
-			_, err = deployment.Update(manifest)
-		}
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		log.Infof("Deployed %s:%s", image, version)
-		os.Exit(0)
+	labelSelector, err := labels.Parse(labelString)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	labelSelector, err := labels.Parse(labelString)
+	annotations, err := labels.Parse(annString)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	namespaces, err := labels.Parse(nsString)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -96,25 +75,23 @@ func main() {
 		log.Infof("Filtering pods by labels: %s", labelSelector.String())
 	}
 
-	annotations, err := labels.Parse(annString)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	if !annotations.Empty() {
 		log.Infof("Filtering pods by annotations: %s", annotations.String())
-	}
-
-	namespaces, err := labels.Parse(nsString)
-	if err != nil {
-		log.Fatal(err)
 	}
 
 	if !namespaces.Empty() {
 		log.Infof("Filtering pods by namespaces: %s", namespaces.String())
 	}
 
-	chaoskube := chaoskube.New(client, labelSelector, annotations, namespaces, log.StandardLogger(), dryRun, time.Now().UTC().UnixNano())
+	chaoskube := chaoskube.New(
+		client,
+		labelSelector,
+		annotations,
+		namespaces,
+		log.StandardLogger(),
+		dryRun,
+		time.Now().UTC().UnixNano(),
+	)
 
 	for {
 		if err := chaoskube.TerminateVictim(); err != nil {
@@ -146,42 +123,4 @@ func newClient() (*kubernetes.Clientset, error) {
 	}
 
 	return client, nil
-}
-
-func generateManifest() *v1beta1.Deployment {
-	// modifies flags for deployment
-	args := util.StripElements(os.Args[1:], "--deploy")
-
-	return &v1beta1.Deployment{
-		TypeMeta: unversioned.TypeMeta{
-			APIVersion: "extensions/v1beta1",
-			Kind:       "Deployment",
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name:      appName,
-			Namespace: v1.NamespaceDefault,
-			Labels: map[string]string{
-				"app":      appName,
-				"heritage": appName,
-			},
-		},
-		Spec: v1beta1.DeploymentSpec{
-			Template: v1.PodTemplateSpec{
-				ObjectMeta: v1.ObjectMeta{
-					Labels: map[string]string{
-						"app": appName,
-					},
-				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
-						v1.Container{
-							Name:  appName,
-							Image: image + ":" + version,
-							Args:  args,
-						},
-					},
-				},
-			},
-		},
-	}
 }

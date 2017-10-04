@@ -39,7 +39,7 @@ INFO[4804] Killing pod chaoskube/nginx-701339712-51nt8
 You can install `chaoskube` with [`Helm`](https://github.com/kubernetes/helm). Follow [Helm's Quickstart Guide](https://github.com/kubernetes/helm/blob/master/docs/quickstart.md) and then install the `chaoskube` chart.
 
 ```
-$ helm install stable/chaoskube --version 0.6.0 --set interval=1m,dryRun=false
+$ helm install stable/chaoskube --set interval=1m,dryRun=false
 ```
 
 Refer to [chaoskube on kubeapps.com](https://kubeapps.com/charts/stable/chaoskube) to learn how to configure it and to find other useful Helm charts.

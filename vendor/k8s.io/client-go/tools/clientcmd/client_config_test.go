@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/imdario/mergo"
+	restclient "k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
@@ -372,6 +373,120 @@ func TestCreateMissingContext(t *testing.T) {
 	}
 }
 
+func TestInClusterClientConfigPrecedence(t *testing.T) {
+	tt := []struct {
+		overrides *ConfigOverrides
+	}{
+		{
+			overrides: &ConfigOverrides{
+				ClusterInfo: clientcmdapi.Cluster{
+					Server: "https://host-from-overrides.com",
+				},
+			},
+		},
+		{
+			overrides: &ConfigOverrides{
+				AuthInfo: clientcmdapi.AuthInfo{
+					Token: "https://host-from-overrides.com",
+				},
+			},
+		},
+		{
+			overrides: &ConfigOverrides{
+				ClusterInfo: clientcmdapi.Cluster{
+					CertificateAuthority: "/path/to/ca-from-overrides.crt",
+				},
+			},
+		},
+		{
+			overrides: &ConfigOverrides{
+				ClusterInfo: clientcmdapi.Cluster{
+					Server: "https://host-from-overrides.com",
+				},
+				AuthInfo: clientcmdapi.AuthInfo{
+					Token: "https://host-from-overrides.com",
+				},
+			},
+		},
+		{
+			overrides: &ConfigOverrides{
+				ClusterInfo: clientcmdapi.Cluster{
+					Server:               "https://host-from-overrides.com",
+					CertificateAuthority: "/path/to/ca-from-overrides.crt",
+				},
+			},
+		},
+		{
+			overrides: &ConfigOverrides{
+				ClusterInfo: clientcmdapi.Cluster{
+					CertificateAuthority: "/path/to/ca-from-overrides.crt",
+				},
+				AuthInfo: clientcmdapi.AuthInfo{
+					Token: "https://host-from-overrides.com",
+				},
+			},
+		},
+		{
+			overrides: &ConfigOverrides{
+				ClusterInfo: clientcmdapi.Cluster{
+					Server:               "https://host-from-overrides.com",
+					CertificateAuthority: "/path/to/ca-from-overrides.crt",
+				},
+				AuthInfo: clientcmdapi.AuthInfo{
+					Token: "https://host-from-overrides.com",
+				},
+			},
+		},
+		{
+			overrides: &ConfigOverrides{},
+		},
+	}
+
+	for _, tc := range tt {
+		expectedServer := "https://host-from-cluster.com"
+		expectedToken := "token-from-cluster"
+		expectedCAFile := "/path/to/ca-from-cluster.crt"
+
+		icc := &inClusterClientConfig{
+			inClusterConfigProvider: func() (*restclient.Config, error) {
+				return &restclient.Config{
+					Host:        expectedServer,
+					BearerToken: expectedToken,
+					TLSClientConfig: restclient.TLSClientConfig{
+						CAFile: expectedCAFile,
+					},
+				}, nil
+			},
+			overrides: tc.overrides,
+		}
+
+		clientConfig, err := icc.ClientConfig()
+		if err != nil {
+			t.Fatalf("Unxpected error: %v", err)
+		}
+
+		if overridenServer := tc.overrides.ClusterInfo.Server; len(overridenServer) > 0 {
+			expectedServer = overridenServer
+		}
+		if overridenToken := tc.overrides.AuthInfo.Token; len(overridenToken) > 0 {
+			expectedToken = overridenToken
+		}
+		if overridenCAFile := tc.overrides.ClusterInfo.CertificateAuthority; len(overridenCAFile) > 0 {
+			expectedCAFile = overridenCAFile
+		}
+
+		if clientConfig.Host != expectedServer {
+			t.Errorf("Expected server %v, got %v", expectedServer, clientConfig.Host)
+		}
+		if clientConfig.BearerToken != expectedToken {
+			t.Errorf("Expected token %v, got %v", expectedToken, clientConfig.BearerToken)
+		}
+		if clientConfig.TLSClientConfig.CAFile != expectedCAFile {
+			t.Errorf("Expected Certificate Authority %v, got %v", expectedCAFile, clientConfig.TLSClientConfig.CAFile)
+		}
+	}
+}
+
 func matchBoolArg(expected, got bool, t *testing.T) {
 	if expected != got {
 		t.Errorf("Expected %v, got %v", expected, got)
@@ -388,4 +503,26 @@ func matchByteArg(expected, got []byte, t *testing.T) {
 	if !reflect.DeepEqual(expected, got) {
 		t.Errorf("Expected %v, got %v", expected, got)
 	}
+}
+
+func TestNamespaceOverride(t *testing.T) {
+	config := &DirectClientConfig{
+		overrides: &ConfigOverrides{
+			Context: clientcmdapi.Context{
+				Namespace: "foo",
+			},
+		},
+	}
+
+	ns, overridden, err := config.Namespace()
+
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if !overridden {
+		t.Errorf("Expected overridden = true")
+	}
+
+	matchStringArg("foo", ns, t)
 }

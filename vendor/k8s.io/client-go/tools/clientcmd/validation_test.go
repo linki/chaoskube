@@ -22,7 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	utilerrors "k8s.io/client-go/pkg/util/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
@@ -187,7 +187,7 @@ func TestValidateEmptyContext(t *testing.T) {
 
 func TestValidateEmptyClusterInfo(t *testing.T) {
 	config := clientcmdapi.NewConfig()
-	config.Clusters["empty"] = &clientcmdapi.Cluster{}
+	config.Clusters["empty"] = clientcmdapi.NewCluster()
 	test := configValidationTest{
 		config:                 config,
 		expectedErrorSubstring: []string{"cluster has no server defined"},
@@ -196,6 +196,19 @@ func TestValidateEmptyClusterInfo(t *testing.T) {
 	test.testCluster("empty", t)
 	test.testConfig(t)
 }
+
+func TestValidateClusterInfoErrEmptyCluster(t *testing.T) {
+	cluster := clientcmdapi.NewCluster()
+	errs := validateClusterInfo("", *cluster)
+
+	if len(errs) != 1 {
+		t.Fatalf("unexpected errors: %v", errs)
+	}
+	if errs[0] != ErrEmptyCluster {
+		t.Errorf("unexpected error: %v", errs[0])
+	}
+}
+
 func TestValidateMissingCAFileClusterInfo(t *testing.T) {
 	config := clientcmdapi.NewConfig()
 	config.Clusters["missing ca"] = &clientcmdapi.Cluster{

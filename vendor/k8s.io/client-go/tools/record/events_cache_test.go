@@ -22,10 +22,10 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/client-go/pkg/api/unversioned"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/clock"
+	"k8s.io/apimachinery/pkg/util/diff"
 	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/util/clock"
-	"k8s.io/client-go/pkg/util/diff"
 )
 
 func makeObjectReference(kind, name, namespace string) v1.ObjectReference {
@@ -35,11 +35,12 @@ func makeObjectReference(kind, name, namespace string) v1.ObjectReference {
 		Namespace:  namespace,
 		UID:        "C934D34AFB20242",
 		APIVersion: "version",
+		FieldPath:  "spec.containers{mycontainer}",
 	}
 }
 
 func makeEvent(reason, message string, involvedObject v1.ObjectReference) v1.Event {
-	eventTime := unversioned.Now()
+	eventTime := metav1.Now()
 	event := v1.Event{
 		Reason:         reason,
 		Message:        message,
@@ -157,10 +158,11 @@ func TestEventAggregatorByReasonFunc(t *testing.T) {
 
 // TestEventAggregatorByReasonMessageFunc validates the proper output for an aggregate message
 func TestEventAggregatorByReasonMessageFunc(t *testing.T) {
-	expected := "(events with common reason combined)"
+	expectedPrefix := "(combined from similar events): "
 	event1 := makeEvent("end-of-world", "it was fun", makeObjectReference("Pod", "pod1", "other"))
-	if actual := EventAggregatorByReasonMessageFunc(&event1); expected != actual {
-		t.Errorf("Expected %v got %v", expected, actual)
+	actual := EventAggregatorByReasonMessageFunc(&event1)
+	if !strings.HasPrefix(actual, expectedPrefix) {
+		t.Errorf("Expected %v to begin with prefix %v", actual, expectedPrefix)
 	}
 }
 
@@ -170,7 +172,10 @@ func TestEventCorrelator(t *testing.T) {
 	duplicateEvent := makeEvent("duplicate", "me again", makeObjectReference("Pod", "my-pod", "my-ns"))
 	uniqueEvent := makeEvent("unique", "snowflake", makeObjectReference("Pod", "my-pod", "my-ns"))
 	similarEvent := makeEvent("similar", "similar message", makeObjectReference("Pod", "my-pod", "my-ns"))
+	similarEvent.InvolvedObject.FieldPath = "spec.containers{container1}"
 	aggregateEvent := makeEvent(similarEvent.Reason, EventAggregatorByReasonMessageFunc(&similarEvent), similarEvent.InvolvedObject)
+	similarButDifferentContainerEvent := similarEvent
+	similarButDifferentContainerEvent.InvolvedObject.FieldPath = "spec.containers{container2}"
 	scenario := map[string]struct {
 		previousEvents  []v1.Event
 		newEvent        v1.Event
@@ -213,6 +218,12 @@ func TestEventCorrelator(t *testing.T) {
 			expectedEvent:   setCount(aggregateEvent, 2),
 			intervalSeconds: 5,
 		},
+		"events-from-different-containers-do-not-aggregate": {
+			previousEvents:  makeEvents(1, similarButDifferentContainerEvent),
+			newEvent:        similarEvent,
+			expectedEvent:   setCount(similarEvent, 1),
+			intervalSeconds: 5,
+		},
 		"similar-events-whose-interval-is-greater-than-aggregate-interval-do-not-aggregate": {
 			previousEvents:  makeSimilarEvents(defaultAggregateMaxEvents-1, similarEvent, similarEvent.Message),
 			newEvent:        similarEvent,
@@ -227,7 +238,7 @@ func TestEventCorrelator(t *testing.T) {
 		correlator := NewEventCorrelator(&clock)
 		for i := range testInput.previousEvents {
 			event := testInput.previousEvents[i]
-			now := unversioned.NewTime(clock.Now())
+			now := metav1.NewTime(clock.Now())
 			event.FirstTimestamp = now
 			event.LastTimestamp = now
 			result, err := correlator.EventCorrelate(&event)
@@ -238,7 +249,7 @@ func TestEventCorrelator(t *testing.T) {
 		}
 
 		// update the input to current clock value
-		now := unversioned.NewTime(clock.Now())
+		now := metav1.NewTime(clock.Now())
 		testInput.newEvent.FirstTimestamp = now
 		testInput.newEvent.LastTimestamp = now
 		result, err := correlator.EventCorrelate(&testInput.newEvent)

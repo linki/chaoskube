@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"math/rand"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/labels"
-	"k8s.io/client-go/pkg/selection"
 )
 
 // Chaoskube represents an instance of chaoskube
@@ -59,7 +60,7 @@ func New(client kubernetes.Interface, labels, annotations, namespaces labels.Sel
 // Candidates returns the list of pods that are available for termination.
 // It returns all pods matching the label selector and at least one namespace.
 func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
-	listOptions := v1.ListOptions{LabelSelector: c.Labels.String()}
+	listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
 
 	podList, err := c.Client.Core().Pods(v1.NamespaceAll).List(listOptions)
 	if err != nil {

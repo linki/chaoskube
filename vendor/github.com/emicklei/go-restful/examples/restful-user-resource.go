@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/emicklei/go-restful"
-	"github.com/emicklei/go-restful/swagger"
+	"github.com/emicklei/go-restful-swagger12"
 )
 
 // This example show a complete (GET,PUT,POST,DELETE) conventional example of
@@ -59,7 +59,7 @@ func (u UserResource) Register(container *restful.Container) {
 		ReturnsError(409, "duplicate user-id", nil).
 		Reads(User{})) // from the request
 
-	ws.Route(ws.GET("").To(u.createUser).
+	ws.Route(ws.POST("").To(u.createUser).
 		// docs
 		Doc("create a user").
 		Operation("createUser").

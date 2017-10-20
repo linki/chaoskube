@@ -7,6 +7,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"strings"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -24,6 +26,8 @@ type Chaoskube struct {
 	Annotations labels.Selector
 	// a namespace selector which restricts the pods to choose from
 	Namespaces labels.Selector
+	// a namespace label selector which restricts the namespaces to choose from
+	NamespaceLabels labels.Selector
 	// an instance of logrus.StdLogger to write log messages to
 	Logger log.StdLogger
 	// dry run will not allow any pod terminations
@@ -41,15 +45,16 @@ var msgVictimNotFound = "No victim could be found. If that's surprising double-c
 // New returns a new instance of Chaoskube. It expects a kubernetes client, a
 // label and namespace selector to reduce the amount of affected pods as well as
 // whether to enable dryRun mode and a seed to seed the randomizer with.
-func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, logger log.StdLogger, dryRun bool, seed int64) *Chaoskube {
+func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, namespaceLabels labels.Selector, logger log.StdLogger, dryRun bool, seed int64) *Chaoskube {
 	c := &Chaoskube{
-		Client:      client,
-		Labels:      labels,
-		Annotations: annotations,
-		Namespaces:  namespaces,
-		Logger:      logger,
-		DryRun:      dryRun,
-		Seed:        seed,
+		Client:          client,
+		Labels:          labels,
+		Annotations:     annotations,
+		Namespaces:      namespaces,
+		NamespaceLabels: namespaceLabels,
+		Logger:          logger,
+		DryRun:          dryRun,
+		Seed:            seed,
 	}
 
 	rand.Seed(c.Seed)
@@ -62,7 +67,7 @@ func New(client kubernetes.Interface, labels, annotations, namespaces labels.Sel
 func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 	listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
 
-	podList, err := c.Client.Core().Pods(v1.NamespaceAll).List(listOptions)
+	podList, err := c.Client.CoreV1().Pods(v1.NamespaceAll).List(listOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -75,6 +80,30 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 	pods, err = filterByAnnotations(pods, c.Annotations)
 	if err != nil {
 		return nil, err
+	}
+
+	if !c.NamespaceLabels.Empty() {
+		//c.Logger.Printf("Namespace label: %s", c.NamespaceLabels.String())
+
+		nsListOptions := metav1.ListOptions{LabelSelector: c.NamespaceLabels.String()}
+		namespacesItems, _ := c.Client.CoreV1().Namespaces().List(nsListOptions)
+		namespaceList := []string{}
+
+		for _, ns := range namespacesItems.Items {
+			namespaceList = append(namespaceList, ns.Name)
+		}
+
+		namespaces := strings.Join(namespaceList, ",")
+		namespaceLabel, _ := labels.Parse(namespaces)
+
+		pods, err = filterByNamespaces(pods, namespaceLabel)
+
+		//c.Logger.Printf("%s", namespaces)
+
+		//pods, err = filterByNamespaceLabels(pods, namespaces.Items)
+		//if err != nil {
+		//	return nil, err
+		//}
 	}
 
 	return pods, nil
@@ -104,7 +133,7 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 		return nil
 	}
 
-	return c.Client.Core().Pods(victim.Namespace).Delete(victim.Name, nil)
+	return c.Client.CoreV1().Pods(victim.Namespace).Delete(victim.Name, nil)
 }
 
 // TerminateVictim picks and deletes a victim if found.
@@ -198,3 +227,24 @@ func filterByAnnotations(pods []v1.Pod, annotations labels.Selector) ([]v1.Pod, 
 
 	return filteredList, nil
 }
+
+//func filterByNamespaceLabels(pods []v1.Pod, namespaces []v1.Namespace) ([]v1.Pod, error) {
+//	// empty filter returns original list
+//	if len(namespaces) == 0 {
+//		return pods, nil
+//	}
+//
+//	filteredList := []v1.Pod{}
+//
+//	for _, pod := range pods {
+//
+//	}
+//
+//	for _, ns := range namespaces {
+//		fmt.Printf("%s", ns.Name)
+//		//c.Logger.Printf("%s", ns.Name)
+//		//ns.Annotations
+//	}
+//
+//	return filteredList, nil
+//}

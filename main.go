@@ -16,22 +16,24 @@ import (
 )
 
 var (
-	labelString string
-	annString   string
-	nsString    string
-	master      string
-	kubeconfig  string
-	interval    time.Duration
-	inCluster   bool
-	dryRun      bool
-	debug       bool
-	version     string
+	labelString   string
+	annString     string
+	nsString      string
+	nsLabelString string
+	master        string
+	kubeconfig    string
+	interval      time.Duration
+	inCluster     bool
+	dryRun        bool
+	debug         bool
+	version       string
 )
 
 func init() {
 	kingpin.Flag("labels", "A set of labels to restrict the list of affected pods. Defaults to everything.").StringVar(&labelString)
 	kingpin.Flag("annotations", "A set of annotations to restrict the list of affected pods. Defaults to everything.").StringVar(&annString)
 	kingpin.Flag("namespaces", "A set of namespaces to restrict the list of affected pods. Defaults to everything.").StringVar(&nsString)
+	kingpin.Flag("namespace-labels", "A set of labels to restrict the list of affected namespaces. Defaults to everything.").StringVar(&nsLabelString)
 	kingpin.Flag("master", "The address of the Kubernetes cluster to target").StringVar(&master)
 	kingpin.Flag("kubeconfig", "Path to a kubeconfig file").StringVar(&kubeconfig)
 	kingpin.Flag("interval", "Interval between Pod terminations").Default("10m").DurationVar(&interval)
@@ -71,6 +73,11 @@ func main() {
 		log.Fatal(err)
 	}
 
+	namespaceLabels, err := labels.Parse(nsLabelString)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	if !labelSelector.Empty() {
 		log.Infof("Filtering pods by labels: %s", labelSelector.String())
 	}
@@ -83,11 +90,16 @@ func main() {
 		log.Infof("Filtering pods by namespaces: %s", namespaces.String())
 	}
 
+	if !namespaceLabels.Empty() {
+		log.Infof("Filtering namespaces by labels: %s", namespaceLabels.String())
+	}
+
 	chaoskube := chaoskube.New(
 		client,
 		labelSelector,
 		annotations,
 		namespaces,
+		namespaceLabels,
 		log.StandardLogger(),
 		dryRun,
 		time.Now().UTC().UnixNano(),

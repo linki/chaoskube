@@ -72,6 +72,27 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 		return nil, err
 	}
 
+	if !c.NamespaceLabels.Empty() {
+		nsListOptions := metav1.ListOptions{LabelSelector: c.NamespaceLabels.String()}
+		namespacesItems, err := c.Client.CoreV1().Namespaces().List(nsListOptions)
+		if err != nil {
+			return nil, err
+		}
+
+		// Extract matching namespaces
+		namespaceList := []string{}
+		for _, ns := range namespacesItems.Items {
+			namespaceList = append(namespaceList, ns.Name)
+		}
+		namespaceLabel, _ := labels.Parse(strings.Join(namespaceList, ","))
+
+		// Append additional namespaces filters
+		reqs, _ := namespaceLabel.Requirements()
+		for _, req := range reqs {
+			c.Namespaces = c.Namespaces.Add(req)
+		}
+	}
+
 	pods, err := filterByNamespaces(podList.Items, c.Namespaces)
 	if err != nil {
 		return nil, err
@@ -80,30 +101,6 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 	pods, err = filterByAnnotations(pods, c.Annotations)
 	if err != nil {
 		return nil, err
-	}
-
-	if !c.NamespaceLabels.Empty() {
-		//c.Logger.Printf("Namespace label: %s", c.NamespaceLabels.String())
-
-		nsListOptions := metav1.ListOptions{LabelSelector: c.NamespaceLabels.String()}
-		namespacesItems, _ := c.Client.CoreV1().Namespaces().List(nsListOptions)
-		namespaceList := []string{}
-
-		for _, ns := range namespacesItems.Items {
-			namespaceList = append(namespaceList, ns.Name)
-		}
-
-		namespaces := strings.Join(namespaceList, ",")
-		namespaceLabel, _ := labels.Parse(namespaces)
-
-		pods, err = filterByNamespaces(pods, namespaceLabel)
-
-		//c.Logger.Printf("%s", namespaces)
-
-		//pods, err = filterByNamespaceLabels(pods, namespaces.Items)
-		//if err != nil {
-		//	return nil, err
-		//}
 	}
 
 	return pods, nil
@@ -227,24 +224,3 @@ func filterByAnnotations(pods []v1.Pod, annotations labels.Selector) ([]v1.Pod, 
 
 	return filteredList, nil
 }
-
-//func filterByNamespaceLabels(pods []v1.Pod, namespaces []v1.Namespace) ([]v1.Pod, error) {
-//	// empty filter returns original list
-//	if len(namespaces) == 0 {
-//		return pods, nil
-//	}
-//
-//	filteredList := []v1.Pod{}
-//
-//	for _, pod := range pods {
-//
-//	}
-//
-//	for _, ns := range namespaces {
-//		fmt.Printf("%s", ns.Name)
-//		//c.Logger.Printf("%s", ns.Name)
-//		//ns.Annotations
-//	}
-//
-//	return filteredList, nil
-//}

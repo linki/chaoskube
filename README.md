@@ -98,6 +98,16 @@ INFO[0000] Filtering pods by namespaces: default,staging,testing
 
 This will filter for pods in the three namespaces `default`, `staging` and `testing`.
 
+Namespace can additionally be filtered by namespace label selector.
+
+```console
+$ chaoskube --namespace-labels='!integration'
+...
+INFO[0000] Filtering namespaces by labels: !integration
+```
+
+This will exclude all pods from namespaces with the label `integration`.
+
 You can also exclude namespaces and mix and match with the label and annotation selectors.
 
 ```console

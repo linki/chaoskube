@@ -13,30 +13,39 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/linki/chaoskube/chaoskube"
+	"github.com/linki/chaoskube/util"
 )
 
 var (
-	labelString string
-	annString   string
-	nsString    string
-	master      string
-	kubeconfig  string
-	interval    time.Duration
-	inCluster   bool
-	dryRun      bool
-	debug       bool
-	version     string
+	annString       string
+	debug           bool
+	dryRun          bool
+	excludeWeekends bool
+	inCluster       bool
+	interval        time.Duration
+	kubeconfig      string
+	labelString     string
+	master          string
+	nsString        string
+	percentage      float64
+	runFrom         string
+	runUntil        string
+	version         string
 )
 
 func init() {
-	kingpin.Flag("labels", "A set of labels to restrict the list of affected pods. Defaults to everything.").StringVar(&labelString)
 	kingpin.Flag("annotations", "A set of annotations to restrict the list of affected pods. Defaults to everything.").StringVar(&annString)
-	kingpin.Flag("namespaces", "A set of namespaces to restrict the list of affected pods. Defaults to everything.").StringVar(&nsString)
-	kingpin.Flag("master", "The address of the Kubernetes cluster to target").StringVar(&master)
-	kingpin.Flag("kubeconfig", "Path to a kubeconfig file").StringVar(&kubeconfig)
-	kingpin.Flag("interval", "Interval between Pod terminations").Default("10m").DurationVar(&interval)
-	kingpin.Flag("dry-run", "If true, don't actually do anything.").Default("true").BoolVar(&dryRun)
 	kingpin.Flag("debug", "Enable debug logging.").BoolVar(&debug)
+	kingpin.Flag("dry-run", "If true, don't actually do anything.").Default("true").BoolVar(&dryRun)
+	kingpin.Flag("excludeWeekends", "Do not run on weekends").BoolVar(&excludeWeekends)
+	kingpin.Flag("interval", "Interval between Pod terminations").Default("1m").DurationVar(&interval)
+	kingpin.Flag("kubeconfig", "Path to a kubeconfig file").StringVar(&kubeconfig)
+	kingpin.Flag("labels", "A set of labels to restrict the list of affected pods. Defaults to everything.").StringVar(&labelString)
+	kingpin.Flag("master", "The address of the Kubernetes cluster to target").StringVar(&master)
+	kingpin.Flag("namespaces", "A set of namespaces to restrict the list of affected pods. Defaults to everything.").StringVar(&nsString)
+	kingpin.Flag("percentage", "How likely should a pod be killed every single run").Default("0.0").Float64Var(&percentage)
+	kingpin.Flag("run-from", "Start chaoskube daily at hours:minutes, e.g. 9:00").Default("0:00").StringVar(&runFrom)
+	kingpin.Flag("run-until", "Stop chaoskube daily at hours:minutes, e.g. 17:00").Default("0:00").StringVar(&runUntil)
 }
 
 func main() {
@@ -93,13 +102,22 @@ func main() {
 		time.Now().UTC().UnixNano(),
 	)
 
+	ticker := time.NewTicker(interval)
 	for {
-		if err := chaoskube.TerminateVictim(); err != nil {
-			log.Fatal(err)
+		select {
+		case <-ticker.C:
+			if util.ShouldRunNow(excludeWeekends, runFrom, runUntil) {
+				candidates, err := chaoskube.Candidates()
+				if err != nil {
+					log.Fatal(err)
+				}
+				for _, candidate := range candidates {
+					if util.PodShouldDie(candidate, interval, percentage) {
+						chaoskube.DeletePod(candidate)
+					}
+				}
+			}
 		}
-
-		log.Debugf("Sleeping for %s...", interval)
-		time.Sleep(interval)
 	}
 }
 

@@ -6,10 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/pkg/api/v1"
+
+	"github.com/linki/chaoskube/util"
 )
 
 var logOutput = bytes.NewBuffer([]byte{})
@@ -200,7 +201,7 @@ func TestNoVictimReturnsError(t *testing.T) {
 func TestDeletePod(t *testing.T) {
 	chaoskube := setup(t, labels.Everything(), labels.Everything(), labels.Everything(), false, 0)
 
-	victim := newPod("default", "foo")
+	victim := util.NewPod("default", "foo")
 
 	if err := chaoskube.DeletePod(victim); err != nil {
 		t.Fatal(err)
@@ -217,7 +218,7 @@ func TestDeletePod(t *testing.T) {
 func TestDeletePodDryRun(t *testing.T) {
 	chaoskube := setup(t, labels.Everything(), labels.Everything(), labels.Everything(), true, 0)
 
-	victim := newPod("default", "foo")
+	victim := util.NewPod("default", "foo")
 
 	if err := chaoskube.DeletePod(victim); err != nil {
 		t.Fatal(err)
@@ -300,27 +301,10 @@ func validateLog(t *testing.T, msg string) {
 	}
 }
 
-func newPod(namespace, name string) v1.Pod {
-	pod := v1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
-			Labels: map[string]string{
-				"app": name,
-			},
-			Annotations: map[string]string{
-				"chaos": name,
-			},
-		},
-	}
-
-	return pod
-}
-
 func setup(t *testing.T, labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, dryRun bool, seed int64) *Chaoskube {
 	pods := []v1.Pod{
-		newPod("default", "foo"),
-		newPod("testing", "bar"),
+		util.NewPod("default", "foo"),
+		util.NewPod("testing", "bar"),
 	}
 
 	client := fake.NewSimpleClientset()

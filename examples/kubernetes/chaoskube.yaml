@@ -14,7 +14,7 @@ spec:
       serviceAccountName: chaoskube
       containers:
       - name: chaoskube
-        image: quay.io/linki/chaoskube:v0.6.1
+        image: quay.io/linki/chaoskube:v0.6.2
         args:
         # kill a pod every 10 minutes
         - --interval=10m
@@ -26,6 +26,19 @@ spec:
         - --namespaces=!kube-system
         # terminate pods for real: this disables dry-run mode which is on by default
         - --no-dry-run
+        # limit chaos times as specified in following options (default is off)
+        # --no-limit-chaos or missing options turns this off
+        - --limit-chaos
+        # timezone location from the "tz database" (e.g. "America/Los_Angeles") NO DEFAULT
+        # also allowed: "UTC" or "Local"
+        - --location=Local
+        # comma-separated list of weekday names when chaos is suspended. Default: "Saturday,Sunday".
+        # (Use "none" for no off days.)
+        - --off-days=
+        # list of ISO 8601 dates (YYYY-MM-DD) when chaos is suspended. Default: empty list.
+        - --holidays=
+        # daily start and end times for introducing chaos. Default: start:9:30,end:16:30
+        - --chaos-hours=
 
 ---
 

@@ -1,0 +1,50 @@
+# container name
+name: chaoskube
+
+# docker image
+image: quay.io/linki/chaoskube
+
+# docker image tag
+imageTag: v0.6.1
+
+# number of replicas to run
+replicas: 1
+
+# interval between pod terminations
+interval: 10m
+
+# label selector to filter pods by, e.g. app=foo,stage!=prod
+labels:
+
+# annotation selector to filter pods by, e.g. chaos.alpha.kubernetes.io/enabled=true
+annotations:
+
+# namespace selector to filter pods by, e.g. '!kube-system,!production' (use quotes)
+namespaces:
+
+# don't kill pods, only log what would have been done
+dryRun: true
+
+# Limit chaos times (default: false)
+limitChaos: true
+
+# Timezone location from the "tz database" (e.g. "America/Los_Angeles") NO DEFAULT
+# Also allowed: "UTC", "Local"
+location: Local
+
+# Comma-separated list of weekday names when chaos is suspended. Default: "Saturday, Sunday".
+# (Use "none" for no off days.)
+offDays:
+
+# Daily start and end times for introducing chaos. Default: start: 9:30, end: 16:30
+chaosHrs:
+  start: 9:30
+  end: 13:30
+
+# A list of ISO 8601 dates (YYYY-MM-DD) when chaos is suspended. Default: empty list.
+holidays:
+
+# resource requests and limits
+resources:
+  cpu: 10m
+  memory: 16Mi

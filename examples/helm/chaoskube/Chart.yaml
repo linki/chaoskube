@@ -1,0 +1,11 @@
+appVersion: 0.6.2
+description: Chaoskube periodically kills random pods in your Kubernetes cluster.
+engine: gotpl
+home: https://github.com/linki/chaoskube
+maintainers:
+- email: linki+kubernetes.io@posteo.de
+  name: Martin Linkhorst
+name: chaoskube
+sources:
+- https://github.com/linki/chaoskube
+version: 0.6.2

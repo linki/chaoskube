@@ -12,6 +12,8 @@ RUN go build -o /bin/chaoskube -v \
 FROM alpine:3.6
 MAINTAINER Linki <linki+docker.com@posteo.de>
 
+RUN apk --no-cache add tzdata
+
 RUN addgroup -S chaoskube && adduser -S -g chaoskube chaoskube
 COPY --from=builder /bin/chaoskube /bin/chaoskube
 

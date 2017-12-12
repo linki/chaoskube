@@ -17,8 +17,6 @@ spec:
         release: {{ .Release.Name }}
         heritage: {{ .Release.Service }}
     spec:
-      imagePullSecrets:
-      - name: {{ .Values.docker.secretName }}
       containers:
       - name: {{ .Values.name }}
         image: {{ .Values.image }}:{{ .Values.imageTag }}

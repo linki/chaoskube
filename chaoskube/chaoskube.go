@@ -4,13 +4,15 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
+	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/pkg/api/v1"
 )
 
@@ -30,6 +32,8 @@ type Chaoskube struct {
 	DryRun bool
 	// seed value for the randomizer
 	Seed int64
+
+	PodLister corelisters.PodLister
 }
 
 // ErrPodNotFound is returned when no victim could be found
@@ -42,6 +46,10 @@ var msgVictimNotFound = "No victim could be found. If that's surprising double-c
 // label and namespace selector to reduce the amount of affected pods as well as
 // whether to enable dryRun mode and a seed to seed the randomizer with.
 func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, logger log.StdLogger, dryRun bool, seed int64) *Chaoskube {
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(client, 10*time.Second)
+	podInformer := kubeInformerFactory.Core().V1().Pods()
+	podLister := podInformer.Lister()
+
 	c := &Chaoskube{
 		Client:      client,
 		Labels:      labels,
@@ -50,6 +58,7 @@ func New(client kubernetes.Interface, labels, annotations, namespaces labels.Sel
 		Logger:      logger,
 		DryRun:      dryRun,
 		Seed:        seed,
+		PodLister:   podLister,
 	}
 
 	rand.Seed(c.Seed)
@@ -60,14 +69,17 @@ func New(client kubernetes.Interface, labels, annotations, namespaces labels.Sel
 // Candidates returns the list of pods that are available for termination.
 // It returns all pods matching the label selector and at least one namespace.
 func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
-	listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
-
-	podList, err := c.Client.Core().Pods(v1.NamespaceAll).List(listOptions)
+	podsp, err := c.PodLister.List(c.Labels)
 	if err != nil {
 		return nil, err
 	}
 
-	pods, err := filterByNamespaces(podList.Items, c.Namespaces)
+	pods := []v1.Pod{}
+	for _, p := range podsp {
+		pods = append(pods, *p)
+	}
+
+	pods, err = filterByNamespaces(pods, c.Namespaces)
 	if err != nil {
 		return nil, err
 	}

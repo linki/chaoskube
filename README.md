@@ -139,6 +139,26 @@ spec:
       ...
 ```
 
+## Limiting the Chaos
+
+You can limit when chaos introduced. To turn on the feature, add the `--limit-chaos` option and the `--location` option, which requires a timezone name from the [(IANA) tz databse](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). Alternatively, you can use `UTC` or `Local` as the location.
+By default, this will only allow chaos to be introduced between 9:30 and 14:30, and not on Saturday or Sunday. You can also explicitly add a list of `YYYY-MM-DD`-formatted dates as "holidays". See the options chart below for more details.
+
+## Options
+
+| Option           | Description                                                         | Default                |
+|------------------|---------------------------------------------------------------------|------------------------|
+| `--interval`     | interval between pod terminations                                   | 10m                    |
+| `--labels`       | label selector to filter pods by                                    | (matches everything)   |
+| `--annotations`  | annotation selector to filter pods by                               | (matches everything)   |
+| `--namespaces`   | namespace selector to filter pods by                                | (all namespaces)       |
+| `--dry-run`      | don't kill pods, only log what would have been done                 | true                   |
+| `--limit-chaos`  | limit chaos according to specified times/days                       | false                  |
+| `--location`     | timezone from tz database, e.g "America/New_York", "UTC" or "Local" | (none)                 |
+| `--off-days`     | days when chaos is to be suspended. (Or "none")                     | "Saturday,Sunday"      |
+| `--chaos-hrs`    | start and end time for introducing chaos (24hr time)                | "start:9:30,end:14:30" |
+| `--holidays`     | comma-separated, "YYYY-MM-DD" days to skip chaos                    | (empty list)           |
+
 ## Contributing
 
 Feel free to create issues or submit pull requests.

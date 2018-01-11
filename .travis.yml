@@ -11,6 +11,8 @@ go:
 
 install:
 - go get github.com/mattn/goveralls
+- go get github.com/golang/dep/cmd/dep
+- dep ensure
 
 script:
 - goveralls -service=travis-ci

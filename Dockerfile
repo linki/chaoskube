@@ -2,8 +2,10 @@
 FROM golang:1.9-alpine as builder
 
 RUN apk -U add git
+RUN go get github.com/golang/dep/cmd/dep
 WORKDIR /go/src/github.com/linki/chaoskube
 COPY . .
+RUN dep ensure
 RUN go test -v ./...
 RUN go build -o /bin/chaoskube -v \
   -ldflags "-X main.version=$(git describe --tags --always --dirty) -w -s"

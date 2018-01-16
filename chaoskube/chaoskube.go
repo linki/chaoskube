@@ -27,6 +27,8 @@ type Chaoskube struct {
 	Namespaces labels.Selector
 	// a list of weekdays when termination is suspended
 	ExcludedWeekdays []time.Weekday
+	// the timezone to apply when detecting the current weekday
+	Timezone *time.Location
 	// an instance of logrus.StdLogger to write log messages to
 	Logger log.StdLogger
 	// dry run will not allow any pod terminations
@@ -49,13 +51,14 @@ var msgWeekdayExcluded = "This day of the week is excluded from chaos."
 // New returns a new instance of Chaoskube. It expects a kubernetes client, a
 // label and namespace selector to reduce the amount of affected pods as well as
 // whether to enable dryRun mode and a seed to seed the randomizer with.
-func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, logger log.StdLogger, dryRun bool, seed int64) *Chaoskube {
+func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, timezone *time.Location, logger log.StdLogger, dryRun bool, seed int64) *Chaoskube {
 	c := &Chaoskube{
 		Client:           client,
 		Labels:           labels,
 		Annotations:      annotations,
 		Namespaces:       namespaces,
 		ExcludedWeekdays: excludedWeekdays,
+		Timezone:         timezone,
 		Logger:           logger,
 		DryRun:           dryRun,
 		Seed:             seed,
@@ -120,7 +123,7 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 // TerminateVictim picks and deletes a victim if found.
 func (c *Chaoskube) TerminateVictim() error {
 	for _, wd := range c.ExcludedWeekdays {
-		if wd == c.Now().Weekday() {
+		if wd == c.Now().In(c.Timezone).Weekday() {
 			c.Logger.Printf(msgWeekdayExcluded)
 			return nil
 		}

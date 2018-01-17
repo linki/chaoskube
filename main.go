@@ -2,7 +2,6 @@ package main
 
 import (
 	"os"
-	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -14,6 +13,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/linki/chaoskube/chaoskube"
+	"github.com/linki/chaoskube/util"
 )
 
 var (
@@ -95,7 +95,7 @@ func main() {
 	timezoneName, _ := time.Now().In(parsedTimezone).Zone()
 	log.Infof("Using time zone: %s (%s)", parsedTimezone.String(), timezoneName)
 
-	parsedWeekdays := parseWeekdays(excludedWeekdays)
+	parsedWeekdays := util.ParseWeekdays(excludedWeekdays)
 	if len(parsedWeekdays) > 0 {
 		log.Infof("Excluding weekdays: %s", parsedWeekdays)
 	}
@@ -120,26 +120,6 @@ func main() {
 		log.Debugf("Sleeping for %s...", interval)
 		time.Sleep(interval)
 	}
-}
-
-func parseWeekdays(weekdays string) []time.Weekday {
-	var days = map[string]time.Weekday{
-		"sun": time.Sunday,
-		"mon": time.Monday,
-		"tue": time.Tuesday,
-		"wed": time.Wednesday,
-		"thu": time.Thursday,
-		"fri": time.Friday,
-		"sat": time.Saturday,
-	}
-
-	parsedWeekdays := []time.Weekday{}
-	for _, wd := range strings.Split(weekdays, ",") {
-		if day, ok := days[strings.TrimSpace(strings.ToLower(wd))]; ok {
-			parsedWeekdays = append(parsedWeekdays, day)
-		}
-	}
-	return parsedWeekdays
 }
 
 func newClient() (*kubernetes.Clientset, error) {

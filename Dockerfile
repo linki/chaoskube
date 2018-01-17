@@ -1,7 +1,7 @@
 # builder image
 FROM golang:1.9-alpine as builder
 
-RUN apk -U add git
+RUN apk --no-cache add git
 RUN go get github.com/golang/dep/cmd/dep
 WORKDIR /go/src/github.com/linki/chaoskube
 COPY . .
@@ -14,8 +14,8 @@ RUN go build -o /bin/chaoskube -v \
 FROM alpine:3.6
 MAINTAINER Linki <linki+docker.com@posteo.de>
 
-RUN addgroup -S chaoskube && adduser -S -g chaoskube chaoskube
+RUN apk --no-cache add dumb-init && addgroup -S chaoskube && adduser -S -g chaoskube chaoskube
 COPY --from=builder /bin/chaoskube /bin/chaoskube
 
 USER chaoskube
-ENTRYPOINT ["/bin/chaoskube"]
+ENTRYPOINT ["dumb-init", "--", "/bin/chaoskube"]

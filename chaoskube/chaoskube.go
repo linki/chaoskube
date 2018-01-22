@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -24,12 +25,18 @@ type Chaoskube struct {
 	Annotations labels.Selector
 	// a namespace selector which restricts the pods to choose from
 	Namespaces labels.Selector
+	// a list of weekdays when termination is suspended
+	ExcludedWeekdays []time.Weekday
+	// the timezone to apply when detecting the current weekday
+	Timezone *time.Location
 	// an instance of logrus.StdLogger to write log messages to
 	Logger log.StdLogger
 	// dry run will not allow any pod terminations
 	DryRun bool
 	// seed value for the randomizer
 	Seed int64
+	// a function to retrieve the current time
+	Now func() time.Time
 }
 
 // ErrPodNotFound is returned when no victim could be found
@@ -38,18 +45,26 @@ var ErrPodNotFound = errors.New("pod not found")
 // msgVictimNotFound is the log message when no victim was found
 var msgVictimNotFound = "No victim could be found. If that's surprising double-check your selectors."
 
+// msgWeekdayExcluded is the log message when termination is suspended due to the weekday filter
+var msgWeekdayExcluded = "This day of the week is excluded from chaos."
+
 // New returns a new instance of Chaoskube. It expects a kubernetes client, a
-// label and namespace selector to reduce the amount of affected pods as well as
-// whether to enable dryRun mode and a seed to seed the randomizer with.
-func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, logger log.StdLogger, dryRun bool, seed int64) *Chaoskube {
+// label, annotation and/or namespace selector to reduce the amount of affected
+// pods as well as whether to enable dryRun mode and a seed to seed the randomizer
+// with. You can also provide a list of weekdays and corresponding time zone when
+// chaoskube should be inactive.
+func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, timezone *time.Location, logger log.StdLogger, dryRun bool, seed int64) *Chaoskube {
 	c := &Chaoskube{
-		Client:      client,
-		Labels:      labels,
-		Annotations: annotations,
-		Namespaces:  namespaces,
-		Logger:      logger,
-		DryRun:      dryRun,
-		Seed:        seed,
+		Client:           client,
+		Labels:           labels,
+		Annotations:      annotations,
+		Namespaces:       namespaces,
+		ExcludedWeekdays: excludedWeekdays,
+		Timezone:         timezone,
+		Logger:           logger,
+		DryRun:           dryRun,
+		Seed:             seed,
+		Now:              time.Now,
 	}
 
 	rand.Seed(c.Seed)
@@ -109,6 +124,13 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 
 // TerminateVictim picks and deletes a victim if found.
 func (c *Chaoskube) TerminateVictim() error {
+	for _, wd := range c.ExcludedWeekdays {
+		if wd == c.Now().In(c.Timezone).Weekday() {
+			c.Logger.Printf(msgWeekdayExcluded)
+			return nil
+		}
+	}
+
 	victim, err := c.Victim()
 	if err == ErrPodNotFound {
 		c.Logger.Printf(msgVictimNotFound)

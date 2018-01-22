@@ -49,8 +49,10 @@ var msgVictimNotFound = "No victim could be found. If that's surprising double-c
 var msgWeekdayExcluded = "This day of the week is excluded from chaos."
 
 // New returns a new instance of Chaoskube. It expects a kubernetes client, a
-// label and namespace selector to reduce the amount of affected pods as well as
-// whether to enable dryRun mode and a seed to seed the randomizer with.
+// label, annotation and/or namespace selector to reduce the amount of affected
+// pods as well as whether to enable dryRun mode and a seed to seed the randomizer
+// with. You can also provide a list of weekdays and corresponding time zone when
+// chaoskube should be inactive.
 func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, timezone *time.Location, logger log.StdLogger, dryRun bool, seed int64) *Chaoskube {
 	c := &Chaoskube{
 		Client:           client,

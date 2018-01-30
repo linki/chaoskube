@@ -17,18 +17,19 @@ import (
 )
 
 var (
-	labelString      string
-	annString        string
-	nsString         string
-	excludedWeekdays string
-	timezone         string
-	master           string
-	kubeconfig       string
-	interval         time.Duration
-	inCluster        bool
-	dryRun           bool
-	debug            bool
-	version          string
+	labelString        string
+	annString          string
+	nsString           string
+	excludedWeekdays   string
+	excludedTimesOfDay string
+	timezone           string
+	master             string
+	kubeconfig         string
+	interval           time.Duration
+	inCluster          bool
+	dryRun             bool
+	debug              bool
+	version            string
 )
 
 func init() {
@@ -36,7 +37,8 @@ func init() {
 	kingpin.Flag("annotations", "A set of annotations to restrict the list of affected pods. Defaults to everything.").StringVar(&annString)
 	kingpin.Flag("namespaces", "A set of namespaces to restrict the list of affected pods. Defaults to everything.").StringVar(&nsString)
 	kingpin.Flag("excluded-weekdays", "A list of weekdays when termination is suspended, e.g. sat,sun").StringVar(&excludedWeekdays)
-	kingpin.Flag("timezone", "The timezone to apply when detecting the current weekday, e.g. UTC, Local, Europe/Berlin. Defaults to UTC.").Default("UTC").StringVar(&timezone)
+	kingpin.Flag("excluded-times-of-day", "A list of time periods of a day when termination is suspended, e.g. 10:00PM-08:00AM").StringVar(&excludedTimesOfDay)
+	kingpin.Flag("timezone", "The timezone by which to interpret the excluded weekdays and times of day, e.g. UTC, Local, Europe/Berlin. Defaults to UTC.").Default("UTC").StringVar(&timezone)
 	kingpin.Flag("master", "The address of the Kubernetes cluster to target").StringVar(&master)
 	kingpin.Flag("kubeconfig", "Path to a kubeconfig file").StringVar(&kubeconfig)
 	kingpin.Flag("interval", "Interval between Pod terminations").Default("10m").DurationVar(&interval)
@@ -100,12 +102,21 @@ func main() {
 		log.Infof("Excluding weekdays: %s", parsedWeekdays)
 	}
 
+	parsedTimesOfDay, err := util.ParseTimePeriods(excludedTimesOfDay)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if len(parsedTimesOfDay) > 0 {
+		log.Infof("Excluding times of day: %s", parsedTimesOfDay)
+	}
+
 	chaoskube := chaoskube.New(
 		client,
 		labelSelector,
 		annotations,
 		namespaces,
 		parsedWeekdays,
+		parsedTimesOfDay,
 		parsedTimezone,
 		log.StandardLogger(),
 		dryRun,

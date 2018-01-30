@@ -13,6 +13,8 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
+
+	"github.com/linki/chaoskube/util"
 )
 
 // Chaoskube represents an instance of chaoskube
@@ -27,6 +29,8 @@ type Chaoskube struct {
 	Namespaces labels.Selector
 	// a list of weekdays when termination is suspended
 	ExcludedWeekdays []time.Weekday
+	// a list of time periods of a day when termination is suspended
+	ExcludedTimesOfDay []util.TimePeriod
 	// the timezone to apply when detecting the current weekday
 	Timezone *time.Location
 	// an instance of logrus.StdLogger to write log messages to
@@ -48,23 +52,27 @@ var msgVictimNotFound = "No victim could be found. If that's surprising double-c
 // msgWeekdayExcluded is the log message when termination is suspended due to the weekday filter
 var msgWeekdayExcluded = "This day of the week is excluded from chaos."
 
+// msgTimeOfDayExcluded is the log message when termination is suspended due to the time of day filter
+var msgTimeOfDayExcluded = "This time of day is excluded from chaos."
+
 // New returns a new instance of Chaoskube. It expects a kubernetes client, a
 // label, annotation and/or namespace selector to reduce the amount of affected
 // pods as well as whether to enable dryRun mode and a seed to seed the randomizer
 // with. You can also provide a list of weekdays and corresponding time zone when
 // chaoskube should be inactive.
-func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, timezone *time.Location, logger log.StdLogger, dryRun bool, seed int64) *Chaoskube {
+func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, timezone *time.Location, logger log.StdLogger, dryRun bool, seed int64) *Chaoskube {
 	c := &Chaoskube{
-		Client:           client,
-		Labels:           labels,
-		Annotations:      annotations,
-		Namespaces:       namespaces,
-		ExcludedWeekdays: excludedWeekdays,
-		Timezone:         timezone,
-		Logger:           logger,
-		DryRun:           dryRun,
-		Seed:             seed,
-		Now:              time.Now,
+		Client:             client,
+		Labels:             labels,
+		Annotations:        annotations,
+		Namespaces:         namespaces,
+		ExcludedWeekdays:   excludedWeekdays,
+		ExcludedTimesOfDay: excludedTimesOfDay,
+		Timezone:           timezone,
+		Logger:             logger,
+		DryRun:             dryRun,
+		Seed:               seed,
+		Now:                time.Now,
 	}
 
 	rand.Seed(c.Seed)
@@ -127,6 +135,13 @@ func (c *Chaoskube) TerminateVictim() error {
 	for _, wd := range c.ExcludedWeekdays {
 		if wd == c.Now().In(c.Timezone).Weekday() {
 			c.Logger.Printf(msgWeekdayExcluded)
+			return nil
+		}
+	}
+
+	for _, tp := range c.ExcludedTimesOfDay {
+		if tp.Includes(c.Now().In(c.Timezone)) {
+			c.Logger.Printf(msgTimeOfDayExcluded)
 			return nil
 		}
 	}

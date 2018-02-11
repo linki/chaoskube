@@ -149,6 +149,23 @@ spec:
       ...
 ```
 
+## Limiting the Chaos
+
+You can limit the time when chaos is introduced. To turn on this feature, add a comma-separated list of abbreviated weekdays via the `--excluded-weekdays` option and specify a `--timezone` in which to interpret those weekdays. Use `UTC`, `Local` or pick a timezone name from the [(IANA) tz database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). If you're testing `chaoskube` from your local machine then `Local` makes the most sense. Once you deploy `chaoskube` to your cluster you should deploy it with a specific timezone, e.g. where most of your team members are living, so that both your team and `chaoskube` have a common understanding when a particular weekday begins and ends. If your team is spread across multiple time zones it's probably best to pick `UTC` which is also the default. Picking the wrong timezone shifts the meaning of, e.g., Saturday by a couple of hours between you and the server.
+
+## Flags
+
+| Option                | Description                                                          | Default                |
+|-----------------------|----------------------------------------------------------------------|------------------------|
+| `--interval`          | interval between pod terminations                                    | 10m                    |
+| `--labels`            | label selector to filter pods by                                     | (matches everything)   |
+| `--annotations`       | annotation selector to filter pods by                                | (matches everything)   |
+| `--namespaces`        | namespace selector to filter pods by                                 | (all namespaces)       |
+| `--namespace-labels`  | label selector to filter namespaces and its pods by                  | (all namespaces)       |
+| `--excluded-weekdays` | weekdays when chaos is to be suspended, e.g. "Sat,Sun"               | (no weekday excluded)  |
+| `--timezone`          | timezone from tz database, e.g. "America/New_York", "UTC" or "Local" | (UTC)                  |
+| `--dry-run`           | don't kill pods, only log what would have been done                  | true                   |
+
 ## Contributing
 
 Feel free to create issues or submit pull requests.

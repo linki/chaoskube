@@ -100,14 +100,13 @@ func TestTimePeriodIncludes(t *testing.T) {
 			atTheMoment,
 			false,
 		},
-
-		// it's just inside 2
+		// it's slightly inside before day switch
 		{
 			time.Date(1869, 9, 23, 23, 30, 00, 00, time.UTC),
 			midnight,
 			true,
 		},
-		// it's just inside 1
+		// it's slightly inside after day switch
 		{
 			time.Date(1869, 9, 24, 00, 30, 00, 00, time.UTC),
 			midnight,
@@ -195,10 +194,12 @@ func TestTimeOfDay(t *testing.T) {
 		pointInTime time.Time
 		expected    time.Time
 	}{
+		// strips of any day information
 		{
 			time.Date(1869, 9, 24, 15, 04, 05, 06, time.UTC),
 			time.Date(0, 0, 0, 15, 04, 05, 06, time.UTC),
 		},
+		// it normalizes to UTC timezone
 		{
 			time.Date(1869, 9, 24, 15, 04, 05, 06, timezone),
 			time.Date(0, 0, 0, 15, 04, 05, 06, time.UTC),

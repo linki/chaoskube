@@ -31,7 +31,7 @@ INFO[4804] Killing pod chaoskube/nginx-701339712-51nt8
 ...
 ```
 
-`chaoskube` allows to filter target pods [by namespaces, labels and annotations](#filtering-targets) as well as [exclude certain weekdays or times of day](###limiting-the-chaos) from chaos.
+`chaoskube` allows to filter target pods [by namespaces, labels and annotations](#filtering-targets) as well as [exclude certain weekdays or times of day](#limit-the-chaos) from chaos.
 
 ## How
 
@@ -138,7 +138,7 @@ spec:
       ...
 ```
 
-## Limiting the Chaos
+## Limit the Chaos
 
 You can limit the time when chaos is introduced by weekdays, time periods of a day or both.
 

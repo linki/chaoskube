@@ -142,7 +142,7 @@ spec:
 
 You can limit the time when chaos is introduced by weekdays, time periods of a day or both.
 
-Add a comma-separated list of abbreviated weekdays via the `--excluded-weekdays` options and/or a comma-separated list of time periods via the `--excluded-times-of-day` option and specify a `--timezone` in which to interpret them by.
+Add a comma-separated list of abbreviated weekdays via the `--excluded-weekdays` options and/or a comma-separated list of time periods via the `--excluded-times-of-day` option and specify a `--timezone` by which to interpret them.
 
 Use `UTC`, `Local` or pick a timezone name from the [(IANA) tz database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). If you're testing `chaoskube` from your local machine then `Local` makes the most sense. Once you deploy `chaoskube` to your cluster you should deploy it with a specific timezone, e.g. where most of your team members are living, so that both your team and `chaoskube` have a common understanding when a particular weekday begins and ends, for instance. If your team is spread across multiple time zones it's probably best to pick `UTC` which is also the default. Picking the wrong timezone shifts the meaning of a particular weekday by a couple of hours between you and the server.
 

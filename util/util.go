@@ -9,6 +9,11 @@ import (
 	"k8s.io/client-go/pkg/api/v1"
 )
 
+const (
+	// a short time format; like time.Kitchen but with 24-hour notation.
+	timeFormatKitchen24 = "15:04"
+)
+
 // TimePeriod represents a time period with a single beginning and end.
 type TimePeriod struct {
 	From time.Time
@@ -36,7 +41,7 @@ func (tp TimePeriod) Includes(pointInTime time.Time) bool {
 
 // String returns tp as a pretty string.
 func (tp TimePeriod) String() string {
-	return fmt.Sprintf("%s-%s", tp.From.Format(time.Kitchen), tp.To.Format(time.Kitchen))
+	return fmt.Sprintf("%s-%s", tp.From.Format(timeFormatKitchen24), tp.To.Format(timeFormatKitchen24))
 }
 
 // ParseWeekdays takes a comma-separated list of abbreviated weekdays (e.g. sat,sun) and turns them
@@ -61,8 +66,8 @@ func ParseWeekdays(weekdays string) []time.Weekday {
 	return parsedWeekdays
 }
 
-// ParseTimePeriods takes a comma-separated list of time periods in time.Kitchen-time.Kitchen format
-// and turns them into a slice of TimePeriods. It ignores any whitespace.
+// ParseTimePeriods takes a comma-separated list of time periods in Kitchen24 format and turns them
+// into a slice of TimePeriods. It ignores any whitespace.
 func ParseTimePeriods(timePeriods string) ([]TimePeriod, error) {
 	parsedTimePeriods := []TimePeriod{}
 
@@ -72,12 +77,12 @@ func ParseTimePeriods(timePeriods string) ([]TimePeriod, error) {
 			continue
 		}
 
-		begin, err := time.ParseInLocation(time.Kitchen, strings.TrimSpace(parts[0]), time.Local)
+		begin, err := time.ParseInLocation(timeFormatKitchen24, strings.TrimSpace(parts[0]), time.Local)
 		if err != nil {
 			return nil, err
 		}
 
-		end, err := time.ParseInLocation(time.Kitchen, strings.TrimSpace(parts[1]), time.Local)
+		end, err := time.ParseInLocation(timeFormatKitchen24, strings.TrimSpace(parts[1]), time.Local)
 		if err != nil {
 			return nil, err
 		}

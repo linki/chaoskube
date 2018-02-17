@@ -158,7 +158,7 @@ func TestTimePeriodString(t *testing.T) {
 		// empty time period
 		{
 			TimePeriod{},
-			"12:00AM-12:00AM",
+			"00:00-00:00",
 		},
 		// simple time period
 		{
@@ -166,7 +166,7 @@ func TestTimePeriodString(t *testing.T) {
 				From: time.Date(0, 0, 0, 8, 0, 0, 0, time.UTC),
 				To:   time.Date(0, 0, 0, 16, 0, 0, 0, time.UTC),
 			},
-			"8:00AM-4:00PM",
+			"08:00-16:00",
 		},
 		// time period across days
 		{
@@ -174,7 +174,7 @@ func TestTimePeriodString(t *testing.T) {
 				From: time.Date(0, 0, 0, 16, 0, 0, 0, time.UTC),
 				To:   time.Date(0, 0, 0, 8, 0, 0, 0, time.UTC),
 			},
-			"4:00PM-8:00AM",
+			"16:00-08:00",
 		},
 	} {
 		got := fmt.Sprintf("%s", tc.given)
@@ -279,7 +279,7 @@ func TestParseTimePeriods(t *testing.T) {
 		},
 		// single range string
 		{
-			"08:00AM-04:00PM",
+			"08:00-16:00",
 			[]TimePeriod{
 				{
 					From: time.Date(0, 0, 0, 8, 0, 0, 0, time.UTC),
@@ -289,7 +289,7 @@ func TestParseTimePeriods(t *testing.T) {
 		},
 		// multiple ranges string
 		{
-			"08:00AM-04:00PM,08:00PM-10:00PM",
+			"08:00-16:00,20:00-22:00",
 			[]TimePeriod{
 				{
 					From: time.Date(0, 0, 0, 8, 0, 0, 0, time.UTC),
@@ -303,7 +303,7 @@ func TestParseTimePeriods(t *testing.T) {
 		},
 		// string containing whitespace
 		{
-			" 08:00AM - 04:00PM ,, , 08:00PM - 10:00PM ",
+			" 08:00 - 16:00 ,, , 20:00 - 22:00 ",
 			[]TimePeriod{
 				{
 					From: time.Date(0, 0, 0, 8, 0, 0, 0, time.UTC),

@@ -155,7 +155,7 @@ Use `UTC`, `Local` or pick a timezone name from the [(IANA) tz database](https:/
 | `--annotations`           | annotation selector to filter pods by                                | (matches everything)       |
 | `--namespaces`            | namespace selector to filter pods by                                 | (all namespaces)           |
 | `--excluded-weekdays`     | weekdays when chaos is to be suspended, e.g. "Sat,Sun"               | (no weekday excluded)      |
-| `--excluded-times-of-day` | times of day when chaos is to be suspended, e.g. "10:00PM-08:00AM"   | (no times of day excluded) |
+| `--excluded-times-of-day` | times of day when chaos is to be suspended, e.g. "22:00-08:00"       | (no times of day excluded) |
 | `--timezone`              | timezone from tz database, e.g. "America/New_York", "UTC" or "Local" | (UTC)                      |
 | `--dry-run`               | don't kill pods, only log what would have been done                  | true                       |
 

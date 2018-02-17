@@ -3,7 +3,6 @@ package chaoskube
 import (
 	"bytes"
 	"log"
-	"strings"
 	"testing"
 	"time"
 
@@ -12,80 +11,65 @@ import (
 	"k8s.io/client-go/pkg/api/v1"
 
 	"github.com/linki/chaoskube/util"
+
+	"github.com/stretchr/testify/suite"
 )
 
-var logOutput = bytes.NewBuffer([]byte{})
-var logger = log.New(logOutput, "", 0)
-
-// TestNew tests that arguments are passed to the new instance correctly
-func TestNew(t *testing.T) {
-	client := fake.NewSimpleClientset()
-	labelSelector, _ := labels.Parse("foo=bar")
-	annotations, _ := labels.Parse("baz=waldo")
-	namespaces, _ := labels.Parse("qux")
-	excludedWeekdays := []time.Weekday{time.Friday}
-	excludedTimeOfDay := util.NewTimePeriod(ThankGodItsFriday{}.Now(), ThankGodItsFriday{}.Now())
-
-	chaoskube := New(client, labelSelector, annotations, namespaces, excludedWeekdays, []util.TimePeriod{excludedTimeOfDay}, time.UTC, logger, false, 42)
-
-	if chaoskube == nil {
-		t.Errorf("expected Chaoskube but got nothing")
-	}
-
-	if chaoskube.Client != client {
-		t.Errorf("expected %#v, got %#v", client, chaoskube.Client)
-	}
-
-	if chaoskube.Labels.String() != "foo=bar" {
-		t.Errorf("expected %s, got %s", "foo=bar", chaoskube.Labels.String())
-	}
-
-	if chaoskube.Annotations.String() != "baz=waldo" {
-		t.Errorf("expected %s, got %s", "baz=waldo", chaoskube.Annotations.String())
-	}
-
-	if chaoskube.Namespaces.String() != "qux" {
-		t.Errorf("expected %s, got %s", "qux", chaoskube.Namespaces.String())
-	}
-
-	if len(chaoskube.ExcludedWeekdays) != 1 {
-		t.Fatalf("expected %d, got %d", 1, len(chaoskube.ExcludedWeekdays))
-	}
-
-	if chaoskube.ExcludedWeekdays[0] != time.Friday {
-		t.Errorf("expected %s, got %s", time.Friday.String(), chaoskube.ExcludedWeekdays[0].String())
-	}
-
-	if len(chaoskube.ExcludedTimesOfDay) != 1 {
-		t.Fatalf("expected %d, got %d", 1, len(chaoskube.ExcludedTimesOfDay))
-	}
-
-	if chaoskube.ExcludedTimesOfDay[0] != excludedTimeOfDay {
-		t.Errorf("expected %#v, got %#v", excludedTimeOfDay, chaoskube.ExcludedTimesOfDay[0])
-	}
-
-	if chaoskube.Timezone != time.UTC {
-		t.Errorf("expected %#v, got %#v", time.UTC, chaoskube.Timezone)
-	}
-
-	if chaoskube.Logger != logger {
-		t.Errorf("expected %#v, got %#v", logger, chaoskube.Logger)
-	}
-
-	if chaoskube.DryRun != false {
-		t.Errorf("expected %t, got %t", false, chaoskube.DryRun)
-	}
-
-	if chaoskube.Seed != 42 {
-		t.Errorf("expected %d, got %d", 42, chaoskube.Seed)
-	}
+type Suite struct {
+	suite.Suite
 }
 
-func TestCandidates(t *testing.T) {
+var (
+	logOutput = bytes.NewBuffer([]byte{})
+	logger    = log.New(logOutput, "", 0)
+)
+
+func (suite *Suite) SetupTest() {
+	logOutput.Reset()
+}
+
+// TestNew tests that arguments are passed to the new instance correctly
+func (suite *Suite) TestNew() {
+	var (
+		client             = fake.NewSimpleClientset()
+		labelSelector, _   = labels.Parse("foo=bar")
+		annotations, _     = labels.Parse("baz=waldo")
+		namespaces, _      = labels.Parse("qux")
+		excludedWeekdays   = []time.Weekday{time.Friday}
+		excludedTimesOfDay = []util.TimePeriod{util.TimePeriod{}}
+	)
+
+	chaoskube := New(
+		client,
+		labelSelector,
+		annotations,
+		namespaces,
+		excludedWeekdays,
+		excludedTimesOfDay,
+		time.UTC,
+		logger,
+		false,
+		42,
+	)
+	suite.Require().NotNil(chaoskube)
+
+	suite.Equal(client, chaoskube.Client)
+	suite.Equal("foo=bar", chaoskube.Labels.String())
+	suite.Equal("baz=waldo", chaoskube.Annotations.String())
+	suite.Equal("qux", chaoskube.Namespaces.String())
+	suite.Equal(excludedWeekdays, chaoskube.ExcludedWeekdays)
+	suite.Equal(excludedTimesOfDay, chaoskube.ExcludedTimesOfDay)
+	suite.Equal(time.UTC, chaoskube.Timezone)
+	suite.Equal(logger, chaoskube.Logger)
+	suite.Equal(false, chaoskube.DryRun)
+	suite.EqualValues(42, chaoskube.Seed)
+}
+
+func (suite *Suite) TestCandidates() {
 	foo := map[string]string{"namespace": "default", "name": "foo"}
 	bar := map[string]string{"namespace": "testing", "name": "bar"}
 
-	for _, test := range []struct {
+	for _, tt := range []struct {
 		labelSelector      string
 		annotationSelector string
 		namespaceSelector  string
@@ -103,32 +87,35 @@ func TestCandidates(t *testing.T) {
 		{"", "", "default,!testing", []map[string]string{foo}},
 		{"", "", "default,!default", []map[string]string{}},
 	} {
-		labelSelector, err := labels.Parse(test.labelSelector)
-		if err != nil {
-			t.Fatal(err)
-		}
+		labelSelector, err := labels.Parse(tt.labelSelector)
+		suite.Require().NoError(err)
 
-		annotationSelector, err := labels.Parse(test.annotationSelector)
-		if err != nil {
-			t.Fatal(err)
-		}
+		annotationSelector, err := labels.Parse(tt.annotationSelector)
+		suite.Require().NoError(err)
 
-		namespaceSelector, err := labels.Parse(test.namespaceSelector)
-		if err != nil {
-			t.Fatal(err)
-		}
+		namespaceSelector, err := labels.Parse(tt.namespaceSelector)
+		suite.Require().NoError(err)
 
-		chaoskube := setup(t, labelSelector, annotationSelector, namespaceSelector, []time.Weekday{}, []util.TimePeriod{}, time.UTC, false, 0)
+		chaoskube := suite.setupWithPods(
+			labelSelector,
+			annotationSelector,
+			namespaceSelector,
+			[]time.Weekday{},
+			[]util.TimePeriod{},
+			time.UTC,
+			false,
+			0,
+		)
 
-		validateCandidates(t, chaoskube, test.pods)
+		suite.assertCandidates(chaoskube, tt.pods)
 	}
 }
 
-func TestVictim(t *testing.T) {
+func (suite *Suite) TestVictim() {
 	foo := map[string]string{"namespace": "default", "name": "foo"}
 	bar := map[string]string{"namespace": "testing", "name": "bar"}
 
-	for _, test := range []struct {
+	for _, tt := range []struct {
 		seed          int64
 		labelSelector string
 		victim        map[string]string
@@ -137,61 +124,92 @@ func TestVictim(t *testing.T) {
 		{4000, "", bar},
 		{4000, "app=foo", foo},
 	} {
-		labelSelector, err := labels.Parse(test.labelSelector)
-		if err != nil {
-			t.Fatal(err)
-		}
+		labelSelector, err := labels.Parse(tt.labelSelector)
+		suite.Require().NoError(err)
 
-		chaoskube := setup(t, labelSelector, labels.Everything(), labels.Everything(), []time.Weekday{}, []util.TimePeriod{}, time.UTC, false, test.seed)
+		chaoskube := suite.setupWithPods(
+			labelSelector,
+			labels.Everything(),
+			labels.Everything(),
+			[]time.Weekday{},
+			[]util.TimePeriod{},
+			time.UTC,
+			false,
+			tt.seed,
+		)
 
-		validateVictim(t, chaoskube, test.victim)
+		suite.assertVictim(chaoskube, tt.victim)
 	}
 }
 
 // TestNoVictimReturnsError tests that on missing victim it returns a known error
-func TestNoVictimReturnsError(t *testing.T) {
-	chaoskube := New(fake.NewSimpleClientset(), labels.Everything(), labels.Everything(), labels.Everything(), []time.Weekday{}, []util.TimePeriod{}, time.UTC, logger, false, 0)
+func (suite *Suite) TestNoVictimReturnsError() {
+	chaoskube := suite.setup(
+		labels.Everything(),
+		labels.Everything(),
+		labels.Everything(),
+		[]time.Weekday{},
+		[]util.TimePeriod{},
+		time.UTC,
+		false,
+		0,
+	)
 
-	if _, err := chaoskube.Victim(); err != ErrPodNotFound {
-		t.Errorf("expected %#v, got %#v", ErrPodNotFound, err)
-	}
+	_, err := chaoskube.Victim()
+	suite.Equal(err, ErrPodNotFound)
+	suite.EqualError(err, "pod not found")
 }
 
-func TestDeletePod(t *testing.T) {
+func (suite *Suite) TestDeletePod() {
 	foo := map[string]string{"namespace": "default", "name": "foo"}
 	bar := map[string]string{"namespace": "testing", "name": "bar"}
 
-	for _, test := range []struct {
+	for _, tt := range []struct {
 		dryRun        bool
 		remainingPods []map[string]string
 	}{
 		{false, []map[string]string{bar}},
 		{true, []map[string]string{foo, bar}},
 	} {
-		chaoskube := setup(t, labels.Everything(), labels.Everything(), labels.Everything(), []time.Weekday{}, []util.TimePeriod{}, time.UTC, test.dryRun, 0)
+		chaoskube := suite.setupWithPods(
+			labels.Everything(),
+			labels.Everything(),
+			labels.Everything(),
+			[]time.Weekday{},
+			[]util.TimePeriod{},
+			time.UTC,
+			tt.dryRun,
+			0,
+		)
 
 		victim := util.NewPod("default", "foo")
 
-		if err := chaoskube.DeletePod(victim); err != nil {
-			t.Fatal(err)
-		}
+		err := chaoskube.DeletePod(victim)
+		suite.Require().NoError(err)
 
-		validateLog(t, "Killing pod default/foo")
-		validateCandidates(t, chaoskube, test.remainingPods)
+		suite.assertLog("Killing pod default/foo")
+		suite.assertCandidates(chaoskube, tt.remainingPods)
 	}
 }
 
-func TestTerminateVictim(t *testing.T) {
-	midnight := util.NewTimePeriod(ThankGodItsFriday{}.Now().Add(-16*time.Hour), ThankGodItsFriday{}.Now().Add(-14*time.Hour))
-	morning := util.NewTimePeriod(ThankGodItsFriday{}.Now().Add(-7*time.Hour), ThankGodItsFriday{}.Now().Add(-6*time.Hour))
-	afternoon := util.NewTimePeriod(ThankGodItsFriday{}.Now().Add(-1*time.Hour), ThankGodItsFriday{}.Now().Add(+1*time.Hour))
+func (suite *Suite) TestTerminateVictim() {
+	midnight := util.NewTimePeriod(
+		ThankGodItsFriday{}.Now().Add(-16*time.Hour),
+		ThankGodItsFriday{}.Now().Add(-14*time.Hour),
+	)
+	morning := util.NewTimePeriod(
+		ThankGodItsFriday{}.Now().Add(-7*time.Hour),
+		ThankGodItsFriday{}.Now().Add(-6*time.Hour),
+	)
+	afternoon := util.NewTimePeriod(
+		ThankGodItsFriday{}.Now().Add(-1*time.Hour),
+		ThankGodItsFriday{}.Now().Add(+1*time.Hour),
+	)
 
 	australia, err := time.LoadLocation("Australia/Brisbane")
-	if err != nil {
-		t.Fatal(err)
-	}
+	suite.Require().NoError(err)
 
-	for _, test := range []struct {
+	for _, tt := range []struct {
 		excludedWeekdays   []time.Weekday
 		excludedTimesOfDay []util.TimePeriod
 		now                func() time.Time
@@ -311,103 +329,122 @@ func TestTerminateVictim(t *testing.T) {
 			1,
 		},
 	} {
-		chaoskube := setup(t, labels.Everything(), labels.Everything(), labels.Everything(), test.excludedWeekdays, test.excludedTimesOfDay, test.timezone, false, 0)
-		chaoskube.Now = test.now
+		chaoskube := suite.setupWithPods(
+			labels.Everything(),
+			labels.Everything(),
+			labels.Everything(),
+			tt.excludedWeekdays,
+			tt.excludedTimesOfDay,
+			tt.timezone,
+			false,
+			0,
+		)
+		chaoskube.Now = tt.now
 
-		if err := chaoskube.TerminateVictim(); err != nil {
-			t.Fatal(err)
-		}
+		err := chaoskube.TerminateVictim()
+		suite.Require().NoError(err)
 
-		validateCandidatesCount(t, chaoskube, test.remainingPodCount)
+		pods, err := chaoskube.Candidates()
+		suite.Require().NoError(err)
+
+		suite.Len(pods, tt.remainingPodCount)
 	}
 }
 
 // TestTerminateNoVictimLogsInfo tests that missing victim prints a log message
-func TestTerminateNoVictimLogsInfo(t *testing.T) {
-	logOutput.Reset()
-	chaoskube := New(fake.NewSimpleClientset(), labels.Everything(), labels.Everything(), labels.Everything(), []time.Weekday{}, []util.TimePeriod{}, time.UTC, logger, false, 0)
+func (suite *Suite) TestTerminateNoVictimLogsInfo() {
+	chaoskube := suite.setup(
+		labels.Everything(),
+		labels.Everything(),
+		labels.Everything(),
+		[]time.Weekday{},
+		[]util.TimePeriod{},
+		time.UTC,
+		false,
+		0,
+	)
 
-	if err := chaoskube.TerminateVictim(); err != nil {
-		t.Fatal(err)
-	}
+	err := chaoskube.TerminateVictim()
+	suite.Require().NoError(err)
 
-	validateLog(t, msgVictimNotFound)
+	suite.assertLog(msgVictimNotFound)
 }
 
 // helper functions
 
-func validateCandidatesCount(t *testing.T, chaoskube *Chaoskube, expected int) {
+func (suite *Suite) assertCandidates(chaoskube *Chaoskube, expected []map[string]string) {
 	pods, err := chaoskube.Candidates()
-	if err != nil {
-		t.Fatal(err)
-	}
+	suite.Require().NoError(err)
 
-	if len(pods) != expected {
-		t.Errorf("expected %d pods, got %d pods", expected, len(pods))
-	}
+	suite.assertPods(pods, expected)
 }
 
-func validateCandidates(t *testing.T, chaoskube *Chaoskube, expected []map[string]string) {
-	pods, err := chaoskube.Candidates()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	validatePods(t, pods, expected)
-}
-
-func validateVictim(t *testing.T, chaoskube *Chaoskube, expected map[string]string) {
+func (suite *Suite) assertVictim(chaoskube *Chaoskube, expected map[string]string) {
 	victim, err := chaoskube.Victim()
-	if err != nil {
-		t.Fatal(err)
-	}
+	suite.Require().NoError(err)
 
-	validatePod(t, victim, expected)
+	suite.assertPod(victim, expected)
 }
 
-func validatePods(t *testing.T, pods []v1.Pod, expected []map[string]string) {
-	if len(pods) != len(expected) {
-		t.Fatalf("expected %d pod(s), got %d", len(expected), len(pods))
-	}
+func (suite *Suite) assertPods(pods []v1.Pod, expected []map[string]string) {
+	suite.Require().Len(pods, len(expected))
 
 	for i, pod := range pods {
-		validatePod(t, pod, expected[i])
+		suite.assertPod(pod, expected[i])
 	}
 }
 
-func validatePod(t *testing.T, pod v1.Pod, expected map[string]string) {
-	if pod.Namespace != expected["namespace"] {
-		t.Errorf("expected %s, got %s", expected["namespace"], pod.Namespace)
-	}
-
-	if pod.Name != expected["name"] {
-		t.Errorf("expected %s, got %s", expected["name"], pod.Name)
-	}
+func (suite *Suite) assertPod(pod v1.Pod, expected map[string]string) {
+	suite.Equal(expected["namespace"], pod.Namespace)
+	suite.Equal(expected["name"], pod.Name)
 }
 
-func validateLog(t *testing.T, msg string) {
-	if !strings.Contains(logOutput.String(), msg) {
-		t.Errorf("expected string '%s' in '%s'.", msg, logOutput.String())
-	}
+func (suite *Suite) assertLog(msg string) {
+	suite.Contains(logOutput.String(), msg)
 }
 
-func setup(t *testing.T, labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, timezone *time.Location, dryRun bool, seed int64) *Chaoskube {
+func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, timezone *time.Location, dryRun bool, seed int64) *Chaoskube {
+	chaoskube := suite.setup(
+		labelSelector,
+		annotations,
+		namespaces,
+		excludedWeekdays,
+		excludedTimesOfDay,
+		timezone,
+		dryRun,
+		seed,
+	)
+
 	pods := []v1.Pod{
 		util.NewPod("default", "foo"),
 		util.NewPod("testing", "bar"),
 	}
 
-	client := fake.NewSimpleClientset()
-
 	for _, pod := range pods {
-		if _, err := client.Core().Pods(pod.Namespace).Create(&pod); err != nil {
-			t.Fatal(err)
-		}
+		_, err := chaoskube.Client.Core().Pods(pod.Namespace).Create(&pod)
+		suite.Require().NoError(err)
 	}
 
-	logOutput.Reset()
+	return chaoskube
+}
 
-	return New(client, labelSelector, annotations, namespaces, excludedWeekdays, excludedTimesOfDay, timezone, logger, dryRun, seed)
+func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, timezone *time.Location, dryRun bool, seed int64) *Chaoskube {
+	return New(
+		fake.NewSimpleClientset(),
+		labelSelector,
+		annotations,
+		namespaces,
+		excludedWeekdays,
+		excludedTimesOfDay,
+		timezone,
+		logger,
+		dryRun,
+		seed,
+	)
+}
+
+func TestSuite(t *testing.T) {
+	suite.Run(t, new(Suite))
 }
 
 // ThankGodItsFriday is a helper struct that contains a Now() function that always returns a Friday.

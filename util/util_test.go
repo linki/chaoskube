@@ -1,18 +1,21 @@
 package util
 
 import (
-	"fmt"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/suite"
 )
 
-func TestNewTimePeriod(t *testing.T) {
-	timezone, err := time.LoadLocation("Australia/Brisbane")
-	if err != nil {
-		t.Fatal(err)
-	}
+type Suite struct {
+	suite.Suite
+}
 
-	for _, tc := range []struct {
+func (suite *Suite) TestNewTimePeriod() {
+	timezone, err := time.LoadLocation("Australia/Brisbane")
+	suite.Require().NoError(err)
+
+	for _, tt := range []struct {
 		from     time.Time
 		to       time.Time
 		expected TimePeriod
@@ -45,27 +48,22 @@ func TestNewTimePeriod(t *testing.T) {
 			},
 		},
 	} {
-		got := NewTimePeriod(tc.from, tc.to)
-		if tc.expected.From != got.From {
-			t.Fatalf("expected %v, got %v", tc.expected, got)
-		}
-		if tc.expected.To != got.To {
-			t.Fatalf("expected %v, got %v", tc.expected, got)
-		}
+		suite.Equal(tt.expected, NewTimePeriod(tt.from, tt.to))
 	}
 }
 
-func TestTimePeriodIncludes(t *testing.T) {
-	atTheMoment := NewTimePeriod(time.Now().Add(-1*time.Minute), time.Now().Add(+1*time.Minute))
-
+func (suite *Suite) TestTimePeriodIncludes() {
+	atTheMoment := NewTimePeriod(
+		time.Now().Add(-1*time.Minute),
+		time.Now().Add(+1*time.Minute),
+	)
 	midnight := NewTimePeriod(
 		time.Date(1869, 9, 23, 23, 00, 00, 00, time.UTC),
 		time.Date(1869, 9, 24, 01, 00, 00, 00, time.UTC),
 	)
-
 	now := time.Now()
 
-	for _, tc := range []struct {
+	for _, tt := range []struct {
 		pointInTime time.Time
 		timeOfDay   TimePeriod
 		expected    bool
@@ -143,15 +141,12 @@ func TestTimePeriodIncludes(t *testing.T) {
 			false,
 		},
 	} {
-		got := tc.timeOfDay.Includes(tc.pointInTime)
-		if tc.expected != got {
-			t.Errorf("expected %v, got %v", tc.expected, got)
-		}
+		suite.Equal(tt.expected, tt.timeOfDay.Includes(tt.pointInTime))
 	}
 }
 
-func TestTimePeriodString(t *testing.T) {
-	for _, tc := range []struct {
+func (suite *Suite) TestTimePeriodString() {
+	for _, tt := range []struct {
 		given    TimePeriod
 		expected string
 	}{
@@ -177,20 +172,15 @@ func TestTimePeriodString(t *testing.T) {
 			"16:00-08:00",
 		},
 	} {
-		got := fmt.Sprintf("%s", tc.given)
-		if tc.expected != got {
-			t.Fatalf("expected %s, got %s", tc.expected, got)
-		}
+		suite.Equal(tt.expected, tt.given.String())
 	}
 }
 
-func TestTimeOfDay(t *testing.T) {
+func (suite *Suite) TestTimeOfDay() {
 	timezone, err := time.LoadLocation("Australia/Brisbane")
-	if err != nil {
-		t.Fatal(err)
-	}
+	suite.Require().NoError(err)
 
-	for _, tc := range []struct {
+	for _, tt := range []struct {
 		pointInTime time.Time
 		expected    time.Time
 	}{
@@ -205,15 +195,12 @@ func TestTimeOfDay(t *testing.T) {
 			time.Date(0, 0, 0, 15, 04, 05, 06, time.UTC),
 		},
 	} {
-		got := TimeOfDay(tc.pointInTime)
-		if tc.expected != got {
-			t.Fatalf("expected %v, got %v", tc.expected, got)
-		}
+		suite.Equal(tt.expected, TimeOfDay(tt.pointInTime))
 	}
 }
 
-func TestParseWeekdays(t *testing.T) {
-	for _, tc := range []struct {
+func (suite *Suite) TestParseWeekdays() {
+	for _, tt := range []struct {
 		given    string
 		expected []time.Weekday
 	}{
@@ -253,22 +240,12 @@ func TestParseWeekdays(t *testing.T) {
 			[]time.Weekday{time.Friday, time.Saturday, time.Tuesday},
 		},
 	} {
-		got := ParseWeekdays(tc.given)
-
-		if len(tc.expected) != len(got) {
-			t.Fatalf("expected %d, got %d", len(tc.expected), len(got))
-		}
-
-		for i := range tc.expected {
-			if tc.expected[i] != got[i] {
-				t.Errorf("expected %v, got %v", tc.expected[i], got[i])
-			}
-		}
+		suite.Equal(tt.expected, ParseWeekdays(tt.given))
 	}
 }
 
-func TestParseTimePeriods(t *testing.T) {
-	for _, tc := range []struct {
+func (suite *Suite) TestParseTimePeriods() {
+	for _, tt := range []struct {
 		given    string
 		expected []TimePeriod
 	}{
@@ -316,19 +293,13 @@ func TestParseTimePeriods(t *testing.T) {
 			},
 		},
 	} {
-		got, err := ParseTimePeriods(tc.given)
-		if err != nil {
-			t.Fatal(err)
-		}
+		timePeriods, err := ParseTimePeriods(tt.given)
+		suite.Require().NoError(err)
 
-		if len(tc.expected) != len(got) {
-			t.Fatalf("expected %d, got %d", len(tc.expected), len(got))
-		}
-
-		for i := range tc.expected {
-			if tc.expected[i] != got[i] {
-				t.Errorf("expected %v, got %v", tc.expected[i], got[i])
-			}
-		}
+		suite.Equal(tt.expected, timePeriods)
 	}
+}
+
+func TestSuite(t *testing.T) {
+	suite.Run(t, new(Suite))
 }

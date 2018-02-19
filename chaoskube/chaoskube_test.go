@@ -1,10 +1,11 @@
 package chaoskube
 
 import (
-	"bytes"
-	"log"
 	"testing"
 	"time"
+
+	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes/fake"
@@ -20,8 +21,7 @@ type Suite struct {
 }
 
 var (
-	logOutput = bytes.NewBuffer([]byte{})
-	logger    = log.New(logOutput, "", 0)
+	logger, logOutput = test.NewNullLogger()
 )
 
 func (suite *Suite) SetupTest() {
@@ -400,7 +400,9 @@ func (suite *Suite) assertPod(pod v1.Pod, expected map[string]string) {
 }
 
 func (suite *Suite) assertLog(msg string) {
-	suite.Contains(logOutput.String(), msg)
+	suite.Require().Len(logOutput.Entries, 1)
+	suite.Equal(log.InfoLevel, logOutput.LastEntry().Level)
+	suite.Equal(msg, logOutput.LastEntry().Message)
 }
 
 func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, timezone *time.Location, dryRun bool, seed int64) *Chaoskube {
@@ -429,6 +431,8 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 }
 
 func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, timezone *time.Location, dryRun bool, seed int64) *Chaoskube {
+	logOutput.Reset()
+
 	return New(
 		fake.NewSimpleClientset(),
 		labelSelector,

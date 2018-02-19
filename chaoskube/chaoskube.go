@@ -34,7 +34,7 @@ type Chaoskube struct {
 	// the timezone to apply when detecting the current weekday
 	Timezone *time.Location
 	// an instance of logrus.StdLogger to write log messages to
-	Logger log.StdLogger
+	Logger log.FieldLogger
 	// dry run will not allow any pod terminations
 	DryRun bool
 	// seed value for the randomizer
@@ -60,7 +60,7 @@ var msgTimeOfDayExcluded = "This time of day is excluded from chaos."
 // pods as well as whether to enable dryRun mode and a seed to seed the randomizer
 // with. You can also provide a list of weekdays and corresponding time zone when
 // chaoskube should be inactive.
-func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, timezone *time.Location, logger log.StdLogger, dryRun bool, seed int64) *Chaoskube {
+func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, timezone *time.Location, logger log.FieldLogger, dryRun bool, seed int64) *Chaoskube {
 	c := &Chaoskube{
 		Client:             client,
 		Labels:             labels,
@@ -121,7 +121,7 @@ func (c *Chaoskube) Victim() (v1.Pod, error) {
 
 // DeletePod deletes the passed in pod iff dry run mode is enabled.
 func (c *Chaoskube) DeletePod(victim v1.Pod) error {
-	c.Logger.Printf("Killing pod %s/%s", victim.Namespace, victim.Name)
+	c.Logger.Infof("Killing pod %s/%s", victim.Namespace, victim.Name)
 
 	if c.DryRun {
 		return nil
@@ -134,21 +134,21 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 func (c *Chaoskube) TerminateVictim() error {
 	for _, wd := range c.ExcludedWeekdays {
 		if wd == c.Now().In(c.Timezone).Weekday() {
-			c.Logger.Printf(msgWeekdayExcluded)
+			c.Logger.Infof(msgWeekdayExcluded)
 			return nil
 		}
 	}
 
 	for _, tp := range c.ExcludedTimesOfDay {
 		if tp.Includes(c.Now().In(c.Timezone)) {
-			c.Logger.Printf(msgTimeOfDayExcluded)
+			c.Logger.Infof(msgTimeOfDayExcluded)
 			return nil
 		}
 	}
 
 	victim, err := c.Victim()
 	if err == ErrPodNotFound {
-		c.Logger.Printf(msgVictimNotFound)
+		c.Logger.Infof(msgVictimNotFound)
 		return nil
 	}
 	if err != nil {

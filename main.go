@@ -26,7 +26,6 @@ var (
 	master             string
 	kubeconfig         string
 	interval           time.Duration
-	inCluster          bool
 	dryRun             bool
 	debug              bool
 	version            string
@@ -54,9 +53,20 @@ func main() {
 		log.SetLevel(log.DebugLevel)
 	}
 
-	if dryRun {
-		log.Infof("Dry run enabled. I won't kill anything. Use --no-dry-run when you're ready.")
-	}
+	log.WithFields(log.Fields{
+		"labels":             labelString,
+		"annotations":        annString,
+		"namespaces":         nsString,
+		"excludedWeekdays":   excludedWeekdays,
+		"excludedTimesOfDay": excludedTimesOfDay,
+		"timezone":           timezone,
+		"master":             master,
+		"kubeconfig":         kubeconfig,
+		"interval":           interval,
+		"dryRun":             dryRun,
+		"debug":              debug,
+		"version":            version,
+	}).Debugf("reading config")
 
 	client, err := newClient()
 	if err != nil {
@@ -67,48 +77,43 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	annotations, err := labels.Parse(annString)
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	namespaces, err := labels.Parse(nsString)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if !labelSelector.Empty() {
-		log.Infof("Filtering pods by labels: %s", labelSelector.String())
+	log.WithFields(log.Fields{
+		"labels":      labelSelector,
+		"annotations": annotations,
+		"namespaces":  namespaces,
+	}).Infof("filtering candidates")
+
+	parsedWeekdays := util.ParseWeekdays(excludedWeekdays)
+	parsedTimesOfDay, err := util.ParseTimePeriods(excludedTimesOfDay)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	if !annotations.Empty() {
-		log.Infof("Filtering pods by annotations: %s", annotations.String())
-	}
-
-	if !namespaces.Empty() {
-		log.Infof("Filtering pods by namespaces: %s", namespaces.String())
-	}
+	log.WithFields(log.Fields{
+		"weekdays":   parsedWeekdays,
+		"timesOfDay": parsedTimesOfDay,
+	}).Infof("setting quiet times")
 
 	parsedTimezone, err := time.LoadLocation(timezone)
 	if err != nil {
 		log.Fatal(err)
 	}
-	timezoneName, _ := time.Now().In(parsedTimezone).Zone()
-	log.Infof("Using time zone: %s (%s)", parsedTimezone.String(), timezoneName)
+	timezoneName, offset := time.Now().In(parsedTimezone).Zone()
 
-	parsedWeekdays := util.ParseWeekdays(excludedWeekdays)
-	if len(parsedWeekdays) > 0 {
-		log.Infof("Excluding weekdays: %s", parsedWeekdays)
-	}
-
-	parsedTimesOfDay, err := util.ParseTimePeriods(excludedTimesOfDay)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if len(parsedTimesOfDay) > 0 {
-		log.Infof("Excluding times of day: %s", parsedTimesOfDay)
-	}
+	log.WithFields(log.Fields{
+		"name":     timezoneName,
+		"location": parsedTimezone,
+		"offset":   offset / int(time.Hour/time.Second),
+	}).Infof("setting timezone")
 
 	chaoskube := chaoskube.New(
 		client,
@@ -125,10 +130,14 @@ func main() {
 
 	for {
 		if err := chaoskube.TerminateVictim(); err != nil {
-			log.Fatal(err)
+			log.WithFields(log.Fields{
+				"err": err,
+			}).Error("failed to terminate victim")
 		}
 
-		log.Debugf("Sleeping for %s...", interval)
+		log.WithFields(log.Fields{
+			"duration": interval,
+		}).Debug("sleeping")
 		time.Sleep(interval)
 	}
 }
@@ -145,12 +154,20 @@ func newClient() (*kubernetes.Clientset, error) {
 		return nil, err
 	}
 
-	log.Infof("Targeting cluster at %s", config.Host)
-
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}
+
+	serverVersion, err := client.Discovery().ServerVersion()
+	if err != nil {
+		return nil, err
+	}
+
+	log.WithFields(log.Fields{
+		"url":           config.Host,
+		"serverVersion": serverVersion,
+	}).Info("connecting to cluster")
 
 	return client, nil
 }

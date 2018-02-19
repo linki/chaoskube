@@ -43,17 +43,16 @@ type Chaoskube struct {
 	Now func() time.Time
 }
 
-// ErrPodNotFound is returned when no victim could be found
-var ErrPodNotFound = errors.New("pod not found")
-
-// msgVictimNotFound is the log message when no victim was found
-var msgVictimNotFound = "No victim could be found. If that's surprising double-check your selectors."
-
-// msgWeekdayExcluded is the log message when termination is suspended due to the weekday filter
-var msgWeekdayExcluded = "This day of the week is excluded from chaos."
-
-// msgTimeOfDayExcluded is the log message when termination is suspended due to the time of day filter
-var msgTimeOfDayExcluded = "This time of day is excluded from chaos."
+var (
+	// ErrPodNotFound is returned when no victim could be found
+	ErrPodNotFound = errors.New("pod not found")
+	// msgVictimNotFound is the log message when no victim was found
+	msgVictimNotFound = "no victim found"
+	// msgWeekdayExcluded is the log message when termination is suspended due to the weekday filter
+	msgWeekdayExcluded = "weekday excluded"
+	// msgTimeOfDayExcluded is the log message when termination is suspended due to the time of day filter
+	msgTimeOfDayExcluded = "time of day excluded"
+)
 
 // New returns a new instance of Chaoskube. It expects a kubernetes client, a
 // label, annotation and/or namespace selector to reduce the amount of affected
@@ -110,6 +109,10 @@ func (c *Chaoskube) Victim() (v1.Pod, error) {
 		return v1.Pod{}, err
 	}
 
+	c.Logger.WithFields(log.Fields{
+		"count": len(pods),
+	}).Debugf("found candidates")
+
 	if len(pods) == 0 {
 		return v1.Pod{}, ErrPodNotFound
 	}
@@ -121,7 +124,11 @@ func (c *Chaoskube) Victim() (v1.Pod, error) {
 
 // DeletePod deletes the passed in pod iff dry run mode is enabled.
 func (c *Chaoskube) DeletePod(victim v1.Pod) error {
-	c.Logger.Infof("Killing pod %s/%s", victim.Namespace, victim.Name)
+	c.Logger.WithFields(log.Fields{
+		"namespace": victim.Namespace,
+		"name":      victim.Name,
+		"dryRun":    c.DryRun,
+	}).Infof("killing pod")
 
 	if c.DryRun {
 		return nil
@@ -132,16 +139,22 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 
 // TerminateVictim picks and deletes a victim if found.
 func (c *Chaoskube) TerminateVictim() error {
+	now := c.Now().In(c.Timezone)
+
 	for _, wd := range c.ExcludedWeekdays {
-		if wd == c.Now().In(c.Timezone).Weekday() {
-			c.Logger.Infof(msgWeekdayExcluded)
+		if wd == now.Weekday() {
+			c.Logger.WithFields(log.Fields{
+				"weekday": now.Weekday(),
+			}).Infof(msgWeekdayExcluded)
 			return nil
 		}
 	}
 
 	for _, tp := range c.ExcludedTimesOfDay {
-		if tp.Includes(c.Now().In(c.Timezone)) {
-			c.Logger.Infof(msgTimeOfDayExcluded)
+		if tp.Includes(now) {
+			c.Logger.WithFields(log.Fields{
+				"timeOfDay": now.Format(util.Kitchen24),
+			}).Infof(msgTimeOfDayExcluded)
 			return nil
 		}
 	}

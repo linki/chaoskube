@@ -109,9 +109,7 @@ func (c *Chaoskube) Victim() (v1.Pod, error) {
 		return v1.Pod{}, err
 	}
 
-	c.Logger.WithFields(log.Fields{
-		"count": len(pods),
-	}).Debugf("found candidates")
+	c.Logger.WithField("count", len(pods)).Debugf("considering candidates")
 
 	if len(pods) == 0 {
 		return v1.Pod{}, ErrPodNotFound
@@ -143,18 +141,14 @@ func (c *Chaoskube) TerminateVictim() error {
 
 	for _, wd := range c.ExcludedWeekdays {
 		if wd == now.Weekday() {
-			c.Logger.WithFields(log.Fields{
-				"weekday": now.Weekday(),
-			}).Infof(msgWeekdayExcluded)
+			c.Logger.WithField("weekday", now.Weekday()).Infof(msgWeekdayExcluded)
 			return nil
 		}
 	}
 
 	for _, tp := range c.ExcludedTimesOfDay {
 		if tp.Includes(now) {
-			c.Logger.WithFields(log.Fields{
-				"timeOfDay": now.Format(util.Kitchen24),
-			}).Infof(msgTimeOfDayExcluded)
+			c.Logger.WithField("timeOfDay", now.Format(util.Kitchen24)).Infof(msgTimeOfDayExcluded)
 			return nil
 		}
 	}

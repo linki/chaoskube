@@ -130,14 +130,10 @@ func main() {
 
 	for {
 		if err := chaoskube.TerminateVictim(); err != nil {
-			log.WithFields(log.Fields{
-				"err": err,
-			}).Error("failed to terminate victim")
+			log.WithField("err", err).Error("failed to terminate victim")
 		}
 
-		log.WithFields(log.Fields{
-			"duration": interval,
-		}).Debug("sleeping")
+		log.WithField("duration", interval).Debug("sleeping")
 		time.Sleep(interval)
 	}
 }

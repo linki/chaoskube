@@ -81,12 +81,12 @@ func ParseTimePeriods(timePeriods string) ([]TimePeriod, error) {
 			return nil, fmt.Errorf("Invalid time range '%v': must contain exactly one '-'", tp)
 		}
 
-		begin, err := time.ParseInLocation(timeFormatKitchen24, strings.TrimSpace(parts[0]), time.Local)
+		begin, err := time.Parse(timeFormatKitchen24, strings.TrimSpace(parts[0]))
 		if err != nil {
 			return nil, err
 		}
 
-		end, err := time.ParseInLocation(timeFormatKitchen24, strings.TrimSpace(parts[1]), time.Local)
+		end, err := time.Parse(timeFormatKitchen24, strings.TrimSpace(parts[1]))
 		if err != nil {
 			return nil, err
 		}

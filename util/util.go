@@ -72,17 +72,21 @@ func ParseTimePeriods(timePeriods string) ([]TimePeriod, error) {
 	parsedTimePeriods := []TimePeriod{}
 
 	for _, tp := range strings.Split(timePeriods, ",") {
-		parts := strings.Split(tp, "-")
-		if len(parts) != 2 {
+		if strings.TrimSpace(tp) == "" {
 			continue
 		}
 
-		begin, err := time.ParseInLocation(timeFormatKitchen24, strings.TrimSpace(parts[0]), time.Local)
+		parts := strings.Split(tp, "-")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("Invalid time range '%v': must contain exactly one '-'", tp)
+		}
+
+		begin, err := time.Parse(timeFormatKitchen24, strings.TrimSpace(parts[0]))
 		if err != nil {
 			return nil, err
 		}
 
-		end, err := time.ParseInLocation(timeFormatKitchen24, strings.TrimSpace(parts[1]), time.Local)
+		end, err := time.Parse(timeFormatKitchen24, strings.TrimSpace(parts[1]))
 		if err != nil {
 			return nil, err
 		}

@@ -134,21 +134,21 @@ func (c *Chaoskube) TerminateVictim() error {
 
 	for _, wd := range c.ExcludedWeekdays {
 		if wd == now.Weekday() {
-			c.Logger.WithField("weekday", now.Weekday()).Info(msgWeekdayExcluded)
+			c.Logger.WithField("weekday", now.Weekday()).Debug(msgWeekdayExcluded)
 			return nil
 		}
 	}
 
 	for _, tp := range c.ExcludedTimesOfDay {
 		if tp.Includes(now) {
-			c.Logger.WithField("timeOfDay", now.Format(util.Kitchen24)).Info(msgTimeOfDayExcluded)
+			c.Logger.WithField("timeOfDay", now.Format(util.Kitchen24)).Debug(msgTimeOfDayExcluded)
 			return nil
 		}
 	}
 
 	victim, err := c.Victim()
 	if err == errPodNotFound {
-		c.Logger.Info(msgVictimNotFound)
+		c.Logger.Debug(msgVictimNotFound)
 		return nil
 	}
 	if err != nil {

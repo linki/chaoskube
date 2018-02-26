@@ -37,8 +37,6 @@ type Chaoskube struct {
 	Logger log.FieldLogger
 	// dry run will not allow any pod terminations
 	DryRun bool
-	// seed value for the randomizer
-	Seed int64
 	// a function to retrieve the current time
 	Now func() time.Time
 }
@@ -59,8 +57,8 @@ var (
 // pods as well as whether to enable dryRun mode and a seed to seed the randomizer
 // with. You can also provide a list of weekdays and corresponding time zone when
 // chaoskube should be inactive.
-func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, timezone *time.Location, logger log.FieldLogger, dryRun bool, seed int64) *Chaoskube {
-	c := &Chaoskube{
+func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, timezone *time.Location, logger log.FieldLogger, dryRun bool) *Chaoskube {
+	return &Chaoskube{
 		Client:             client,
 		Labels:             labels,
 		Annotations:        annotations,
@@ -70,13 +68,8 @@ func New(client kubernetes.Interface, labels, annotations, namespaces labels.Sel
 		Timezone:           timezone,
 		Logger:             logger,
 		DryRun:             dryRun,
-		Seed:               seed,
 		Now:                time.Now,
 	}
-
-	rand.Seed(c.Seed)
-
-	return c
 }
 
 // Candidates returns the list of pods that are available for termination.

@@ -102,7 +102,7 @@ func (c *Chaoskube) Victim() (v1.Pod, error) {
 		return v1.Pod{}, err
 	}
 
-	c.Logger.WithField("count", len(pods)).Debugf("considering candidates")
+	c.Logger.WithField("count", len(pods)).Debug("found candidates")
 
 	if len(pods) == 0 {
 		return v1.Pod{}, errPodNotFound
@@ -119,7 +119,7 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 		"namespace": victim.Namespace,
 		"name":      victim.Name,
 		"dryRun":    c.DryRun,
-	}).Infof("killing pod")
+	}).Info("terminating pod")
 
 	if c.DryRun {
 		return nil
@@ -134,21 +134,21 @@ func (c *Chaoskube) TerminateVictim() error {
 
 	for _, wd := range c.ExcludedWeekdays {
 		if wd == now.Weekday() {
-			c.Logger.WithField("weekday", now.Weekday()).Infof(msgWeekdayExcluded)
+			c.Logger.WithField("weekday", now.Weekday()).Info(msgWeekdayExcluded)
 			return nil
 		}
 	}
 
 	for _, tp := range c.ExcludedTimesOfDay {
 		if tp.Includes(now) {
-			c.Logger.WithField("timeOfDay", now.Format(util.Kitchen24)).Infof(msgTimeOfDayExcluded)
+			c.Logger.WithField("timeOfDay", now.Format(util.Kitchen24)).Info(msgTimeOfDayExcluded)
 			return nil
 		}
 	}
 
 	victim, err := c.Victim()
 	if err == errPodNotFound {
-		c.Logger.Infof(msgVictimNotFound)
+		c.Logger.Info(msgVictimNotFound)
 		return nil
 	}
 	if err != nil {

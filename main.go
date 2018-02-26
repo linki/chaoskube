@@ -69,7 +69,7 @@ func main() {
 		"dryRun":             dryRun,
 		"debug":              debug,
 		"version":            version,
-	}).Debugf("reading config")
+	}).Debug("reading config")
 
 	client, err := newClient()
 	if err != nil {
@@ -93,7 +93,7 @@ func main() {
 		"labels":      labelSelector,
 		"annotations": annotations,
 		"namespaces":  namespaces,
-	}).Infof("filtering candidates")
+	}).Info("setting pod filter")
 
 	parsedWeekdays := util.ParseWeekdays(excludedWeekdays)
 	parsedTimesOfDay, err := util.ParseTimePeriods(excludedTimesOfDay)
@@ -104,7 +104,7 @@ func main() {
 	log.WithFields(log.Fields{
 		"weekdays":   parsedWeekdays,
 		"timesOfDay": parsedTimesOfDay,
-	}).Infof("setting quiet times")
+	}).Info("setting quiet times")
 
 	parsedTimezone, err := time.LoadLocation(timezone)
 	if err != nil {
@@ -116,7 +116,7 @@ func main() {
 		"name":     timezoneName,
 		"location": parsedTimezone,
 		"offset":   offset / int(time.Hour/time.Second),
-	}).Infof("setting timezone")
+	}).Info("setting timezone")
 
 	chaoskube := chaoskube.New(
 		client,

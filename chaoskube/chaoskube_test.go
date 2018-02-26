@@ -154,7 +154,7 @@ func (suite *Suite) TestNoVictimReturnsError() {
 	)
 
 	_, err := chaoskube.Victim()
-	suite.Equal(err, ErrPodNotFound)
+	suite.Equal(err, errPodNotFound)
 	suite.EqualError(err, "pod not found")
 }
 

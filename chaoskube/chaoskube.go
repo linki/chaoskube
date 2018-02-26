@@ -42,8 +42,8 @@ type Chaoskube struct {
 }
 
 var (
-	// ErrPodNotFound is returned when no victim could be found
-	ErrPodNotFound = errors.New("pod not found")
+	// errPodNotFound is returned when no victim could be found
+	errPodNotFound = errors.New("pod not found")
 	// msgVictimNotFound is the log message when no victim was found
 	msgVictimNotFound = "no victim found"
 	// msgWeekdayExcluded is the log message when termination is suspended due to the weekday filter
@@ -105,7 +105,7 @@ func (c *Chaoskube) Victim() (v1.Pod, error) {
 	c.Logger.WithField("count", len(pods)).Debugf("considering candidates")
 
 	if len(pods) == 0 {
-		return v1.Pod{}, ErrPodNotFound
+		return v1.Pod{}, errPodNotFound
 	}
 
 	index := rand.Intn(len(pods))
@@ -147,7 +147,7 @@ func (c *Chaoskube) TerminateVictim() error {
 	}
 
 	victim, err := c.Victim()
-	if err == ErrPodNotFound {
+	if err == errPodNotFound {
 		c.Logger.Infof(msgVictimNotFound)
 		return nil
 	}

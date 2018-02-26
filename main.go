@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math/rand"
 	"os"
 	"time"
 
@@ -33,6 +34,8 @@ var (
 )
 
 func init() {
+	rand.Seed(time.Now().UTC().UnixNano())
+
 	kingpin.Flag("labels", "A set of labels to restrict the list of affected pods. Defaults to everything.").StringVar(&labelString)
 	kingpin.Flag("annotations", "A set of annotations to restrict the list of affected pods. Defaults to everything.").StringVar(&annString)
 	kingpin.Flag("namespaces", "A set of namespaces to restrict the list of affected pods. Defaults to everything.").StringVar(&nsString)
@@ -120,7 +123,6 @@ func main() {
 		parsedTimezone,
 		log.StandardLogger(),
 		dryRun,
-		time.Now().UTC().UnixNano(),
 	)
 
 	for {

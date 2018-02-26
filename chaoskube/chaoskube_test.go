@@ -3,6 +3,7 @@ package chaoskube
 import (
 	"bytes"
 	"log"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -49,7 +50,6 @@ func (suite *Suite) TestNew() {
 		time.UTC,
 		logger,
 		false,
-		42,
 	)
 	suite.Require().NotNil(chaoskube)
 
@@ -62,7 +62,6 @@ func (suite *Suite) TestNew() {
 	suite.Equal(time.UTC, chaoskube.Timezone)
 	suite.Equal(logger, chaoskube.Logger)
 	suite.Equal(false, chaoskube.DryRun)
-	suite.EqualValues(42, chaoskube.Seed)
 }
 
 func (suite *Suite) TestCandidates() {
@@ -104,7 +103,6 @@ func (suite *Suite) TestCandidates() {
 			[]util.TimePeriod{},
 			time.UTC,
 			false,
-			0,
 		)
 
 		suite.assertCandidates(chaoskube, tt.pods)
@@ -124,6 +122,8 @@ func (suite *Suite) TestVictim() {
 		{4000, "", bar},
 		{4000, "app=foo", foo},
 	} {
+		rand.Seed(tt.seed)
+
 		labelSelector, err := labels.Parse(tt.labelSelector)
 		suite.Require().NoError(err)
 
@@ -135,7 +135,6 @@ func (suite *Suite) TestVictim() {
 			[]util.TimePeriod{},
 			time.UTC,
 			false,
-			tt.seed,
 		)
 
 		suite.assertVictim(chaoskube, tt.victim)
@@ -152,7 +151,6 @@ func (suite *Suite) TestNoVictimReturnsError() {
 		[]util.TimePeriod{},
 		time.UTC,
 		false,
-		0,
 	)
 
 	_, err := chaoskube.Victim()
@@ -179,7 +177,6 @@ func (suite *Suite) TestDeletePod() {
 			[]util.TimePeriod{},
 			time.UTC,
 			tt.dryRun,
-			0,
 		)
 
 		victim := util.NewPod("default", "foo")
@@ -337,7 +334,6 @@ func (suite *Suite) TestTerminateVictim() {
 			tt.excludedTimesOfDay,
 			tt.timezone,
 			false,
-			0,
 		)
 		chaoskube.Now = tt.now
 
@@ -361,7 +357,6 @@ func (suite *Suite) TestTerminateNoVictimLogsInfo() {
 		[]util.TimePeriod{},
 		time.UTC,
 		false,
-		0,
 	)
 
 	err := chaoskube.TerminateVictim()
@@ -403,7 +398,7 @@ func (suite *Suite) assertLog(msg string) {
 	suite.Contains(logOutput.String(), msg)
 }
 
-func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, timezone *time.Location, dryRun bool, seed int64) *Chaoskube {
+func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, timezone *time.Location, dryRun bool) *Chaoskube {
 	chaoskube := suite.setup(
 		labelSelector,
 		annotations,
@@ -412,7 +407,6 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 		excludedTimesOfDay,
 		timezone,
 		dryRun,
-		seed,
 	)
 
 	pods := []v1.Pod{
@@ -428,7 +422,7 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 	return chaoskube
 }
 
-func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, timezone *time.Location, dryRun bool, seed int64) *Chaoskube {
+func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, timezone *time.Location, dryRun bool) *Chaoskube {
 	return New(
 		fake.NewSimpleClientset(),
 		labelSelector,
@@ -439,7 +433,6 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 		timezone,
 		logger,
 		dryRun,
-		seed,
 	)
 }
 

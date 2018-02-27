@@ -26,6 +26,7 @@ var (
 )
 
 func (suite *Suite) SetupTest() {
+	logger.SetLevel(log.DebugLevel)
 	logOutput.Reset()
 }
 
@@ -184,7 +185,7 @@ func (suite *Suite) TestDeletePod() {
 		err := chaoskube.DeletePod(victim)
 		suite.Require().NoError(err)
 
-		suite.assertLog("killing pod", log.Fields{"namespace": "default", "name": "foo"})
+		suite.assertLog(log.InfoLevel, "terminating pod", log.Fields{"namespace": "default", "name": "foo"})
 		suite.assertCandidates(chaoskube, tt.remainingPods)
 	}
 }
@@ -362,7 +363,7 @@ func (suite *Suite) TestTerminateNoVictimLogsInfo() {
 	err := chaoskube.TerminateVictim()
 	suite.Require().NoError(err)
 
-	suite.assertLog(msgVictimNotFound, log.Fields{})
+	suite.assertLog(log.DebugLevel, msgVictimNotFound, log.Fields{})
 }
 
 // helper functions
@@ -394,11 +395,11 @@ func (suite *Suite) assertPod(pod v1.Pod, expected map[string]string) {
 	suite.Equal(expected["name"], pod.Name)
 }
 
-func (suite *Suite) assertLog(msg string, fields log.Fields) {
-	suite.Require().Len(logOutput.Entries, 1)
+func (suite *Suite) assertLog(level log.Level, msg string, fields log.Fields) {
+	suite.Require().NotEmpty(logOutput.Entries)
 
 	lastEntry := logOutput.LastEntry()
-	suite.Equal(log.InfoLevel, lastEntry.Level)
+	suite.Equal(level, lastEntry.Level)
 	suite.Equal(msg, lastEntry.Message)
 	for k := range fields {
 		suite.Equal(fields[k], lastEntry.Data[k])

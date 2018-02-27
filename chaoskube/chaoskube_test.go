@@ -1,11 +1,12 @@
 package chaoskube
 
 import (
-	"bytes"
-	"log"
 	"math/rand"
 	"testing"
 	"time"
+
+	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes/fake"
@@ -21,11 +22,11 @@ type Suite struct {
 }
 
 var (
-	logOutput = bytes.NewBuffer([]byte{})
-	logger    = log.New(logOutput, "", 0)
+	logger, logOutput = test.NewNullLogger()
 )
 
 func (suite *Suite) SetupTest() {
+	logger.SetLevel(log.DebugLevel)
 	logOutput.Reset()
 }
 
@@ -154,7 +155,7 @@ func (suite *Suite) TestNoVictimReturnsError() {
 	)
 
 	_, err := chaoskube.Victim()
-	suite.Equal(err, ErrPodNotFound)
+	suite.Equal(err, errPodNotFound)
 	suite.EqualError(err, "pod not found")
 }
 
@@ -184,7 +185,7 @@ func (suite *Suite) TestDeletePod() {
 		err := chaoskube.DeletePod(victim)
 		suite.Require().NoError(err)
 
-		suite.assertLog("Killing pod default/foo")
+		suite.assertLog(log.InfoLevel, "terminating pod", log.Fields{"namespace": "default", "name": "foo"})
 		suite.assertCandidates(chaoskube, tt.remainingPods)
 	}
 }
@@ -362,7 +363,7 @@ func (suite *Suite) TestTerminateNoVictimLogsInfo() {
 	err := chaoskube.TerminateVictim()
 	suite.Require().NoError(err)
 
-	suite.assertLog(msgVictimNotFound)
+	suite.assertLog(log.DebugLevel, msgVictimNotFound, log.Fields{})
 }
 
 // helper functions
@@ -394,8 +395,15 @@ func (suite *Suite) assertPod(pod v1.Pod, expected map[string]string) {
 	suite.Equal(expected["name"], pod.Name)
 }
 
-func (suite *Suite) assertLog(msg string) {
-	suite.Contains(logOutput.String(), msg)
+func (suite *Suite) assertLog(level log.Level, msg string, fields log.Fields) {
+	suite.Require().NotEmpty(logOutput.Entries)
+
+	lastEntry := logOutput.LastEntry()
+	suite.Equal(level, lastEntry.Level)
+	suite.Equal(msg, lastEntry.Message)
+	for k := range fields {
+		suite.Equal(fields[k], lastEntry.Data[k])
+	}
 }
 
 func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, timezone *time.Location, dryRun bool) *Chaoskube {
@@ -423,6 +431,8 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 }
 
 func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, timezone *time.Location, dryRun bool) *Chaoskube {
+	logOutput.Reset()
+
 	return New(
 		fake.NewSimpleClientset(),
 		labelSelector,

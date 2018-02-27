@@ -34,31 +34,30 @@ type Chaoskube struct {
 	// the timezone to apply when detecting the current weekday
 	Timezone *time.Location
 	// an instance of logrus.StdLogger to write log messages to
-	Logger log.StdLogger
+	Logger log.FieldLogger
 	// dry run will not allow any pod terminations
 	DryRun bool
 	// a function to retrieve the current time
 	Now func() time.Time
 }
 
-// ErrPodNotFound is returned when no victim could be found
-var ErrPodNotFound = errors.New("pod not found")
-
-// msgVictimNotFound is the log message when no victim was found
-var msgVictimNotFound = "No victim could be found. If that's surprising double-check your selectors."
-
-// msgWeekdayExcluded is the log message when termination is suspended due to the weekday filter
-var msgWeekdayExcluded = "This day of the week is excluded from chaos."
-
-// msgTimeOfDayExcluded is the log message when termination is suspended due to the time of day filter
-var msgTimeOfDayExcluded = "This time of day is excluded from chaos."
+var (
+	// errPodNotFound is returned when no victim could be found
+	errPodNotFound = errors.New("pod not found")
+	// msgVictimNotFound is the log message when no victim was found
+	msgVictimNotFound = "no victim found"
+	// msgWeekdayExcluded is the log message when termination is suspended due to the weekday filter
+	msgWeekdayExcluded = "weekday excluded"
+	// msgTimeOfDayExcluded is the log message when termination is suspended due to the time of day filter
+	msgTimeOfDayExcluded = "time of day excluded"
+)
 
 // New returns a new instance of Chaoskube. It expects a kubernetes client, a
 // label, annotation and/or namespace selector to reduce the amount of affected
 // pods as well as whether to enable dryRun mode and a seed to seed the randomizer
 // with. You can also provide a list of weekdays and corresponding time zone when
 // chaoskube should be inactive.
-func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, timezone *time.Location, logger log.StdLogger, dryRun bool) *Chaoskube {
+func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, timezone *time.Location, logger log.FieldLogger, dryRun bool) *Chaoskube {
 	return &Chaoskube{
 		Client:             client,
 		Labels:             labels,
@@ -103,8 +102,10 @@ func (c *Chaoskube) Victim() (v1.Pod, error) {
 		return v1.Pod{}, err
 	}
 
+	c.Logger.WithField("count", len(pods)).Debug("found candidates")
+
 	if len(pods) == 0 {
-		return v1.Pod{}, ErrPodNotFound
+		return v1.Pod{}, errPodNotFound
 	}
 
 	index := rand.Intn(len(pods))
@@ -114,7 +115,11 @@ func (c *Chaoskube) Victim() (v1.Pod, error) {
 
 // DeletePod deletes the passed in pod iff dry run mode is enabled.
 func (c *Chaoskube) DeletePod(victim v1.Pod) error {
-	c.Logger.Printf("Killing pod %s/%s", victim.Namespace, victim.Name)
+	c.Logger.WithFields(log.Fields{
+		"namespace": victim.Namespace,
+		"name":      victim.Name,
+		"dryRun":    c.DryRun,
+	}).Info("terminating pod")
 
 	if c.DryRun {
 		return nil
@@ -125,23 +130,25 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 
 // TerminateVictim picks and deletes a victim if found.
 func (c *Chaoskube) TerminateVictim() error {
+	now := c.Now().In(c.Timezone)
+
 	for _, wd := range c.ExcludedWeekdays {
-		if wd == c.Now().In(c.Timezone).Weekday() {
-			c.Logger.Printf(msgWeekdayExcluded)
+		if wd == now.Weekday() {
+			c.Logger.WithField("weekday", now.Weekday()).Debug(msgWeekdayExcluded)
 			return nil
 		}
 	}
 
 	for _, tp := range c.ExcludedTimesOfDay {
-		if tp.Includes(c.Now().In(c.Timezone)) {
-			c.Logger.Printf(msgTimeOfDayExcluded)
+		if tp.Includes(now) {
+			c.Logger.WithField("timeOfDay", now.Format(util.Kitchen24)).Debug(msgTimeOfDayExcluded)
 			return nil
 		}
 	}
 
 	victim, err := c.Victim()
-	if err == ErrPodNotFound {
-		c.Logger.Printf(msgVictimNotFound)
+	if err == errPodNotFound {
+		c.Logger.Debug(msgVictimNotFound)
 		return nil
 	}
 	if err != nil {

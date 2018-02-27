@@ -11,7 +11,7 @@ import (
 
 const (
 	// a short time format; like time.Kitchen but with 24-hour notation.
-	timeFormatKitchen24 = "15:04"
+	Kitchen24 = "15:04"
 )
 
 // TimePeriod represents a time period with a single beginning and end.
@@ -41,7 +41,7 @@ func (tp TimePeriod) Includes(pointInTime time.Time) bool {
 
 // String returns tp as a pretty string.
 func (tp TimePeriod) String() string {
-	return fmt.Sprintf("%s-%s", tp.From.Format(timeFormatKitchen24), tp.To.Format(timeFormatKitchen24))
+	return fmt.Sprintf("%s-%s", tp.From.Format(Kitchen24), tp.To.Format(Kitchen24))
 }
 
 // ParseWeekdays takes a comma-separated list of abbreviated weekdays (e.g. sat,sun) and turns them
@@ -81,12 +81,12 @@ func ParseTimePeriods(timePeriods string) ([]TimePeriod, error) {
 			return nil, fmt.Errorf("Invalid time range '%v': must contain exactly one '-'", tp)
 		}
 
-		begin, err := time.Parse(timeFormatKitchen24, strings.TrimSpace(parts[0]))
+		begin, err := time.Parse(Kitchen24, strings.TrimSpace(parts[0]))
 		if err != nil {
 			return nil, err
 		}
 
-		end, err := time.Parse(timeFormatKitchen24, strings.TrimSpace(parts[1]))
+		end, err := time.Parse(Kitchen24, strings.TrimSpace(parts[1]))
 		if err != nil {
 			return nil, err
 		}

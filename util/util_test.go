@@ -300,6 +300,71 @@ func (suite *Suite) TestParseTimePeriods() {
 	}
 }
 
+func (suite *Suite) TestParseDates() {
+	for _, tt := range []struct {
+		given    string
+		expected []time.Time
+	}{
+		// empty string
+		{
+			"",
+			[]time.Time{},
+		},
+		// single date
+		{
+			"Apr 1",
+			[]time.Time{
+				time.Date(0, 4, 1, 0, 0, 0, 0, time.UTC),
+			},
+		},
+		// single date leaving out the space
+		{
+			"Apr1",
+			[]time.Time{
+				time.Date(0, 4, 1, 0, 0, 0, 0, time.UTC),
+			},
+		},
+		// multiple dates
+		{
+			"Apr 1,Dec 24",
+			[]time.Time{
+				time.Date(0, 4, 1, 0, 0, 0, 0, time.UTC),
+				time.Date(0, 12, 24, 0, 0, 0, 0, time.UTC),
+			},
+		},
+		// case-insensitive
+		{
+			"apr 1,dEc 24",
+			[]time.Time{
+				time.Date(0, 4, 1, 0, 0, 0, 0, time.UTC),
+				time.Date(0, 12, 24, 0, 0, 0, 0, time.UTC),
+			},
+		},
+		// ignore whitespace
+		{
+			" apr 1 , dec 24 ",
+			[]time.Time{
+				time.Date(0, 4, 1, 0, 0, 0, 0, time.UTC),
+				time.Date(0, 12, 24, 0, 0, 0, 0, time.UTC),
+			},
+		},
+		// deal with all kinds at the same time
+		{
+			",Apr 1, dEc 24 ,,,,  ,jun08,,",
+			[]time.Time{
+				time.Date(0, 4, 1, 0, 0, 0, 0, time.UTC),
+				time.Date(0, 12, 24, 0, 0, 0, 0, time.UTC),
+				time.Date(0, 6, 8, 0, 0, 0, 0, time.UTC),
+			},
+		},
+	} {
+		days, err := ParseDays(tt.given)
+		suite.Require().NoError(err)
+
+		suite.Equal(tt.expected, days)
+	}
+}
+
 func TestSuite(t *testing.T) {
 	suite.Run(t, new(Suite))
 }

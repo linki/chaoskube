@@ -23,6 +23,7 @@ var (
 	nsString           string
 	excludedWeekdays   string
 	excludedTimesOfDay string
+	excludedDaysOfYear string
 	timezone           string
 	master             string
 	kubeconfig         string
@@ -40,6 +41,7 @@ func init() {
 	kingpin.Flag("namespaces", "A set of namespaces to restrict the list of affected pods. Defaults to everything.").StringVar(&nsString)
 	kingpin.Flag("excluded-weekdays", "A list of weekdays when termination is suspended, e.g. sat,sun").StringVar(&excludedWeekdays)
 	kingpin.Flag("excluded-times-of-day", "A list of time periods of a day when termination is suspended, e.g. 22:00-08:00").StringVar(&excludedTimesOfDay)
+	kingpin.Flag("excluded-days-of-year", "A list of days of a year when termination is suspended, e.g. Apr1,Dec24").StringVar(&excludedDaysOfYear)
 	kingpin.Flag("timezone", "The timezone by which to interpret the excluded weekdays and times of day, e.g. UTC, Local, Europe/Berlin. Defaults to UTC.").Default("UTC").StringVar(&timezone)
 	kingpin.Flag("master", "The address of the Kubernetes cluster to target").StringVar(&master)
 	kingpin.Flag("kubeconfig", "Path to a kubeconfig file").StringVar(&kubeconfig)
@@ -62,6 +64,7 @@ func main() {
 		"namespaces":         nsString,
 		"excludedWeekdays":   excludedWeekdays,
 		"excludedTimesOfDay": excludedTimesOfDay,
+		"excludedDaysOfYear": excludedDaysOfYear,
 		"timezone":           timezone,
 		"master":             master,
 		"kubeconfig":         kubeconfig,
@@ -100,10 +103,15 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	parsedDaysOfYear, err := util.ParseDays(excludedDaysOfYear)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	log.WithFields(log.Fields{
 		"weekdays":   parsedWeekdays,
 		"timesOfDay": parsedTimesOfDay,
+		"daysOfYear": formatDays(parsedDaysOfYear),
 	}).Info("setting quiet times")
 
 	parsedTimezone, err := time.LoadLocation(timezone)
@@ -125,6 +133,7 @@ func main() {
 		namespaces,
 		parsedWeekdays,
 		parsedTimesOfDay,
+		parsedDaysOfYear,
 		parsedTimezone,
 		log.StandardLogger(),
 		dryRun,
@@ -168,4 +177,12 @@ func newClient() (*kubernetes.Clientset, error) {
 	}).Info("connecting to cluster")
 
 	return client, nil
+}
+
+func formatDays(days []time.Time) []string {
+	formattedDays := make([]string, 0, len(days))
+	for _, d := range days {
+		formattedDays = append(formattedDays, d.Format(util.YearDay))
+	}
+	return formattedDays
 }

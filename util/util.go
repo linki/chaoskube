@@ -12,6 +12,8 @@ import (
 const (
 	// a short time format; like time.Kitchen but with 24-hour notation.
 	Kitchen24 = "15:04"
+	// a time format that just cares about the day and month.
+	YearDay = "Jan_2"
 )
 
 // TimePeriod represents a time period with a single beginning and end.
@@ -95,6 +97,25 @@ func ParseTimePeriods(timePeriods string) ([]TimePeriod, error) {
 	}
 
 	return parsedTimePeriods, nil
+}
+
+func ParseDays(days string) ([]time.Time, error) {
+	parsedDays := []time.Time{}
+
+	for _, day := range strings.Split(days, ",") {
+		if strings.TrimSpace(day) == "" {
+			continue
+		}
+
+		parsedDay, err := time.Parse(YearDay, strings.TrimSpace(day))
+		if err != nil {
+			return nil, err
+		}
+
+		parsedDays = append(parsedDays, parsedDay)
+	}
+
+	return parsedDays, nil
 }
 
 // TimeOfDay normalizes the given point in time by returning a time object that represents the same

@@ -31,6 +31,8 @@ type Chaoskube struct {
 	ExcludedWeekdays []time.Weekday
 	// a list of time periods of a day when termination is suspended
 	ExcludedTimesOfDay []util.TimePeriod
+	// a list of days of a year when termination is suspended
+	ExcludedDaysOfYear []time.Time
 	// the timezone to apply when detecting the current weekday
 	Timezone *time.Location
 	// an instance of logrus.StdLogger to write log messages to
@@ -50,14 +52,18 @@ var (
 	msgWeekdayExcluded = "weekday excluded"
 	// msgTimeOfDayExcluded is the log message when termination is suspended due to the time of day filter
 	msgTimeOfDayExcluded = "time of day excluded"
+	// msgDayOfYearExcluded is the log message when termination is suspended due to the day of year filter
+	msgDayOfYearExcluded = "day of year excluded"
 )
 
-// New returns a new instance of Chaoskube. It expects a kubernetes client, a
-// label, annotation and/or namespace selector to reduce the amount of affected
-// pods as well as whether to enable dryRun mode and a seed to seed the randomizer
-// with. You can also provide a list of weekdays and corresponding time zone when
-// chaoskube should be inactive.
-func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, timezone *time.Location, logger log.FieldLogger, dryRun bool) *Chaoskube {
+// New returns a new instance of Chaoskube. It expects:
+// * a Kubernetes client to connect to a Kubernetes API
+// * label, annotation and/or namespace selectors to reduce the amount of possible target pods
+// * a list of weekdays, times of day and/or days of a year when chaos mode is disabled
+// * a time zone to apply to the aforementioned time-based filters
+// * a logger implementing logrus.FieldLogger to send log output to
+// * whether to enable/disable dry-run mode
+func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, logger log.FieldLogger, dryRun bool) *Chaoskube {
 	return &Chaoskube{
 		Client:             client,
 		Labels:             labels,
@@ -65,6 +71,7 @@ func New(client kubernetes.Interface, labels, annotations, namespaces labels.Sel
 		Namespaces:         namespaces,
 		ExcludedWeekdays:   excludedWeekdays,
 		ExcludedTimesOfDay: excludedTimesOfDay,
+		ExcludedDaysOfYear: excludedDaysOfYear,
 		Timezone:           timezone,
 		Logger:             logger,
 		DryRun:             dryRun,
@@ -142,6 +149,13 @@ func (c *Chaoskube) TerminateVictim() error {
 	for _, tp := range c.ExcludedTimesOfDay {
 		if tp.Includes(now) {
 			c.Logger.WithField("timeOfDay", now.Format(util.Kitchen24)).Debug(msgTimeOfDayExcluded)
+			return nil
+		}
+	}
+
+	for _, d := range c.ExcludedDaysOfYear {
+		if d.Day() == now.Day() && d.Month() == now.Month() {
+			c.Logger.WithField("dayOfYear", now.Format(util.YearDay)).Debug(msgDayOfYearExcluded)
 			return nil
 		}
 	}

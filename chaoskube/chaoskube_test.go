@@ -39,6 +39,7 @@ func (suite *Suite) TestNew() {
 		namespaces, _      = labels.Parse("qux")
 		excludedWeekdays   = []time.Weekday{time.Friday}
 		excludedTimesOfDay = []util.TimePeriod{util.TimePeriod{}}
+		excludedDaysOfYear = []time.Time{time.Now()}
 	)
 
 	chaoskube := New(
@@ -48,6 +49,7 @@ func (suite *Suite) TestNew() {
 		namespaces,
 		excludedWeekdays,
 		excludedTimesOfDay,
+		excludedDaysOfYear,
 		time.UTC,
 		logger,
 		false,
@@ -60,6 +62,7 @@ func (suite *Suite) TestNew() {
 	suite.Equal("qux", chaoskube.Namespaces.String())
 	suite.Equal(excludedWeekdays, chaoskube.ExcludedWeekdays)
 	suite.Equal(excludedTimesOfDay, chaoskube.ExcludedTimesOfDay)
+	suite.Equal(excludedDaysOfYear, chaoskube.ExcludedDaysOfYear)
 	suite.Equal(time.UTC, chaoskube.Timezone)
 	suite.Equal(logger, chaoskube.Logger)
 	suite.Equal(false, chaoskube.DryRun)
@@ -102,6 +105,7 @@ func (suite *Suite) TestCandidates() {
 			namespaceSelector,
 			[]time.Weekday{},
 			[]util.TimePeriod{},
+			[]time.Time{},
 			time.UTC,
 			false,
 		)
@@ -134,6 +138,7 @@ func (suite *Suite) TestVictim() {
 			labels.Everything(),
 			[]time.Weekday{},
 			[]util.TimePeriod{},
+			[]time.Time{},
 			time.UTC,
 			false,
 		)
@@ -150,6 +155,7 @@ func (suite *Suite) TestNoVictimReturnsError() {
 		labels.Everything(),
 		[]time.Weekday{},
 		[]util.TimePeriod{},
+		[]time.Time{},
 		time.UTC,
 		false,
 	)
@@ -176,6 +182,7 @@ func (suite *Suite) TestDeletePod() {
 			labels.Everything(),
 			[]time.Weekday{},
 			[]util.TimePeriod{},
+			[]time.Time{},
 			time.UTC,
 			tt.dryRun,
 		)
@@ -210,6 +217,7 @@ func (suite *Suite) TestTerminateVictim() {
 	for _, tt := range []struct {
 		excludedWeekdays   []time.Weekday
 		excludedTimesOfDay []util.TimePeriod
+		excludedDaysOfYear []time.Time
 		now                func() time.Time
 		timezone           *time.Location
 		remainingPodCount  int
@@ -218,6 +226,7 @@ func (suite *Suite) TestTerminateVictim() {
 		{
 			[]time.Weekday{},
 			[]util.TimePeriod{},
+			[]time.Time{},
 			ThankGodItsFriday{}.Now,
 			time.UTC,
 			1,
@@ -226,6 +235,7 @@ func (suite *Suite) TestTerminateVictim() {
 		{
 			[]time.Weekday{time.Friday},
 			[]util.TimePeriod{},
+			[]time.Time{},
 			ThankGodItsFriday{}.Now,
 			time.UTC,
 			2,
@@ -234,6 +244,7 @@ func (suite *Suite) TestTerminateVictim() {
 		{
 			[]time.Weekday{},
 			[]util.TimePeriod{afternoon},
+			[]time.Time{},
 			ThankGodItsFriday{}.Now,
 			time.UTC,
 			2,
@@ -242,6 +253,7 @@ func (suite *Suite) TestTerminateVictim() {
 		{
 			[]time.Weekday{time.Friday},
 			[]util.TimePeriod{},
+			[]time.Time{},
 			func() time.Time { return ThankGodItsFriday{}.Now().Add(24 * time.Hour) },
 			time.UTC,
 			1,
@@ -250,6 +262,7 @@ func (suite *Suite) TestTerminateVictim() {
 		{
 			[]time.Weekday{time.Friday},
 			[]util.TimePeriod{},
+			[]time.Time{},
 			func() time.Time { return ThankGodItsFriday{}.Now().Add(7 * 24 * time.Hour) },
 			time.UTC,
 			2,
@@ -258,6 +271,7 @@ func (suite *Suite) TestTerminateVictim() {
 		{
 			[]time.Weekday{},
 			[]util.TimePeriod{afternoon},
+			[]time.Time{},
 			func() time.Time { return ThankGodItsFriday{}.Now().Add(+2 * time.Hour) },
 			time.UTC,
 			1,
@@ -266,6 +280,7 @@ func (suite *Suite) TestTerminateVictim() {
 		{
 			[]time.Weekday{},
 			[]util.TimePeriod{afternoon},
+			[]time.Time{},
 			func() time.Time { return ThankGodItsFriday{}.Now().Add(+24 * time.Hour) },
 			time.UTC,
 			2,
@@ -274,6 +289,7 @@ func (suite *Suite) TestTerminateVictim() {
 		{
 			[]time.Weekday{time.Friday},
 			[]util.TimePeriod{},
+			[]time.Time{},
 			ThankGodItsFriday{}.Now,
 			australia,
 			1,
@@ -282,6 +298,7 @@ func (suite *Suite) TestTerminateVictim() {
 		{
 			[]time.Weekday{},
 			[]util.TimePeriod{afternoon},
+			[]time.Time{},
 			ThankGodItsFriday{}.Now,
 			australia,
 			1,
@@ -290,6 +307,7 @@ func (suite *Suite) TestTerminateVictim() {
 		{
 			[]time.Weekday{time.Monday, time.Friday},
 			[]util.TimePeriod{},
+			[]time.Time{},
 			ThankGodItsFriday{}.Now,
 			time.UTC,
 			2,
@@ -298,6 +316,7 @@ func (suite *Suite) TestTerminateVictim() {
 		{
 			[]time.Weekday{},
 			[]util.TimePeriod{morning, afternoon},
+			[]time.Time{},
 			ThankGodItsFriday{}.Now,
 			time.UTC,
 			2,
@@ -306,6 +325,7 @@ func (suite *Suite) TestTerminateVictim() {
 		{
 			[]time.Weekday{},
 			[]util.TimePeriod{midnight},
+			[]time.Time{},
 			func() time.Time { return ThankGodItsFriday{}.Now().Add(-15 * time.Hour) },
 			time.UTC,
 			2,
@@ -314,6 +334,7 @@ func (suite *Suite) TestTerminateVictim() {
 		{
 			[]time.Weekday{},
 			[]util.TimePeriod{midnight},
+			[]time.Time{},
 			func() time.Time { return ThankGodItsFriday{}.Now().Add(-17 * time.Hour) },
 			time.UTC,
 			1,
@@ -322,7 +343,64 @@ func (suite *Suite) TestTerminateVictim() {
 		{
 			[]time.Weekday{},
 			[]util.TimePeriod{midnight},
+			[]time.Time{},
 			func() time.Time { return ThankGodItsFriday{}.Now().Add(-13 * time.Hour) },
+			time.UTC,
+			1,
+		},
+		// this day of year is excluded, no pod should be killed
+		{
+			[]time.Weekday{},
+			[]util.TimePeriod{},
+			[]time.Time{
+				ThankGodItsFriday{}.Now(), // today
+			},
+			func() time.Time { return ThankGodItsFriday{}.Now() },
+			time.UTC,
+			2,
+		},
+		// this day of year in year 0 is excluded, no pod should be killed
+		{
+			[]time.Weekday{},
+			[]util.TimePeriod{},
+			[]time.Time{
+				time.Date(0, 9, 24, 0, 00, 00, 00, time.UTC), // same year day
+			},
+			func() time.Time { return ThankGodItsFriday{}.Now() },
+			time.UTC,
+			2,
+		},
+		// matching works fine even when multiple days-of-year are provided, no pod should be killed
+		{
+			[]time.Weekday{},
+			[]util.TimePeriod{},
+			[]time.Time{
+				time.Date(0, 9, 25, 10, 00, 00, 00, time.UTC), // different year day
+				time.Date(0, 9, 24, 10, 00, 00, 00, time.UTC), // same year day
+			},
+			func() time.Time { return ThankGodItsFriday{}.Now() },
+			time.UTC,
+			2,
+		},
+		// there is an excluded day of year but it's not today, one pod should be killed
+		{
+			[]time.Weekday{},
+			[]util.TimePeriod{},
+			[]time.Time{
+				time.Date(0, 9, 25, 10, 00, 00, 00, time.UTC), // different year day
+			},
+			func() time.Time { return ThankGodItsFriday{}.Now() },
+			time.UTC,
+			1,
+		},
+		// there is an excluded day of year but the month is different, one pod should be killed
+		{
+			[]time.Weekday{},
+			[]util.TimePeriod{},
+			[]time.Time{
+				time.Date(0, 10, 24, 10, 00, 00, 00, time.UTC), // different year day
+			},
+			func() time.Time { return ThankGodItsFriday{}.Now() },
 			time.UTC,
 			1,
 		},
@@ -333,6 +411,7 @@ func (suite *Suite) TestTerminateVictim() {
 			labels.Everything(),
 			tt.excludedWeekdays,
 			tt.excludedTimesOfDay,
+			tt.excludedDaysOfYear,
 			tt.timezone,
 			false,
 		)
@@ -356,6 +435,7 @@ func (suite *Suite) TestTerminateNoVictimLogsInfo() {
 		labels.Everything(),
 		[]time.Weekday{},
 		[]util.TimePeriod{},
+		[]time.Time{},
 		time.UTC,
 		false,
 	)
@@ -406,13 +486,14 @@ func (suite *Suite) assertLog(level log.Level, msg string, fields log.Fields) {
 	}
 }
 
-func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, timezone *time.Location, dryRun bool) *Chaoskube {
+func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, dryRun bool) *Chaoskube {
 	chaoskube := suite.setup(
 		labelSelector,
 		annotations,
 		namespaces,
 		excludedWeekdays,
 		excludedTimesOfDay,
+		excludedDaysOfYear,
 		timezone,
 		dryRun,
 	)
@@ -430,7 +511,7 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 	return chaoskube
 }
 
-func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, timezone *time.Location, dryRun bool) *Chaoskube {
+func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, dryRun bool) *Chaoskube {
 	logOutput.Reset()
 
 	return New(
@@ -440,6 +521,7 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 		namespaces,
 		excludedWeekdays,
 		excludedTimesOfDay,
+		excludedDaysOfYear,
 		timezone,
 		logger,
 		dryRun,

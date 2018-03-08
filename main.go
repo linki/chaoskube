@@ -76,7 +76,7 @@ func main() {
 
 	client, err := newClient()
 	if err != nil {
-		log.Fatal(err)
+		log.WithField("err", err).Fatal("failed to connect to cluster")
 	}
 
 	labelSelector, err := labels.Parse(labelString)
@@ -101,11 +101,17 @@ func main() {
 	parsedWeekdays := util.ParseWeekdays(excludedWeekdays)
 	parsedTimesOfDay, err := util.ParseTimePeriods(excludedTimesOfDay)
 	if err != nil {
-		log.Fatal(err)
+		log.WithFields(log.Fields{
+			"timesOfDay": excludedTimesOfDay,
+			"err":        err,
+		}).Fatal("failed to parse times of day")
 	}
 	parsedDaysOfYear, err := util.ParseDays(excludedDaysOfYear)
 	if err != nil {
-		log.Fatal(err)
+		log.WithFields(log.Fields{
+			"daysOfYear": excludedDaysOfYear,
+			"err":        err,
+		}).Fatal("failed to parse days of year")
 	}
 
 	log.WithFields(log.Fields{
@@ -116,7 +122,10 @@ func main() {
 
 	parsedTimezone, err := time.LoadLocation(timezone)
 	if err != nil {
-		log.Fatal(err)
+		log.WithFields(log.Fields{
+			"timeZone": timezone,
+			"err":      err,
+		}).Fatal("failed to detect time zone")
 	}
 	timezoneName, offset := time.Now().In(parsedTimezone).Zone()
 
@@ -156,6 +165,11 @@ func newClient() (*kubernetes.Clientset, error) {
 		}
 	}
 
+	log.WithFields(log.Fields{
+		"kubeconfig": kubeconfig,
+		"master":     master,
+	}).Debug("using cluster config")
+
 	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
 	if err != nil {
 		return nil, err
@@ -172,9 +186,9 @@ func newClient() (*kubernetes.Clientset, error) {
 	}
 
 	log.WithFields(log.Fields{
-		"url":           config.Host,
+		"master":        config.Host,
 		"serverVersion": serverVersion,
-	}).Info("connecting to cluster")
+	}).Info("connected to cluster")
 
 	return client, nil
 }

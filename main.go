@@ -18,6 +18,10 @@ import (
 )
 
 var (
+	version = "undefined"
+)
+
+var (
 	labelString        string
 	annString          string
 	nsString           string
@@ -30,7 +34,6 @@ var (
 	interval           time.Duration
 	dryRun             bool
 	debug              bool
-	version            string
 )
 
 func init() {
@@ -71,8 +74,13 @@ func main() {
 		"interval":           interval,
 		"dryRun":             dryRun,
 		"debug":              debug,
-		"version":            version,
 	}).Debug("reading config")
+
+	log.WithFields(log.Fields{
+		"version":  version,
+		"dryRun":   dryRun,
+		"interval": interval,
+	}).Info("starting up")
 
 	client, err := newClient()
 	if err != nil {

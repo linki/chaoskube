@@ -125,7 +125,6 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 	c.Logger.WithFields(log.Fields{
 		"namespace": victim.Namespace,
 		"name":      victim.Name,
-		"dryRun":    c.DryRun,
 	}).Info("terminating pod")
 
 	if c.DryRun {

@@ -79,18 +79,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	labelSelector, err := labels.Parse(labelString)
-	if err != nil {
-		log.Fatal(err)
-	}
-	annotations, err := labels.Parse(annString)
-	if err != nil {
-		log.Fatal(err)
-	}
-	namespaces, err := labels.Parse(nsString)
-	if err != nil {
-		log.Fatal(err)
-	}
+	var (
+		labelSelector = parseSelector(labelString)
+		annotations   = parseSelector(annString)
+		namespaces    = parseSelector(nsString)
+	)
 
 	log.WithFields(log.Fields{
 		"labels":      labelSelector,
@@ -177,6 +170,17 @@ func newClient() (*kubernetes.Clientset, error) {
 	}).Info("connecting to cluster")
 
 	return client, nil
+}
+
+func parseSelector(str string) labels.Selector {
+	selector, err := labels.Parse(str)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"selector": str,
+			"err":      err,
+		}).Fatal("failed to parse selector")
+	}
+	return selector
 }
 
 func formatDays(days []time.Time) []string {

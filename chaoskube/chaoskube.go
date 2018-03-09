@@ -79,63 +79,8 @@ func New(client kubernetes.Interface, labels, annotations, namespaces labels.Sel
 	}
 }
 
-// Candidates returns the list of pods that are available for termination.
-// It returns all pods matching the label selector and at least one namespace.
-func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
-	listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
-
-	podList, err := c.Client.Core().Pods(v1.NamespaceAll).List(listOptions)
-	if err != nil {
-		return nil, err
-	}
-
-	pods, err := filterByNamespaces(podList.Items, c.Namespaces)
-	if err != nil {
-		return nil, err
-	}
-
-	pods, err = filterByAnnotations(pods, c.Annotations)
-	if err != nil {
-		return nil, err
-	}
-
-	return pods, nil
-}
-
-// Victim returns a random pod from the list of Candidates.
-func (c *Chaoskube) Victim() (v1.Pod, error) {
-	pods, err := c.Candidates()
-	if err != nil {
-		return v1.Pod{}, err
-	}
-
-	c.Logger.WithField("count", len(pods)).Debug("found candidates")
-
-	if len(pods) == 0 {
-		return v1.Pod{}, errPodNotFound
-	}
-
-	index := rand.Intn(len(pods))
-
-	return pods[index], nil
-}
-
-// DeletePod deletes the passed in pod iff dry run mode is enabled.
-func (c *Chaoskube) DeletePod(victim v1.Pod) error {
-	c.Logger.WithFields(log.Fields{
-		"namespace": victim.Namespace,
-		"name":      victim.Name,
-		"dryRun":    c.DryRun,
-	}).Info("terminating pod")
-
-	if c.DryRun {
-		return nil
-	}
-
-	return c.Client.Core().Pods(victim.Namespace).Delete(victim.Name, nil)
-}
-
-// TerminateVictim picks and deletes a victim if found.
+// TerminateVictim picks and deletes a victim.
+// It respects the configured excluded weekdays, times of day and days of a year filters.
 func (c *Chaoskube) TerminateVictim() error {
 	now := c.Now().In(c.Timezone)
 
@@ -172,14 +117,70 @@ func (c *Chaoskube) TerminateVictim() error {
 	return c.DeletePod(victim)
 }
 
+// Victim returns a random pod from the list of Candidates.
+// It returns an error if there are no candidates to choose from.
+func (c *Chaoskube) Victim() (v1.Pod, error) {
+	pods, err := c.Candidates()
+	if err != nil {
+		return v1.Pod{}, err
+	}
+
+	c.Logger.WithField("count", len(pods)).Debug("found candidates")
+
+	if len(pods) == 0 {
+		return v1.Pod{}, errPodNotFound
+	}
+
+	index := rand.Intn(len(pods))
+
+	return pods[index], nil
+}
+
+// Candidates returns the list of pods that are available for termination.
+// It returns all pods that match the configured label, annotation and namespace selectors.
+func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
+	listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
+
+	podList, err := c.Client.Core().Pods(v1.NamespaceAll).List(listOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	pods, err := filterByNamespaces(podList.Items, c.Namespaces)
+	if err != nil {
+		return nil, err
+	}
+
+	pods, err = filterByAnnotations(pods, c.Annotations)
+	if err != nil {
+		return nil, err
+	}
+
+	return pods, nil
+}
+
+// DeletePod deletes the given pod.
+// It will not delete the pod if dry-run mode is enabled.
+func (c *Chaoskube) DeletePod(victim v1.Pod) error {
+	c.Logger.WithFields(log.Fields{
+		"namespace": victim.Namespace,
+		"name":      victim.Name,
+		"dryRun":    c.DryRun,
+	}).Info("terminating pod")
+
+	if c.DryRun {
+		return nil
+	}
+
+	return c.Client.Core().Pods(victim.Namespace).Delete(victim.Name, nil)
+}
+
 // filterByNamespaces filters a list of pods by a given namespace selector.
 func filterByNamespaces(pods []v1.Pod, namespaces labels.Selector) ([]v1.Pod, error) {
 	// empty filter returns original list
 	if namespaces.Empty() {
 		return pods, nil
 	}
-
-	filteredList := []v1.Pod{}
 
 	// split requirements into including and excluding groups
 	reqs, _ := namespaces.Requirements()
@@ -193,9 +194,11 @@ func filterByNamespaces(pods []v1.Pod, namespaces labels.Selector) ([]v1.Pod, er
 		case selection.DoesNotExist:
 			reqExcl = append(reqExcl, req)
 		default:
-			return filteredList, fmt.Errorf("unsupported operator: %s", req.Operator())
+			return nil, fmt.Errorf("unsupported operator: %s", req.Operator())
 		}
 	}
+
+	filteredList := []v1.Pod{}
 
 	for _, pod := range pods {
 		// if there aren't any including requirements, we're in by default

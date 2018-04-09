@@ -11,5 +11,13 @@
   version = "~2.2.5"
 
 [[constraint]]
+  branch = "release-1.10"
+  name = "k8s.io/api"
+
+[[constraint]]
+  branch = "release-1.10"
+  name = "k8s.io/apimachinery"
+
+[[constraint]]
   name = "k8s.io/client-go"
-  version = "~4.0.0"
+  version = "~7.0.0"

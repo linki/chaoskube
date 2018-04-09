@@ -1,11 +1,15 @@
-apiVersion: v1/apps
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: chaoskube
   labels:
     app: chaoskube
 spec:
-  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: chaoskube
   template:
     metadata:
       labels:

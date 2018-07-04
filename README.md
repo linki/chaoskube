@@ -49,7 +49,7 @@ Refer to [chaoskube on kubeapps.com](https://kubeapps.com/charts/stable/chaoskub
 Otherwise use the following manifest as an inspiration.
 
 ```yaml
-apiVersion: v1/apps
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: chaoskube
@@ -144,7 +144,7 @@ DEBU[0000] no victim found
 Unless you already use that annotation somewhere, this will initially ignore all of your pods (you can see the number of candidates in debug mode). You could then selectively opt-in individual deployments to chaos mode by annotating their pods with `chaos.alpha.kubernetes.io/enabled=true`.
 
 ```yaml
-apiVersion: v1/apps
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: my-app

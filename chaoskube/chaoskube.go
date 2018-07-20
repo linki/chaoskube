@@ -35,6 +35,8 @@ type Chaoskube struct {
 	ExcludedDaysOfYear []time.Time
 	// the timezone to apply when detecting the current weekday
 	Timezone *time.Location
+	// minimum age of pods to consider
+	MinimumAge time.Duration
 	// an instance of logrus.StdLogger to write log messages to
 	Logger log.FieldLogger
 	// dry run will not allow any pod terminations
@@ -63,7 +65,7 @@ var (
 // * a time zone to apply to the aforementioned time-based filters
 // * a logger implementing logrus.FieldLogger to send log output to
 // * whether to enable/disable dry-run mode
-func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, logger log.FieldLogger, dryRun bool) *Chaoskube {
+func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool) *Chaoskube {
 	return &Chaoskube{
 		Client:             client,
 		Labels:             labels,
@@ -73,6 +75,7 @@ func New(client kubernetes.Interface, labels, annotations, namespaces labels.Sel
 		ExcludedTimesOfDay: excludedTimesOfDay,
 		ExcludedDaysOfYear: excludedDaysOfYear,
 		Timezone:           timezone,
+		MinimumAge:         minimumAge,
 		Logger:             logger,
 		DryRun:             dryRun,
 		Now:                time.Now,
@@ -153,6 +156,8 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 
 	pods = filterByAnnotations(pods, c.Annotations)
 	pods = filterByPhase(pods, v1.PodRunning)
+
+	pods = filterByMinimumAge(pods, c.MinimumAge, c.Now())
 
 	return pods, nil
 }
@@ -256,6 +261,26 @@ func filterByPhase(pods []v1.Pod, phase v1.PodPhase) []v1.Pod {
 
 	for _, pod := range pods {
 		if pod.Status.Phase == phase {
+			filteredList = append(filteredList, pod)
+		}
+	}
+
+	return filteredList
+}
+
+// filterByMinimumAge filters pods by creation time. Only pods
+// older than minimumAge are returned
+func filterByMinimumAge(pods []v1.Pod, minimumAge time.Duration, now time.Time) []v1.Pod {
+	if minimumAge <= time.Duration(0) {
+		return pods
+	}
+
+	creationTime := now.Add(-minimumAge)
+
+	filteredList := []v1.Pod{}
+
+	for _, pod := range pods {
+		if pod.ObjectMeta.CreationTimestamp.Time.Before(creationTime) {
 			filteredList = append(filteredList, pod)
 		}
 	}

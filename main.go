@@ -29,6 +29,7 @@ var (
 	excludedTimesOfDay string
 	excludedDaysOfYear string
 	timezone           string
+	minimumAge         time.Duration
 	master             string
 	kubeconfig         string
 	interval           time.Duration
@@ -46,6 +47,7 @@ func init() {
 	kingpin.Flag("excluded-times-of-day", "A list of time periods of a day when termination is suspended, e.g. 22:00-08:00").StringVar(&excludedTimesOfDay)
 	kingpin.Flag("excluded-days-of-year", "A list of days of a year when termination is suspended, e.g. Apr1,Dec24").StringVar(&excludedDaysOfYear)
 	kingpin.Flag("timezone", "The timezone by which to interpret the excluded weekdays and times of day, e.g. UTC, Local, Europe/Berlin. Defaults to UTC.").Default("UTC").StringVar(&timezone)
+	kingpin.Flag("minimum-age", "Minimum age of pods to consider for termination").Default("0s").DurationVar(&minimumAge)
 	kingpin.Flag("master", "The address of the Kubernetes cluster to target").StringVar(&master)
 	kingpin.Flag("kubeconfig", "Path to a kubeconfig file").StringVar(&kubeconfig)
 	kingpin.Flag("interval", "Interval between Pod terminations").Default("10m").DurationVar(&interval)
@@ -69,6 +71,7 @@ func main() {
 		"excludedTimesOfDay": excludedTimesOfDay,
 		"excludedDaysOfYear": excludedDaysOfYear,
 		"timezone":           timezone,
+		"minimumAge":         minimumAge,
 		"master":             master,
 		"kubeconfig":         kubeconfig,
 		"interval":           interval,
@@ -145,6 +148,7 @@ func main() {
 		parsedTimesOfDay,
 		parsedDaysOfYear,
 		parsedTimezone,
+		minimumAge,
 		log.StandardLogger(),
 		dryRun,
 	)

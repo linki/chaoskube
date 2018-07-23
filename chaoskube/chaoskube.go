@@ -156,7 +156,13 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 		return nil, err
 	}
 
+	pods, err = filterByStatus(pods)
+	if err != nil {
+		return nil, err
+	}
+
 	return pods, nil
+
 }
 
 // DeletePod deletes the given pod.
@@ -250,4 +256,19 @@ func filterByAnnotations(pods []v1.Pod, annotations labels.Selector) ([]v1.Pod, 
 	}
 
 	return filteredList, nil
+}
+
+// filterByStatus filters a list of pods by their current state
+func filterByStatus(pods []v1.Pod) ([]v1.Pod, error) {
+
+	filteredList := []v1.Pod{}
+
+	for _, pod := range pods {
+		if pod.Status.Phase == "Running" {
+			filteredList = append(filteredList, pod)
+		}
+	}
+
+	return filteredList, nil
+
 }

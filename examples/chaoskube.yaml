@@ -16,6 +16,8 @@ spec:
         app: chaoskube
     spec:
       serviceAccountName: chaoskube
+      securityContext:
+        runAsUser: 65534
       containers:
       - name: chaoskube
         image: quay.io/linki/chaoskube:v0.9.0

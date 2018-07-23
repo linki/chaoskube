@@ -187,7 +187,7 @@ func (suite *Suite) TestDeletePod() {
 			tt.dryRun,
 		)
 
-		victim := util.NewPod("default", "foo")
+		victim := util.NewPod("default", "foo", v1.PodRunning)
 
 		err := chaoskube.DeletePod(victim)
 		suite.Require().NoError(err)
@@ -499,8 +499,9 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 	)
 
 	pods := []v1.Pod{
-		util.NewPod("default", "foo"),
-		util.NewPod("testing", "bar"),
+		util.NewPod("default", "foo", v1.PodRunning),
+		util.NewPod("testing", "bar", v1.PodRunning),
+		util.NewPod("testing", "baz", v1.PodPending), // Non-running pods are ignored
 	}
 
 	for _, pod := range pods {

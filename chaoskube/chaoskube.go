@@ -151,10 +151,8 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 		return nil, err
 	}
 
-	pods, err = filterByAnnotations(pods, c.Annotations)
-	if err != nil {
-		return nil, err
-	}
+	pods = filterByAnnotations(pods, c.Annotations)
+	pods = filterByPhase(pods, v1.PodRunning)
 
 	return pods, nil
 }
@@ -231,10 +229,10 @@ func filterByNamespaces(pods []v1.Pod, namespaces labels.Selector) ([]v1.Pod, er
 }
 
 // filterByAnnotations filters a list of pods by a given annotation selector.
-func filterByAnnotations(pods []v1.Pod, annotations labels.Selector) ([]v1.Pod, error) {
+func filterByAnnotations(pods []v1.Pod, annotations labels.Selector) []v1.Pod {
 	// empty filter returns original list
 	if annotations.Empty() {
-		return pods, nil
+		return pods
 	}
 
 	filteredList := []v1.Pod{}
@@ -249,5 +247,18 @@ func filterByAnnotations(pods []v1.Pod, annotations labels.Selector) ([]v1.Pod, 
 		}
 	}
 
-	return filteredList, nil
+	return filteredList
+}
+
+// filterByPhase filters a list of pods by a given PodPhase, e.g. Running.
+func filterByPhase(pods []v1.Pod, phase v1.PodPhase) []v1.Pod {
+	filteredList := []v1.Pod{}
+
+	for _, pod := range pods {
+		if pod.Status.Phase == phase {
+			filteredList = append(filteredList, pod)
+		}
+	}
+
+	return filteredList
 }

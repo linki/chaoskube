@@ -125,7 +125,7 @@ func TimeOfDay(pointInTime time.Time) time.Time {
 }
 
 // NewPod returns a new pod instance for testing purposes.
-func NewPod(namespace, name string) v1.Pod {
+func NewPod(namespace, name string, phase v1.PodPhase) v1.Pod {
 	return v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
@@ -136,6 +136,9 @@ func NewPod(namespace, name string) v1.Pod {
 			Annotations: map[string]string{
 				"chaos": name,
 			},
+		},
+		Status: v1.PodStatus{
+			Phase: phase,
 		},
 	}
 }

@@ -505,7 +505,7 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 	}
 
 	for _, pod := range pods {
-		_, err := chaoskube.Client.Core().Pods(pod.Namespace).Create(&pod)
+		_, err := chaoskube.Client.CoreV1().Pods(pod.Namespace).Create(&pod)
 		suite.Require().NoError(err)
 	}
 

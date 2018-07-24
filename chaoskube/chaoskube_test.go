@@ -67,9 +67,9 @@ func (suite *Suite) TestNew() {
 	suite.Equal(excludedTimesOfDay, chaoskube.ExcludedTimesOfDay)
 	suite.Equal(excludedDaysOfYear, chaoskube.ExcludedDaysOfYear)
 	suite.Equal(time.UTC, chaoskube.Timezone)
+	suite.Equal(minimumAge, chaoskube.MinimumAge)
 	suite.Equal(logger, chaoskube.Logger)
 	suite.Equal(false, chaoskube.DryRun)
-	suite.Equal(minimumAge, chaoskube.MinimumAge)
 }
 
 func (suite *Suite) TestCandidates() {
@@ -111,8 +111,8 @@ func (suite *Suite) TestCandidates() {
 			[]util.TimePeriod{},
 			[]time.Time{},
 			time.UTC,
-			false,
 			time.Duration(42),
+			false,
 		)
 
 		suite.assertCandidates(chaoskube, tt.pods)
@@ -145,8 +145,8 @@ func (suite *Suite) TestVictim() {
 			[]util.TimePeriod{},
 			[]time.Time{},
 			time.UTC,
-			false,
 			time.Duration(42),
+			false,
 		)
 
 		suite.assertVictim(chaoskube, tt.victim)
@@ -191,8 +191,8 @@ func (suite *Suite) TestDeletePod() {
 			[]util.TimePeriod{},
 			[]time.Time{},
 			time.UTC,
-			tt.dryRun,
 			time.Duration(42),
+			tt.dryRun,
 		)
 
 		victim := util.NewPod("default", "foo", v1.PodRunning)
@@ -421,8 +421,8 @@ func (suite *Suite) TestTerminateVictim() {
 			tt.excludedTimesOfDay,
 			tt.excludedDaysOfYear,
 			tt.timezone,
-			false,
 			time.Duration(42),
+			false,
 		)
 		chaoskube.Now = tt.now
 
@@ -496,7 +496,7 @@ func (suite *Suite) assertLog(level log.Level, msg string, fields log.Fields) {
 	}
 }
 
-func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, dryRun bool, minimumAge time.Duration) *Chaoskube {
+func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool) *Chaoskube {
 	chaoskube := suite.setup(
 		labelSelector,
 		annotations,

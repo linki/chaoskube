@@ -1,6 +1,7 @@
 package chaoskube
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -79,6 +80,23 @@ func New(client kubernetes.Interface, labels, annotations, namespaces labels.Sel
 		Logger:             logger,
 		DryRun:             dryRun,
 		Now:                time.Now,
+	}
+}
+
+// Run continuously picks and terminates a victim pod at a given interval described by ticker.
+// It returns when the given context is cancelled.
+func (c *Chaoskube) Run(ctx context.Context, ticker *time.Ticker) {
+	for {
+		if err := c.TerminateVictim(); err != nil {
+			c.Logger.WithField("err", err).Error("failed to terminate victim")
+		}
+
+		c.Logger.Debug("sleeping...")
+		select {
+		case <-ticker.C:
+		case <-ctx.Done():
+			return
+		}
 	}
 }
 

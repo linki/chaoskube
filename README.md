@@ -96,6 +96,8 @@ If you want to increase or decrease the amount of chaos change the interval betw
 
 Remember that `chaoskube` by default kills any pod in all your namespaces, including system pods and itself.
 
+`chaoskube` provides a simple HTTP endpoint that can be used to check that it is running. This can be used for [Kubernetes liveness and readiness probes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/). By default, this listens on port 8080. To disable, pass `--address=""` to `chaoskube`.
+
 ## Filtering targets
 
 However, you can limit the search space of `chaoskube` by providing label, annotation and namespace selectors.

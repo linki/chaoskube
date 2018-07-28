@@ -111,7 +111,7 @@ func (suite *Suite) TestCandidates() {
 			[]util.TimePeriod{},
 			[]time.Time{},
 			time.UTC,
-			time.Duration(42),
+			time.Duration(0),
 			false,
 		)
 
@@ -145,7 +145,7 @@ func (suite *Suite) TestVictim() {
 			[]util.TimePeriod{},
 			[]time.Time{},
 			time.UTC,
-			time.Duration(42),
+			time.Duration(0),
 			false,
 		)
 
@@ -163,7 +163,7 @@ func (suite *Suite) TestNoVictimReturnsError() {
 		[]util.TimePeriod{},
 		[]time.Time{},
 		time.UTC,
-		time.Duration(42),
+		time.Duration(0),
 		false,
 	)
 
@@ -191,7 +191,7 @@ func (suite *Suite) TestDeletePod() {
 			[]util.TimePeriod{},
 			[]time.Time{},
 			time.UTC,
-			time.Duration(42),
+			time.Duration(0),
 			tt.dryRun,
 		)
 
@@ -421,7 +421,7 @@ func (suite *Suite) TestTerminateVictim() {
 			tt.excludedTimesOfDay,
 			tt.excludedDaysOfYear,
 			tt.timezone,
-			time.Duration(42),
+			time.Duration(0),
 			false,
 		)
 		chaoskube.Now = tt.now
@@ -446,7 +446,7 @@ func (suite *Suite) TestTerminateNoVictimLogsInfo() {
 		[]util.TimePeriod{},
 		[]time.Time{},
 		time.UTC,
-		time.Duration(42),
+		time.Duration(0),
 		false,
 	)
 

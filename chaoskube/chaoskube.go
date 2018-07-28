@@ -156,7 +156,6 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 
 	pods = filterByAnnotations(pods, c.Annotations)
 	pods = filterByPhase(pods, v1.PodRunning)
-
 	pods = filterByMinimumAge(pods, c.MinimumAge, c.Now())
 
 	return pods, nil

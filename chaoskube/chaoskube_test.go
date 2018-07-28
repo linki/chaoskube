@@ -9,6 +9,7 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 
 	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes/fake"
 
@@ -40,6 +41,7 @@ func (suite *Suite) TestNew() {
 		excludedWeekdays   = []time.Weekday{time.Friday}
 		excludedTimesOfDay = []util.TimePeriod{util.TimePeriod{}}
 		excludedDaysOfYear = []time.Time{time.Now()}
+		minimumAge         = time.Duration(42)
 	)
 
 	chaoskube := New(
@@ -51,6 +53,7 @@ func (suite *Suite) TestNew() {
 		excludedTimesOfDay,
 		excludedDaysOfYear,
 		time.UTC,
+		minimumAge,
 		logger,
 		false,
 	)
@@ -64,6 +67,7 @@ func (suite *Suite) TestNew() {
 	suite.Equal(excludedTimesOfDay, chaoskube.ExcludedTimesOfDay)
 	suite.Equal(excludedDaysOfYear, chaoskube.ExcludedDaysOfYear)
 	suite.Equal(time.UTC, chaoskube.Timezone)
+	suite.Equal(minimumAge, chaoskube.MinimumAge)
 	suite.Equal(logger, chaoskube.Logger)
 	suite.Equal(false, chaoskube.DryRun)
 }
@@ -107,6 +111,7 @@ func (suite *Suite) TestCandidates() {
 			[]util.TimePeriod{},
 			[]time.Time{},
 			time.UTC,
+			time.Duration(0),
 			false,
 		)
 
@@ -140,6 +145,7 @@ func (suite *Suite) TestVictim() {
 			[]util.TimePeriod{},
 			[]time.Time{},
 			time.UTC,
+			time.Duration(0),
 			false,
 		)
 
@@ -157,6 +163,7 @@ func (suite *Suite) TestNoVictimReturnsError() {
 		[]util.TimePeriod{},
 		[]time.Time{},
 		time.UTC,
+		time.Duration(0),
 		false,
 	)
 
@@ -184,6 +191,7 @@ func (suite *Suite) TestDeletePod() {
 			[]util.TimePeriod{},
 			[]time.Time{},
 			time.UTC,
+			time.Duration(0),
 			tt.dryRun,
 		)
 
@@ -413,6 +421,7 @@ func (suite *Suite) TestTerminateVictim() {
 			tt.excludedTimesOfDay,
 			tt.excludedDaysOfYear,
 			tt.timezone,
+			time.Duration(0),
 			false,
 		)
 		chaoskube.Now = tt.now
@@ -437,6 +446,7 @@ func (suite *Suite) TestTerminateNoVictimLogsInfo() {
 		[]util.TimePeriod{},
 		[]time.Time{},
 		time.UTC,
+		time.Duration(0),
 		false,
 	)
 
@@ -486,7 +496,7 @@ func (suite *Suite) assertLog(level log.Level, msg string, fields log.Fields) {
 	}
 }
 
-func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, dryRun bool) *Chaoskube {
+func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool) *Chaoskube {
 	chaoskube := suite.setup(
 		labelSelector,
 		annotations,
@@ -495,6 +505,7 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 		excludedTimesOfDay,
 		excludedDaysOfYear,
 		timezone,
+		minimumAge,
 		dryRun,
 	)
 
@@ -512,7 +523,7 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 	return chaoskube
 }
 
-func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, dryRun bool) *Chaoskube {
+func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool) *Chaoskube {
 	logOutput.Reset()
 
 	return New(
@@ -524,6 +535,7 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 		excludedTimesOfDay,
 		excludedDaysOfYear,
 		timezone,
+		minimumAge,
 		logger,
 		dryRun,
 	)
@@ -540,4 +552,104 @@ type ThankGodItsFriday struct{}
 func (t ThankGodItsFriday) Now() time.Time {
 	blackFriday, _ := time.Parse(time.RFC1123, "Fri, 24 Sep 1869 15:04:05 UTC")
 	return blackFriday
+}
+
+func (suite *Suite) TestMinimumAge() {
+	type pod struct {
+		name         string
+		namespace    string
+		creationTime time.Time
+	}
+
+	for _, tt := range []struct {
+		minimumAge time.Duration
+		now        func() time.Time
+		pods       []pod
+		candidates int
+	}{
+		// no minimum age set
+		{
+			time.Duration(0),
+			func() time.Time { return time.Date(0, 10, 24, 10, 00, 00, 00, time.UTC) },
+			[]pod{
+				{
+					name:         "test1",
+					namespace:    "test",
+					creationTime: time.Date(0, 10, 24, 9, 00, 00, 00, time.UTC),
+				},
+			},
+			1,
+		},
+		// minimum age set, but pod is too young
+		{
+			time.Hour * 1,
+			func() time.Time { return time.Date(0, 10, 24, 10, 00, 00, 00, time.UTC) },
+			[]pod{
+				{
+					name:         "test1",
+					namespace:    "test",
+					creationTime: time.Date(0, 10, 24, 9, 30, 00, 00, time.UTC),
+				},
+			},
+			0,
+		},
+		// one pod is too young, one matches
+		{
+			time.Hour * 1,
+			func() time.Time { return time.Date(0, 10, 24, 10, 00, 00, 00, time.UTC) },
+			[]pod{
+				// too young
+				{
+					name:         "test1",
+					namespace:    "test",
+					creationTime: time.Date(0, 10, 24, 9, 30, 00, 00, time.UTC),
+				},
+				// matches
+				{
+					name:         "test2",
+					namespace:    "test",
+					creationTime: time.Date(0, 10, 23, 8, 00, 00, 00, time.UTC),
+				},
+			},
+			1,
+		},
+		// exact time - should not match
+		{
+			time.Hour * 1,
+			func() time.Time { return time.Date(0, 10, 24, 10, 00, 00, 00, time.UTC) },
+			[]pod{
+				{
+					name:         "test1",
+					namespace:    "test",
+					creationTime: time.Date(0, 10, 24, 10, 00, 00, 00, time.UTC),
+				},
+			},
+			0,
+		},
+	} {
+		chaoskube := suite.setup(
+			labels.Everything(),
+			labels.Everything(),
+			labels.Everything(),
+			[]time.Weekday{},
+			[]util.TimePeriod{},
+			[]time.Time{},
+			time.UTC,
+			tt.minimumAge,
+			false,
+		)
+		chaoskube.Now = tt.now
+
+		for _, p := range tt.pods {
+			pod := util.NewPod(p.namespace, p.name, v1.PodRunning)
+			pod.ObjectMeta.CreationTimestamp = metav1.Time{Time: p.creationTime}
+			_, err := chaoskube.Client.Core().Pods(pod.Namespace).Create(&pod)
+			suite.Require().NoError(err)
+		}
+
+		pods, err := chaoskube.Candidates()
+		suite.Require().NoError(err)
+
+		suite.Len(pods, tt.candidates)
+	}
 }

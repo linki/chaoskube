@@ -73,8 +73,8 @@ func (suite *Suite) TestNew() {
 	suite.Equal(false, chaoskube.DryRun)
 }
 
-// TestRunContextCancelled tests that a canceled context will exit the Run function.
-func (suite *Suite) TestRunContextCancelled() {
+// TestRunContextCanceled tests that a canceled context will exit the Run function.
+func (suite *Suite) TestRunContextCanceled() {
 	chaoskube := suite.setup(
 		labels.Everything(),
 		labels.Everything(),
@@ -90,10 +90,7 @@ func (suite *Suite) TestRunContextCancelled() {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	ticker := time.NewTicker(1)
-	defer ticker.Stop()
-
-	chaoskube.Run(ctx, ticker)
+	chaoskube.Run(ctx, nil)
 }
 
 func (suite *Suite) TestCandidates() {

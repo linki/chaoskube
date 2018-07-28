@@ -170,7 +170,7 @@ func main() {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	chaoskube.Run(ctx, ticker)
+	chaoskube.Run(ctx, ticker.C)
 }
 
 func newClient() (*kubernetes.Clientset, error) {

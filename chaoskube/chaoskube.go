@@ -83,9 +83,9 @@ func New(client kubernetes.Interface, labels, annotations, namespaces labels.Sel
 	}
 }
 
-// Run continuously picks and terminates a victim pod at a given interval described by ticker.
-// It returns when the given context is cancelled.
-func (c *Chaoskube) Run(ctx context.Context, ticker *time.Ticker) {
+// Run continuously picks and terminates a victim pod at a given interval
+// described by channel next. It returns when the given context is canceled.
+func (c *Chaoskube) Run(ctx context.Context, next <-chan time.Time) {
 	for {
 		if err := c.TerminateVictim(); err != nil {
 			c.Logger.WithField("err", err).Error("failed to terminate victim")
@@ -93,7 +93,7 @@ func (c *Chaoskube) Run(ctx context.Context, ticker *time.Ticker) {
 
 		c.Logger.Debug("sleeping...")
 		select {
-		case <-ticker.C:
+		case <-next:
 		case <-ctx.Done():
 			return
 		}

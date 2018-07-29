@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/alecthomas/kingpin.v2"
 
@@ -161,10 +162,21 @@ func main() {
 	)
 
 	if metricsAddress != "" {
+		http.Handle("/metrics", promhttp.Handler())
 		http.HandleFunc("/healthz",
 			func(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprintln(w, "OK")
 			})
+		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte(`<html>
+					<head><title>chaoskube</title></head>
+					<body>
+					<h1>chaoskube</h1>
+					<p><a href="/metrics">Metrics</a></p>
+					<p><a href="/healthz">Health Check</a></p>
+					</body>
+					</html>`))
+		})
 		go func() {
 			if err := http.ListenAndServe(metricsAddress, nil); err != nil {
 				log.WithFields(log.Fields{

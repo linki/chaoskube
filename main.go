@@ -36,7 +36,7 @@ var (
 	interval           time.Duration
 	dryRun             bool
 	debug              bool
-	address            string
+	metricsAddress     string
 )
 
 func init() {
@@ -54,7 +54,7 @@ func init() {
 	kingpin.Flag("interval", "Interval between Pod terminations").Default("10m").DurationVar(&interval)
 	kingpin.Flag("dry-run", "If true, don't actually do anything.").Default("true").BoolVar(&dryRun)
 	kingpin.Flag("debug", "Enable debug logging.").BoolVar(&debug)
-	kingpin.Flag("address", "Listening address for health check handler").Default(":8080").StringVar(&address)
+	kingpin.Flag("metrics-address", "Listening address for metrics handler").Default(":8080").StringVar(&metricsAddress)
 }
 
 func main() {
@@ -153,13 +153,13 @@ func main() {
 		dryRun,
 	)
 
-	if address != "" {
+	if metricsAddress != "" {
 		http.HandleFunc("/healthz",
 			func(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprintln(w, "OK")
 			})
 		go func() {
-			if err := http.ListenAndServe(address, nil); err != nil {
+			if err := http.ListenAndServe(metricsAddress, nil); err != nil {
 				log.WithFields(log.Fields{
 					"err": err,
 				}).Fatal("failed to start HTTP server")

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"math/rand"
+	"net/http"
 	"os"
 	"time"
 
@@ -35,6 +37,7 @@ var (
 	interval           time.Duration
 	dryRun             bool
 	debug              bool
+	metricsAddress     string
 )
 
 func init() {
@@ -53,6 +56,7 @@ func init() {
 	kingpin.Flag("interval", "Interval between Pod terminations").Default("10m").DurationVar(&interval)
 	kingpin.Flag("dry-run", "If true, don't actually do anything.").Default("true").BoolVar(&dryRun)
 	kingpin.Flag("debug", "Enable debug logging.").BoolVar(&debug)
+	kingpin.Flag("metrics-address", "Listening address for metrics handler").Default(":8080").StringVar(&metricsAddress)
 }
 
 func main() {
@@ -152,6 +156,20 @@ func main() {
 		log.StandardLogger(),
 		dryRun,
 	)
+
+	if metricsAddress != "" {
+		http.HandleFunc("/healthz",
+			func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprintln(w, "OK")
+			})
+		go func() {
+			if err := http.ListenAndServe(metricsAddress, nil); err != nil {
+				log.WithFields(log.Fields{
+					"err": err,
+				}).Fatal("failed to start HTTP server")
+			}
+		}()
+	}
 
 	for {
 		if err := chaoskube.TerminateVictim(); err != nil {

@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -171,14 +174,21 @@ func main() {
 		}()
 	}
 
-	for {
-		if err := chaoskube.TerminateVictim(); err != nil {
-			log.WithField("err", err).Error("failed to terminate victim")
-		}
+	done := make(chan os.Signal, 1)
+	signal.Notify(done, syscall.SIGINT, syscall.SIGTERM)
 
-		log.WithField("duration", interval).Debug("sleeping")
-		time.Sleep(interval)
-	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		<-done
+		cancel()
+	}()
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	chaoskube.Run(ctx, ticker.C)
 }
 
 func newClient() (*kubernetes.Clientset, error) {

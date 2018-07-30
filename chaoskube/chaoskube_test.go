@@ -1,6 +1,7 @@
 package chaoskube
 
 import (
+	"context"
 	"math/rand"
 	"testing"
 	"time"
@@ -70,6 +71,26 @@ func (suite *Suite) TestNew() {
 	suite.Equal(minimumAge, chaoskube.MinimumAge)
 	suite.Equal(logger, chaoskube.Logger)
 	suite.Equal(false, chaoskube.DryRun)
+}
+
+// TestRunContextCanceled tests that a canceled context will exit the Run function.
+func (suite *Suite) TestRunContextCanceled() {
+	chaoskube := suite.setup(
+		labels.Everything(),
+		labels.Everything(),
+		labels.Everything(),
+		[]time.Weekday{},
+		[]util.TimePeriod{},
+		[]time.Time{},
+		time.UTC,
+		time.Duration(0),
+		false,
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	chaoskube.Run(ctx, nil)
 }
 
 func (suite *Suite) TestCandidates() {

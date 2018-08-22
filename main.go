@@ -162,45 +162,47 @@ func main() {
 	)
 
 	if metricsAddress != "" {
-		http.Handle("/metrics", promhttp.Handler())
-		http.HandleFunc("/healthz",
-			func(w http.ResponseWriter, r *http.Request) {
-				fmt.Fprintln(w, "OK")
-			})
-		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte(`<html>
-					<head><title>chaoskube</title></head>
-					<body>
-					<h1>chaoskube</h1>
-					<p><a href="/metrics">Metrics</a></p>
-					<p><a href="/healthz">Health Check</a></p>
-					</body>
-					</html>`))
-		})
-		go func() {
-			if err := http.ListenAndServe(metricsAddress, nil); err != nil {
-				log.WithFields(log.Fields{
-					"err": err,
-				}).Fatal("failed to start HTTP server")
-			}
-		}()
+		go serveMetrics(metricsAddress)
 	}
-
-	done := make(chan os.Signal, 1)
-	signal.Notify(done, syscall.SIGINT, syscall.SIGTERM)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go func() {
-		<-done
-		cancel()
-	}()
-
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
+	handleSignals(cancel)
+
 	chaoskube.Run(ctx, ticker.C)
+}
+
+func handleSignals(cancelFunc func()) {
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+	<-signals
+	cancelFunc()
+}
+
+// gather go metrics
+func serveMetrics(address string) {
+	http.Handle("/metrics", promhttp.Handler())
+	http.HandleFunc("/healthz",
+		func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintln(w, "OK")
+		})
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`<html>
+				<head><title>chaoskube</title></head>
+				<body>
+				<h1>chaoskube</h1>
+				<p><a href="/metrics">Metrics</a></p>
+				<p><a href="/healthz">Health Check</a></p>
+				</body>
+				</html>`))
+	})
+	if err := http.ListenAndServe(metricsAddress, nil); err != nil {
+		log.WithField("err", err).Fatal("failed to start HTTP server")
+	}
 }
 
 func newClient() (*kubernetes.Clientset, error) {

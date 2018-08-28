@@ -7,15 +7,15 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/linki/chaoskube/util"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
-
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/client-go/kubernetes"
-
-	"github.com/linki/chaoskube/util"
 )
 
 // Chaoskube represents an instance of chaoskube
@@ -57,6 +57,11 @@ var (
 	msgTimeOfDayExcluded = "time of day excluded"
 	// msgDayOfYearExcluded is the log message when termination is suspended due to the day of year filter
 	msgDayOfYearExcluded = "day of year excluded"
+	// podsDeleted is the pods deleted counter
+	podsDeleted = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "pods_deleted",
+		Help: "The total number of pods deleted",
+	})
 )
 
 // New returns a new instance of Chaoskube. It expects:
@@ -91,6 +96,7 @@ func (c *Chaoskube) Run(ctx context.Context, next <-chan time.Time) {
 			c.Logger.WithField("err", err).Error("failed to terminate victim")
 		}
 
+		podsDeleted.Inc()
 		c.Logger.Debug("sleeping...")
 		select {
 		case <-next:

@@ -24,7 +24,7 @@
 
 [[constraint]]
   name = "github.com/prometheus/client_golang"
-  version = "0.8.0"
+  revision = "3653aff4d509dd87a6ba41b82d57c0c662733e14"
 
 [[override]]
   name = "github.com/golang/protobuf"

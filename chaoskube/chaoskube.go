@@ -7,9 +7,8 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/linki/chaoskube/metrics"
 	"github.com/linki/chaoskube/util"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -57,11 +56,6 @@ var (
 	msgTimeOfDayExcluded = "time of day excluded"
 	// msgDayOfYearExcluded is the log message when termination is suspended due to the day of year filter
 	msgDayOfYearExcluded = "day of year excluded"
-	// podsDeleted is the pods deleted counter
-	podsDeleted = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "pods_deleted",
-		Help: "The total number of pods deleted",
-	})
 )
 
 // New returns a new instance of Chaoskube. It expects:
@@ -92,11 +86,14 @@ func New(client kubernetes.Interface, labels, annotations, namespaces labels.Sel
 // described by channel next. It returns when the given context is canceled.
 func (c *Chaoskube) Run(ctx context.Context, next <-chan time.Time) {
 	for {
+		metrics.RunCounter.Inc()
 		if err := c.TerminateVictim(); err != nil {
+			metrics.ErrorCounter.Inc()
 			c.Logger.WithField("err", err).Error("failed to terminate victim")
+		} else {
+			metrics.PodsDeletedCounter.Inc()
 		}
 
-		podsDeleted.Inc()
 		c.Logger.Debug("sleeping...")
 		select {
 		case <-next:

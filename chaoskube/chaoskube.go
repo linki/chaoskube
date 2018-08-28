@@ -87,6 +87,7 @@ func New(client kubernetes.Interface, labels, annotations, namespaces labels.Sel
 func (c *Chaoskube) Run(ctx context.Context, next <-chan time.Time) {
 	for {
 		metrics.RunCounter.Inc()
+
 		if err := c.TerminateVictim(); err != nil {
 			metrics.ErrorCounter.Inc()
 			c.Logger.WithField("err", err).Error("failed to terminate victim")
@@ -194,7 +195,11 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 		return nil
 	}
 
-	return c.Client.CoreV1().Pods(victim.Namespace).Delete(victim.Name, nil)
+	start := time.Now()
+	e := c.Client.CoreV1().Pods(victim.Namespace).Delete(victim.Name, nil)
+	metrics.TerminationHistogram.Observe(time.Since(start).Seconds())
+
+	return e
 }
 
 // filterByNamespaces filters a list of pods by a given namespace selector.

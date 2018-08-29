@@ -85,6 +85,7 @@ func main() {
 		"interval":           interval,
 		"dryRun":             dryRun,
 		"debug":              debug,
+		"metricsAddress":     metricsAddress,
 	}).Debug("reading config")
 
 	log.WithFields(log.Fields{
@@ -108,6 +109,7 @@ func main() {
 		"labels":      labelSelector,
 		"annotations": annotations,
 		"namespaces":  namespaces,
+		"minimumAge":  minimumAge,
 	}).Info("setting pod filter")
 
 	parsedWeekdays := util.ParseWeekdays(excludedWeekdays)

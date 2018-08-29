@@ -17,9 +17,9 @@ Running it will kill a pod in any namespace every 10 minutes by default.
 
 ```console
 $ chaoskube
-INFO[0000] starting up              dryRun=true interval=10m0s version=v0.9.0
-INFO[0000] connecting to cluster    serverVersion=v1.9.3+coreos.0 master="https://kube.you.me"
-INFO[0000] setting pod filter       annotations= labels= namespaces=
+INFO[0000] starting up              dryRun=true interval=10m0s version=v0.10.0
+INFO[0000] connecting to cluster    master="https://kube.you.me" serverVersion=v1.10.5+coreos.0
+INFO[0000] setting pod filter       annotations= labels= minimumAge=0s namespaces=
 INFO[0000] setting quiet times      daysOfYear="[]" timesOfDay="[]" weekdays="[]"
 INFO[0000] setting timezone         location=UTC name=UTC offset=0
 INFO[0001] terminating pod          name=kube-dns-v20-6ikos namespace=kube-system
@@ -34,7 +34,7 @@ INFO[4804] terminating pod          name=nginx-701339712-51nt8 namespace=chaosku
 ...
 ```
 
-`chaoskube` allows to filter target pods [by namespaces, labels and annotations](#filtering-targets) as well as [exclude certain weekdays, times of day and days of a year](#limit-the-chaos) from chaos.
+`chaoskube` allows to filter target pods [by namespaces, labels, annotations and age](#filtering-targets) as well as [exclude certain weekdays, times of day and days of a year](#limit-the-chaos) from chaos.
 
 ## How
 
@@ -64,7 +64,7 @@ spec:
     spec:
       containers:
       - name: chaoskube
-        image: quay.io/linki/chaoskube:v0.9.0
+        image: quay.io/linki/chaoskube:v0.10.0
         args:
         # kill a pod every 10 minutes
         - --interval=10m
@@ -82,6 +82,8 @@ spec:
         - --excluded-days-of-year=Apr1,Dec24
         # let's make sure we all agree on what the above times mean
         - --timezone=Europe/Berlin
+        # exclude all pods that haven't been running for at least one hour
+        - --minimum-age=1h
         # terminate pods for real: this disables dry-run mode which is on by default
         # - --no-dry-run
 ```
@@ -100,7 +102,7 @@ Remember that `chaoskube` by default kills any pod in all your namespaces, inclu
 
 ## Filtering targets
 
-However, you can limit the search space of `chaoskube` by providing label, annotation and namespace selectors.
+However, you can limit the search space of `chaoskube` by providing label, annotation and namespace selectors as well as a minimum age setting.
 
 ```console
 $ chaoskube --labels 'app=mate,chaos,stage!=production'
@@ -160,6 +162,14 @@ spec:
       ...
 ```
 
+You can exclude pods that have recently started by using the `--minimum-age` flag.
+
+```console
+$ chaoskube --minimum-age 6h
+...
+INFO[0000] setting pod filter       minimumAge=6h0m0s
+```
+
 ## Limit the Chaos
 
 You can limit the time when chaos is introduced by weekdays, time periods of a day, day of a year or all of them together.
@@ -191,6 +201,7 @@ Use `UTC`, `Local` or pick a timezone name from the [(IANA) tz database](https:/
 | `--excluded-times-of-day` | times of day when chaos is to be suspended, e.g. "22:00-08:00"       | (no times of day excluded) |
 | `--excluded-days-of-year` | days of a year when chaos is to be suspended, e.g. "Apr1,Dec24"      | (no days of year excluded) |
 | `--timezone`              | timezone from tz database, e.g. "America/New_York", "UTC" or "Local" | (UTC)                      |
+| `--minimum-age`           | Minimum age to filter pods by                                        | 0s (matches every pod)     |
 | `--dry-run`               | don't kill pods, only log what would have been done                  | true                       |
 
 ## Related work
@@ -210,7 +221,9 @@ This project wouldn't be where it is with the ideas and help of several awesome 
 * Thanks to [@twildeboer](https://github.com/twildeboer) and [@klautcomputing](https://github.com/klautcomputing) who sparked the idea of limiting chaos during certain times, such as [business hours](https://github.com/linki/chaoskube/issues/35) or [holidays](https://github.com/linki/chaoskube/issues/48) as well as the first implementations of this feature in [#54](https://github.com/linki/chaoskube/pull/54) and [#55](https://github.com/linki/chaoskube/pull/55).
 * Thanks to [@klautcomputing](https://github.com/klautcomputing) for the first attempt to solve the missing [percentage feature](https://github.com/linki/chaoskube/pull/47) as well as for providing [the RBAC config](https://github.com/linki/chaoskube/pull/30) files.
 * Thanks to [@j0sh3rs](https://github.com/j0sh3rs) for bringing [the Helm chart](https://hub.kubeapps.com/charts/stable/chaoskube) to the latest version.
-* Thanks to [@klautcomputing](https://github.com/klautcomputing), [@grosser](https://github.com/grosser) and [@twz123](https://github.com/twz123) for improvements to the Dockerfile and docs in [#31](https://github.com/linki/chaoskube/pull/31), [#40](https://github.com/linki/chaoskube/pull/40) and [#58](https://github.com/linki/chaoskube/pull/58).
+* Thanks to [@klautcomputing](https://github.com/klautcomputing), [@grosser](https://github.com/grosser), [@twz123](https://github.com/twz123), [@hchenxa](https://github.com/hchenxa) and [@bavarianbidi](https://github.com/bavarianbidi) for improvements to the Dockerfile and docs in [#31](https://github.com/linki/chaoskube/pull/31), [#40](https://github.com/linki/chaoskube/pull/40) and [#58](https://github.com/linki/chaoskube/pull/58).
+* Thanks to [@bakins](https://github.com/bakins) for adding the minimum age filter in [#86](https://github.com/linki/chaoskube/pull/86).
+* Thanks to [@bakins](https://github.com/bakins) for adding a health check and Prometheus metrics in [#94](https://github.com/linki/chaoskube/pull/94) and [#97](https://github.com/linki/chaoskube/pull/97).
 
 ## Contributing
 

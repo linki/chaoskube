@@ -18,7 +18,7 @@ spec:
       serviceAccountName: chaoskube
       containers:
       - name: chaoskube
-        image: quay.io/linki/chaoskube:v0.9.0
+        image: quay.io/linki/chaoskube:v0.10.0
         args:
         # kill a pod every 10 minutes
         - --interval=10m
@@ -36,6 +36,8 @@ spec:
         - --excluded-days-of-year=Apr1,Dec24
         # let's make sure we all agree on what the above times mean
         - --timezone=UTC
+        # exclude all pods that haven't been running for at least one hour
+        - --minimum-age=1h
         # terminate pods for real: this disables dry-run mode which is on by default
         - --no-dry-run
 

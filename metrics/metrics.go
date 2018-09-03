@@ -23,7 +23,7 @@ var (
 	})
 	// errorCounter is the run function executions counter
 	TerminationHistogram = promauto.NewHistogram(prometheus.HistogramOpts{
-		Name: "termination_time_milliseconds",
+		Name: "termination_time_seconds",
 		Help: "The time took single pod termination to finish",
 	})
 )

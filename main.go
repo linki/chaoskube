@@ -18,9 +18,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/tools/clientcmd"
+	restclient "k8s.io/client-go/rest"
 
 	"github.com/linki/chaoskube/chaoskube"
 	"github.com/linki/chaoskube/util"
+	"strings"
 )
 
 var (
@@ -42,6 +44,8 @@ var (
 	dryRun             bool
 	debug              bool
 	metricsAddress     string
+	exec               string
+	execContainer      string
 )
 
 func init() {
@@ -59,6 +63,8 @@ func init() {
 	kingpin.Flag("kubeconfig", "Path to a kubeconfig file").StringVar(&kubeconfig)
 	kingpin.Flag("interval", "Interval between Pod terminations").Default("10m").DurationVar(&interval)
 	kingpin.Flag("dry-run", "If true, don't actually do anything.").Default("true").BoolVar(&dryRun)
+	kingpin.Flag("exec", "Execute the given terminal command on victim pods, rather than deleting pods, eg killall -9 bash").StringVar(&exec)
+	kingpin.Flag("exec-container", "Name of container to run --exec command in, defaults to first container in spec").Default("").StringVar(&execContainer)
 	kingpin.Flag("debug", "Enable debug logging.").BoolVar(&debug)
 	kingpin.Flag("metrics-address", "Listening address for metrics handler").Default(":8080").StringVar(&metricsAddress)
 }
@@ -84,9 +90,11 @@ func main() {
 		"kubeconfig":         kubeconfig,
 		"interval":           interval,
 		"dryRun":             dryRun,
+		"exec":               exec,
+		"execContainer":      execContainer,
 		"debug":              debug,
 		"metricsAddress":     metricsAddress,
-	}).Debug("reading config")
+	}).Info("reading config")
 
 	log.WithFields(log.Fields{
 		"version":  version,
@@ -94,7 +102,12 @@ func main() {
 		"interval": interval,
 	}).Info("starting up")
 
-	client, err := newClient()
+	config, err := newConfig()
+	if err != nil {
+		log.WithField("err", err).Fatal("failed to determine k8s client config")
+	}
+
+	client, err := newClient(config)
 	if err != nil {
 		log.WithField("err", err).Fatal("failed to connect to cluster")
 	}
@@ -149,6 +162,15 @@ func main() {
 		"offset":   offset / int(time.Hour/time.Second),
 	}).Info("setting timezone")
 
+	var action chaoskube.ChaosAction
+	if dryRun {
+		action = chaoskube.NewDryRunAction()
+	} else if len(exec) > 0 {
+		action = chaoskube.NewExecAction(client.CoreV1().RESTClient(), config, execContainer, strings.Split(exec, " "))
+	} else {
+		action = chaoskube.NewDeletePodAction(client)
+	}
+
 	chaoskube := chaoskube.New(
 		client,
 		labelSelector,
@@ -160,7 +182,7 @@ func main() {
 		parsedTimezone,
 		minimumAge,
 		log.StandardLogger(),
-		dryRun,
+		action,
 	)
 
 	if metricsAddress != "" {
@@ -205,7 +227,7 @@ func main() {
 	chaoskube.Run(ctx, ticker.C)
 }
 
-func newClient() (*kubernetes.Clientset, error) {
+func newConfig() (*restclient.Config, error) {
 	if kubeconfig == "" {
 		if _, err := os.Stat(clientcmd.RecommendedHomeFile); err == nil {
 			kubeconfig = clientcmd.RecommendedHomeFile
@@ -222,6 +244,10 @@ func newClient() (*kubernetes.Clientset, error) {
 		return nil, err
 	}
 
+	return config, nil
+}
+
+func newClient(config *restclient.Config) (*kubernetes.Clientset, error) {
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, err

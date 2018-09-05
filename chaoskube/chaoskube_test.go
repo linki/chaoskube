@@ -218,7 +218,7 @@ func (suite *Suite) TestDeletePod() {
 
 		victim := util.NewPod("default", "foo", v1.PodRunning)
 
-		err := chaoskube.DeletePod(victim)
+		err := chaoskube.ApplyChaos(victim)
 		suite.Require().NoError(err)
 
 		suite.assertLog(log.InfoLevel, "terminating pod", log.Fields{"namespace": "default", "name": "foo"})

@@ -40,8 +40,8 @@ type Chaoskube struct {
 	MinimumAge time.Duration
 	// an instance of logrus.StdLogger to write log messages to
 	Logger log.FieldLogger
-	// dry run will not allow any pod terminations
-	DryRun bool
+	// action taken against victim pods
+	Action ChaosAction
 	// a function to retrieve the current time
 	Now func() time.Time
 }
@@ -65,8 +65,8 @@ var (
 // * a list of weekdays, times of day and/or days of a year when chaos mode is disabled
 // * a time zone to apply to the aforementioned time-based filters
 // * a logger implementing logrus.FieldLogger to send log output to
-// * whether to enable/disable dry-run mode
-func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool) *Chaoskube {
+// * what specific action to use to imbue chaos on victim pods
+func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, action ChaosAction) *Chaoskube {
 	return &Chaoskube{
 		Client:             client,
 		Labels:             labels,
@@ -78,7 +78,7 @@ func New(client kubernetes.Interface, labels, annotations, namespaces labels.Sel
 		Timezone:           timezone,
 		MinimumAge:         minimumAge,
 		Logger:             logger,
-		DryRun:             dryRun,
+		Action:             action,
 		Now:                time.Now,
 	}
 }
@@ -135,7 +135,7 @@ func (c *Chaoskube) TerminateVictim() error {
 		return err
 	}
 
-	return c.DeletePod(victim)
+	return c.ApplyChaos(victim)
 }
 
 // Victim returns a random pod from the list of Candidates.
@@ -179,19 +179,15 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 	return pods, nil
 }
 
-// DeletePod deletes the given pod.
+// ApplyChaos deletes the given pod.
 // It will not delete the pod if dry-run mode is enabled.
-func (c *Chaoskube) DeletePod(victim v1.Pod) error {
+func (c *Chaoskube) ApplyChaos(victim v1.Pod) error {
 	c.Logger.WithFields(log.Fields{
 		"namespace": victim.Namespace,
 		"name":      victim.Name,
-	}).Info("terminating pod")
+	}).Info(c.Action.Name())
 
-	if c.DryRun {
-		return nil
-	}
-
-	return c.Client.CoreV1().Pods(victim.Namespace).Delete(victim.Name, nil)
+	return c.Action.ApplyChaos(victim)
 }
 
 // filterByNamespaces filters a list of pods by a given namespace selector.

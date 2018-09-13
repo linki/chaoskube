@@ -40,6 +40,7 @@ var (
 	kubeconfig         string
 	interval           time.Duration
 	dryRun             bool
+	createEvent        bool
 	debug              bool
 	metricsAddress     string
 )
@@ -59,6 +60,7 @@ func init() {
 	kingpin.Flag("kubeconfig", "Path to a kubeconfig file").StringVar(&kubeconfig)
 	kingpin.Flag("interval", "Interval between Pod terminations").Default("10m").DurationVar(&interval)
 	kingpin.Flag("dry-run", "If true, don't actually do anything.").Default("true").BoolVar(&dryRun)
+	kingpin.Flag("create-events", "If true, create an event in victims namespace after termination.").Default("true").BoolVar(&createEvent)
 	kingpin.Flag("debug", "Enable debug logging.").BoolVar(&debug)
 	kingpin.Flag("metrics-address", "Listening address for metrics handler").Default(":8080").StringVar(&metricsAddress)
 }
@@ -86,6 +88,7 @@ func main() {
 		"dryRun":             dryRun,
 		"debug":              debug,
 		"metricsAddress":     metricsAddress,
+		"createEvent":        createEvent,
 	}).Debug("reading config")
 
 	log.WithFields(log.Fields{
@@ -161,6 +164,7 @@ func main() {
 		minimumAge,
 		log.StandardLogger(),
 		dryRun,
+		createEvent,
 	)
 
 	if metricsAddress != "" {

@@ -203,6 +203,7 @@ Use `UTC`, `Local` or pick a timezone name from the [(IANA) tz database](https:/
 | `--timezone`              | timezone from tz database, e.g. "America/New_York", "UTC" or "Local" | (UTC)                      |
 | `--minimum-age`           | Minimum age to filter pods by                                        | 0s (matches every pod)     |
 | `--dry-run`               | don't kill pods, only log what would have been done                  | true                       |
+| `--create-events`         | If true, create an event in victims namespace after termination      | true                       |
 
 ## Related work
 

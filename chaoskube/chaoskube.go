@@ -14,6 +14,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/reference"
 
 	"github.com/linki/chaoskube/util"
 )
@@ -42,6 +44,8 @@ type Chaoskube struct {
 	Logger log.FieldLogger
 	// dry run will not allow any pod terminations
 	DryRun bool
+	// create event with deletion message in victims namespace
+	CreateEvent bool
 	// a function to retrieve the current time
 	Now func() time.Time
 }
@@ -66,7 +70,8 @@ var (
 // * a time zone to apply to the aforementioned time-based filters
 // * a logger implementing logrus.FieldLogger to send log output to
 // * whether to enable/disable dry-run mode
-func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool) *Chaoskube {
+// * whether to enable/disable event creation
+func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, createEvent bool) *Chaoskube {
 	return &Chaoskube{
 		Client:             client,
 		Labels:             labels,
@@ -79,6 +84,7 @@ func New(client kubernetes.Interface, labels, annotations, namespaces labels.Sel
 		MinimumAge:         minimumAge,
 		Logger:             logger,
 		DryRun:             dryRun,
+		CreateEvent:        createEvent,
 		Now:                time.Now,
 	}
 }
@@ -191,7 +197,43 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 		return nil
 	}
 
-	return c.Client.CoreV1().Pods(victim.Namespace).Delete(victim.Name, nil)
+	err := c.Client.CoreV1().Pods(victim.Namespace).Delete(victim.Name, nil)
+	if err != nil {
+		return err
+	}
+
+	err = c.CreateDeleteEvent(victim)
+	if err != nil {
+		c.Logger.WithField("err", err).Error("failed to create deletion event")
+	}
+
+	return nil
+}
+
+// CreateDeleteEvent creates an event in victims namespace with an deletion message.
+func (c *Chaoskube) CreateDeleteEvent(victim v1.Pod) error {
+	ref, err := reference.GetReference(scheme.Scheme, victim.DeepCopyObject())
+	if err != nil {
+		return err
+	}
+
+	t := metav1.Time{Time: time.Now()}
+	_, err = c.Client.CoreV1().Events(victim.Namespace).Create(&v1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s.chaos.%x", victim.Name, t.UnixNano()),
+			Namespace: victim.Namespace,
+		},
+		InvolvedObject: *ref,
+		Reason:         "Chaos",
+		Message:        fmt.Sprintf("Deleted pod %s", victim.Name),
+		FirstTimestamp: t,
+		LastTimestamp:  t,
+		Count:          1,
+		Action:         "Deleted",
+		Type:           v1.EventTypeNormal,
+	})
+
+	return err
 }
 
 // filterByNamespaces filters a list of pods by a given namespace selector.

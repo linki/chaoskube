@@ -136,6 +136,7 @@ func NewPod(namespace, name string, phase v1.PodPhase) v1.Pod {
 			Annotations: map[string]string{
 				"chaos": name,
 			},
+			SelfLink: fmt.Sprintf("/api/v1/namespaces/%s/pods/%s", namespace, name),
 		},
 		Status: v1.PodStatus{
 			Phase: phase,

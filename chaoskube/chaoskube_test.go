@@ -464,6 +464,34 @@ func (suite *Suite) TestTerminateVictim() {
 	}
 }
 
+func (suite *Suite) TestTerminateVictimCreatesEvent() {
+	chaoskube := suite.setupWithPods(
+		labels.Everything(),
+		labels.Everything(),
+		labels.Everything(),
+		[]time.Weekday{},
+		[]util.TimePeriod{},
+		[]time.Time{},
+		time.UTC,
+		time.Duration(0),
+		false,
+		true,
+	)
+	chaoskube.Now = ThankGodItsFriday{}.Now
+
+	err := chaoskube.TerminateVictim()
+	suite.Require().NoError(err)
+
+	events, err := chaoskube.Client.CoreV1().Events(v1.NamespaceAll).List(metav1.ListOptions{})
+	suite.Require().NoError(err)
+
+	suite.Require().Len(events.Items, 1)
+	event := events.Items[0]
+
+	suite.Equal("foo.chaos.-2be96689beac4e00", event.Name)
+	suite.Equal("Deleted pod foo", event.Message)
+}
+
 // TestTerminateNoVictimLogsInfo tests that missing victim prints a log message
 func (suite *Suite) TestTerminateNoVictimLogsInfo() {
 	chaoskube := suite.setup(

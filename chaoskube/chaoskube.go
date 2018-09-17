@@ -217,7 +217,7 @@ func (c *Chaoskube) CreateDeleteEvent(victim v1.Pod) error {
 		return err
 	}
 
-	t := metav1.Time{Time: time.Now()}
+	t := metav1.Time{Time: c.Now()}
 	_, err = c.Client.CoreV1().Events(victim.Namespace).Create(&v1.Event{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s.chaos.%x", victim.Name, t.UnixNano()),

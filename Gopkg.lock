@@ -104,6 +104,14 @@
   source = "github.com/kubermatic/glog-logrus"
 
 [[projects]]
+  branch = "master"
+  digest = "1:3fb07f8e222402962fa190eb060608b34eddfb64562a18e2167df2de0ece85d8"
+  name = "github.com/golang/groupcache"
+  packages = ["lru"]
+  pruneopts = "UT"
+  revision = "c65c006176ff7ff98bb916961c7abbc6b0afc0aa"
+
+[[projects]]
   digest = "1:4c0989ca0bcd10799064318923b9bc2db6b4d6338dd75f3f2d86c3511aaaf5cf"
   name = "github.com/golang/protobuf"
   packages = [
@@ -522,7 +530,7 @@
   revision = "6dd46049f39503a1fc8d65de4bd566829e95faff"
 
 [[projects]]
-  digest = "1:35c9aa7ecc8206c40ef7fa3184da1924e6ef884dd7ee53874e4b68e2778ca492"
+  digest = "1:805a902ddc3df1afb614d2f612a07ba16a492409531fc4a1e4c1950a63ac8cec"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -612,6 +620,7 @@
     "tools/clientcmd/api/latest",
     "tools/clientcmd/api/v1",
     "tools/metrics",
+    "tools/record",
     "tools/reference",
     "transport",
     "util/cert",
@@ -649,8 +658,10 @@
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/fake",
     "k8s.io/client-go/kubernetes/scheme",
+    "k8s.io/client-go/kubernetes/typed/core/v1",
     "k8s.io/client-go/plugin/pkg/client/auth",
     "k8s.io/client-go/tools/clientcmd",
+    "k8s.io/client-go/tools/record",
     "k8s.io/client-go/tools/reference",
   ]
   solver-name = "gps-cdcl"

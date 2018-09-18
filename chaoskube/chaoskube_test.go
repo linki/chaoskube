@@ -58,7 +58,6 @@ func (suite *Suite) TestNew() {
 		minimumAge,
 		logger,
 		false,
-		true,
 		gracePeriod,
 	)
 	suite.Require().NotNil(chaoskube)
@@ -89,7 +88,6 @@ func (suite *Suite) TestRunContextCanceled() {
 		time.UTC,
 		time.Duration(0),
 		false,
-		true,
 		10,
 	)
 
@@ -140,7 +138,6 @@ func (suite *Suite) TestCandidates() {
 			time.UTC,
 			time.Duration(0),
 			false,
-			true,
 			10,
 		)
 
@@ -176,7 +173,6 @@ func (suite *Suite) TestVictim() {
 			time.UTC,
 			time.Duration(0),
 			false,
-			true,
 			10,
 		)
 
@@ -196,7 +192,6 @@ func (suite *Suite) TestNoVictimReturnsError() {
 		time.UTC,
 		time.Duration(0),
 		false,
-		true,
 		10,
 	)
 
@@ -226,7 +221,6 @@ func (suite *Suite) TestDeletePod() {
 			time.UTC,
 			time.Duration(0),
 			tt.dryRun,
-			true,
 			10,
 		)
 
@@ -458,7 +452,6 @@ func (suite *Suite) TestTerminateVictim() {
 			tt.timezone,
 			time.Duration(0),
 			false,
-			true,
 			10,
 		)
 		chaoskube.Now = tt.now
@@ -473,35 +466,6 @@ func (suite *Suite) TestTerminateVictim() {
 	}
 }
 
-func (suite *Suite) TestTerminateVictimCreatesEvent() {
-	chaoskube := suite.setupWithPods(
-		labels.Everything(),
-		labels.Everything(),
-		labels.Everything(),
-		[]time.Weekday{},
-		[]util.TimePeriod{},
-		[]time.Time{},
-		time.UTC,
-		time.Duration(0),
-		false,
-		true,
-		10,
-	)
-	chaoskube.Now = ThankGodItsFriday{}.Now
-
-	err := chaoskube.TerminateVictim()
-	suite.Require().NoError(err)
-
-	events, err := chaoskube.Client.CoreV1().Events(v1.NamespaceAll).List(metav1.ListOptions{})
-	suite.Require().NoError(err)
-
-	suite.Require().Len(events.Items, 1)
-	event := events.Items[0]
-
-	suite.Equal("foo.chaos.-2be96689beac4e00", event.Name)
-	suite.Equal("Deleted pod foo", event.Message)
-}
-
 // TestTerminateNoVictimLogsInfo tests that missing victim prints a log message
 func (suite *Suite) TestTerminateNoVictimLogsInfo() {
 	chaoskube := suite.setup(
@@ -514,7 +478,6 @@ func (suite *Suite) TestTerminateNoVictimLogsInfo() {
 		time.UTC,
 		time.Duration(0),
 		false,
-		true,
 		10,
 	)
 
@@ -564,7 +527,7 @@ func (suite *Suite) assertLog(level log.Level, msg string, fields log.Fields) {
 	}
 }
 
-func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, createEvent bool, gracePeriod time.Duration) *Chaoskube {
+func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration) *Chaoskube {
 	chaoskube := suite.setup(
 		labelSelector,
 		annotations,
@@ -575,7 +538,6 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 		timezone,
 		minimumAge,
 		dryRun,
-		createEvent,
 		gracePeriod,
 	)
 
@@ -593,7 +555,7 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 	return chaoskube
 }
 
-func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, createEvent bool, gracePeriod time.Duration) *Chaoskube {
+func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration) *Chaoskube {
 	logOutput.Reset()
 
 	return New(
@@ -608,7 +570,6 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 		minimumAge,
 		logger,
 		dryRun,
-		createEvent,
 		gracePeriod,
 	)
 }
@@ -709,7 +670,6 @@ func (suite *Suite) TestMinimumAge() {
 			time.UTC,
 			tt.minimumAge,
 			false,
-			true,
 			10,
 		)
 		chaoskube.Now = tt.now

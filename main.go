@@ -167,7 +167,6 @@ func main() {
 		minimumAge,
 		log.StandardLogger(),
 		dryRun,
-		createEvent,
 		gracePeriod,
 	)
 

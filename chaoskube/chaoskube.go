@@ -171,12 +171,6 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 
 	req, _ := c.Namespaces.Requirements()
 
-	c.Logger.WithFields(log.Fields{
-		"tostring": c.Namespaces.String(),
-		"len": len(req),
-		"rune": string([]rune(c.Namespaces.String())[0]),
-	}).Info("Testing namespace label selector")
-
 	var podList *v1.PodList
 	var err error
 	if len(req) == 1 && string([]rune(c.Namespaces.String())[0]) != "!" {

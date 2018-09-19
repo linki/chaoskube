@@ -40,6 +40,12 @@ spec:
         - --minimum-age=1h
         # terminate pods for real: this disables dry-run mode which is on by default
         - --no-dry-run
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65534
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
 
 ---
 

@@ -168,9 +168,29 @@ func (c *Chaoskube) Victim() (v1.Pod, error) {
 func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 	listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
 
-	podList, err := c.Client.CoreV1().Pods(v1.NamespaceAll).List(listOptions)
-	if err != nil {
-		return nil, err
+
+	req, _ := c.Namespaces.Requirements()
+
+	c.Logger.WithFields(log.Fields{
+		"tostring": c.Namespaces.String(),
+		"len": len(req),
+		"rune": string([]rune(c.Namespaces.String())[0]),
+	}).Info("Testing namespace label selector")
+
+	var podList *v1.PodList
+	var err error
+	if len(req) == 1 && string([]rune(c.Namespaces.String())[0]) != "!" {
+		c.Logger.WithField("scope", "single namespace").Info("fetching podlist")
+		podList, err = c.Client.CoreV1().Pods(c.Namespaces.String()).List(listOptions)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		c.Logger.WithField("scope", "cluster").Info("fetching podlist")
+		podList, err = c.Client.CoreV1().Pods(v1.NamespaceAll).List(listOptions)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	pods, err := filterByNamespaces(podList.Items, c.Namespaces)

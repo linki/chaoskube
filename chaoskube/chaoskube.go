@@ -167,8 +167,7 @@ func (c *Chaoskube) Victim() (v1.Pod, error) {
 // It returns all pods that match the configured label, annotation and namespace selectors.
 func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 	listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
-
-
+	
 	req, _ := c.Namespaces.Requirements()
 
 	var podList *v1.PodList

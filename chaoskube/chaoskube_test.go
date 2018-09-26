@@ -58,6 +58,7 @@ func (suite *Suite) TestNew() {
 		logger,
 		false,
 		true,
+		10,
 	)
 	suite.Require().NotNil(chaoskube)
 
@@ -72,6 +73,7 @@ func (suite *Suite) TestNew() {
 	suite.Equal(minimumAge, chaoskube.MinimumAge)
 	suite.Equal(logger, chaoskube.Logger)
 	suite.Equal(false, chaoskube.DryRun)
+	suite.Equal(int64(10), chaoskube.GracePeriod)
 }
 
 // TestRunContextCanceled tests that a canceled context will exit the Run function.
@@ -87,6 +89,7 @@ func (suite *Suite) TestRunContextCanceled() {
 		time.Duration(0),
 		false,
 		true,
+		10,
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -137,6 +140,7 @@ func (suite *Suite) TestCandidates() {
 			time.Duration(0),
 			false,
 			true,
+			10,
 		)
 
 		suite.assertCandidates(chaoskube, tt.pods)
@@ -172,6 +176,7 @@ func (suite *Suite) TestVictim() {
 			time.Duration(0),
 			false,
 			true,
+			10,
 		)
 
 		suite.assertVictim(chaoskube, tt.victim)
@@ -191,6 +196,7 @@ func (suite *Suite) TestNoVictimReturnsError() {
 		time.Duration(0),
 		false,
 		true,
+		10,
 	)
 
 	_, err := chaoskube.Victim()
@@ -220,6 +226,7 @@ func (suite *Suite) TestDeletePod() {
 			time.Duration(0),
 			tt.dryRun,
 			true,
+			10,
 		)
 
 		victim := util.NewPod("default", "foo", v1.PodRunning)
@@ -451,6 +458,7 @@ func (suite *Suite) TestTerminateVictim() {
 			time.Duration(0),
 			false,
 			true,
+			10,
 		)
 		chaoskube.Now = tt.now
 
@@ -476,6 +484,7 @@ func (suite *Suite) TestTerminateVictimCreatesEvent() {
 		time.Duration(0),
 		false,
 		true,
+		10,
 	)
 	chaoskube.Now = ThankGodItsFriday{}.Now
 
@@ -505,6 +514,7 @@ func (suite *Suite) TestTerminateNoVictimLogsInfo() {
 		time.Duration(0),
 		false,
 		true,
+		10,
 	)
 
 	err := chaoskube.TerminateVictim()
@@ -553,7 +563,7 @@ func (suite *Suite) assertLog(level log.Level, msg string, fields log.Fields) {
 	}
 }
 
-func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, createEvent bool) *Chaoskube {
+func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, createEvent bool, gracePeriod int64) *Chaoskube {
 	chaoskube := suite.setup(
 		labelSelector,
 		annotations,
@@ -565,6 +575,7 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 		minimumAge,
 		dryRun,
 		createEvent,
+		gracePeriod,
 	)
 
 	pods := []v1.Pod{
@@ -581,7 +592,7 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 	return chaoskube
 }
 
-func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, createEvent bool) *Chaoskube {
+func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, createEvent bool, gracePeriod int64) *Chaoskube {
 	logOutput.Reset()
 
 	return New(
@@ -597,6 +608,7 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 		logger,
 		dryRun,
 		createEvent,
+		gracePeriod,
 	)
 }
 
@@ -697,6 +709,7 @@ func (suite *Suite) TestMinimumAge() {
 			tt.minimumAge,
 			false,
 			true,
+			10,
 		)
 		chaoskube.Now = tt.now
 

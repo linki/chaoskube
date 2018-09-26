@@ -12,7 +12,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
-	"gopkg.in/alecthomas/kingpin.v2"
+	kingpin "gopkg.in/alecthomas/kingpin.v2"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -43,6 +43,7 @@ var (
 	createEvent        bool
 	debug              bool
 	metricsAddress     string
+	gracePeriod        int64
 )
 
 func init() {
@@ -63,6 +64,7 @@ func init() {
 	kingpin.Flag("create-events", "If true, create an event in victims namespace after termination.").Default("true").BoolVar(&createEvent)
 	kingpin.Flag("debug", "Enable debug logging.").BoolVar(&debug)
 	kingpin.Flag("metrics-address", "Listening address for metrics handler").Default(":8080").StringVar(&metricsAddress)
+	kingpin.Flag("grace-period", "Grace period in seconds to terminate Pods").Default("30").Int64Var(&gracePeriod)
 }
 
 func main() {
@@ -89,12 +91,14 @@ func main() {
 		"debug":              debug,
 		"metricsAddress":     metricsAddress,
 		"createEvent":        createEvent,
+		"gracePeriod":        gracePeriod,
 	}).Debug("reading config")
 
 	log.WithFields(log.Fields{
-		"version":  version,
-		"dryRun":   dryRun,
-		"interval": interval,
+		"version":     version,
+		"dryRun":      dryRun,
+		"interval":    interval,
+		"gracePeriod": gracePeriod,
 	}).Info("starting up")
 
 	client, err := newClient()
@@ -165,6 +169,7 @@ func main() {
 		log.StandardLogger(),
 		dryRun,
 		createEvent,
+		gracePeriod,
 	)
 
 	if metricsAddress != "" {

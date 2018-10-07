@@ -64,7 +64,7 @@ func init() {
 	kingpin.Flag("create-events", "If true, create an event in victims namespace after termination.").Default("true").BoolVar(&createEvent)
 	kingpin.Flag("debug", "Enable debug logging.").BoolVar(&debug)
 	kingpin.Flag("metrics-address", "Listening address for metrics handler").Default(":8080").StringVar(&metricsAddress)
-	kingpin.Flag("grace-period", "Grace period in seconds to terminate Pods").Default("30").Int64Var(&gracePeriod)
+	kingpin.Flag("grace-period", "Grace period in seconds to terminate Pods").Default("-1").Int64Var(&gracePeriod)
 }
 
 func main() {

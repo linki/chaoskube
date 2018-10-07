@@ -200,8 +200,15 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 		return nil
 	}
 
-	deleteOptions := metav1.DeleteOptions{GracePeriodSeconds: &c.GracePeriod}
-	err := c.Client.CoreV1().Pods(victim.Namespace).Delete(victim.Name, &deleteOptions)
+	var err error
+	pods := c.Client.CoreV1().Pods(victim.Namespace)
+	if c.GracePeriod >= 0 {
+		deleteOptions := metav1.DeleteOptions{GracePeriodSeconds: &c.GracePeriod}
+		err = pods.Delete(victim.Name, &deleteOptions)
+	} else {
+		err = pods.Delete(victim.Name, nil)
+	}
+
 	if err != nil {
 		return err
 	}

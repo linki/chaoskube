@@ -200,15 +200,7 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 		return nil
 	}
 
-	var err error
-	pods := c.Client.CoreV1().Pods(victim.Namespace)
-	if c.GracePeriod >= 0 {
-		deleteOptions := metav1.DeleteOptions{GracePeriodSeconds: &c.GracePeriod}
-		err = pods.Delete(victim.Name, &deleteOptions)
-	} else {
-		err = pods.Delete(victim.Name, nil)
-	}
-
+	err := c.Client.CoreV1().Pods(victim.Namespace).Delete(victim.Name, deleteOptions(c.GracePeriod))
 	if err != nil {
 		return err
 	}
@@ -356,4 +348,12 @@ func filterByMinimumAge(pods []v1.Pod, minimumAge time.Duration, now time.Time) 
 	}
 
 	return filteredList
+}
+
+func deleteOptions(gracePeriod int64) *metav1.DeleteOptions {
+	if gracePeriod == -1 {
+		return nil
+	}
+
+	return &metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod}
 }

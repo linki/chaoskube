@@ -43,6 +43,7 @@ func (suite *Suite) TestNew() {
 		excludedTimesOfDay = []util.TimePeriod{util.TimePeriod{}}
 		excludedDaysOfYear = []time.Time{time.Now()}
 		minimumAge         = time.Duration(42)
+		gracePeriod        = 10 * time.Second
 	)
 
 	chaoskube := New(
@@ -58,7 +59,7 @@ func (suite *Suite) TestNew() {
 		logger,
 		false,
 		true,
-		10,
+		gracePeriod,
 	)
 	suite.Require().NotNil(chaoskube)
 
@@ -73,7 +74,7 @@ func (suite *Suite) TestNew() {
 	suite.Equal(minimumAge, chaoskube.MinimumAge)
 	suite.Equal(logger, chaoskube.Logger)
 	suite.Equal(false, chaoskube.DryRun)
-	suite.Equal(int64(10), chaoskube.GracePeriod)
+	suite.Equal(gracePeriod, chaoskube.GracePeriod)
 }
 
 // TestRunContextCanceled tests that a canceled context will exit the Run function.
@@ -563,7 +564,7 @@ func (suite *Suite) assertLog(level log.Level, msg string, fields log.Fields) {
 	}
 }
 
-func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, createEvent bool, gracePeriod int64) *Chaoskube {
+func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, createEvent bool, gracePeriod time.Duration) *Chaoskube {
 	chaoskube := suite.setup(
 		labelSelector,
 		annotations,
@@ -592,7 +593,7 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 	return chaoskube
 }
 
-func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, createEvent bool, gracePeriod int64) *Chaoskube {
+func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, createEvent bool, gracePeriod time.Duration) *Chaoskube {
 	logOutput.Reset()
 
 	return New(
@@ -729,7 +730,7 @@ func (suite *Suite) TestMinimumAge() {
 
 func (suite *Suite) TestDeleteOptions() {
 	for _, tt := range []struct {
-		gracePeriod int64
+		gracePeriod time.Duration
 		expected    *metav1.DeleteOptions
 	}{
 		{

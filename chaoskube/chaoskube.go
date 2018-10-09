@@ -47,7 +47,7 @@ type Chaoskube struct {
 	// create event with deletion message in victims namespace
 	CreateEvent bool
 	// grace period to terminate the pods
-	GracePeriod int64
+	GracePeriod time.Duration
 	// a function to retrieve the current time
 	Now func() time.Time
 }
@@ -73,7 +73,7 @@ var (
 // * a logger implementing logrus.FieldLogger to send log output to
 // * whether to enable/disable dry-run mode
 // * whether to enable/disable event creation
-func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, createEvent bool, gracePeriod int64) *Chaoskube {
+func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, createEvent bool, gracePeriod time.Duration) *Chaoskube {
 	return &Chaoskube{
 		Client:             client,
 		Labels:             labels,
@@ -350,10 +350,10 @@ func filterByMinimumAge(pods []v1.Pod, minimumAge time.Duration, now time.Time) 
 	return filteredList
 }
 
-func deleteOptions(gracePeriod int64) *metav1.DeleteOptions {
-	if gracePeriod == -1 {
+func deleteOptions(gracePeriod time.Duration) *metav1.DeleteOptions {
+	if gracePeriod < 0 {
 		return nil
 	}
 
-	return &metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod}
+	return &metav1.DeleteOptions{GracePeriodSeconds: (*int64)(&gracePeriod)}
 }

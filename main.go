@@ -95,10 +95,9 @@ func main() {
 	}).Debug("reading config")
 
 	log.WithFields(log.Fields{
-		"version":     version,
-		"dryRun":      dryRun,
-		"interval":    interval,
-		"gracePeriod": gracePeriod,
+		"version":  version,
+		"dryRun":   dryRun,
+		"interval": interval,
 	}).Info("starting up")
 
 	client, err := newClient()

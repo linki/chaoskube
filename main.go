@@ -43,6 +43,7 @@ var (
 	createEvent        bool
 	debug              bool
 	metricsAddress     string
+	gracePeriod        time.Duration
 )
 
 func init() {
@@ -63,6 +64,7 @@ func init() {
 	kingpin.Flag("create-events", "If true, create an event in victims namespace after termination.").Default("true").BoolVar(&createEvent)
 	kingpin.Flag("debug", "Enable debug logging.").BoolVar(&debug)
 	kingpin.Flag("metrics-address", "Listening address for metrics handler").Default(":8080").StringVar(&metricsAddress)
+	kingpin.Flag("grace-period", "Grace period to terminate Pods. Negative values will use the Pod's grace period.").Default("-1s").DurationVar(&gracePeriod)
 }
 
 func main() {
@@ -89,6 +91,7 @@ func main() {
 		"debug":              debug,
 		"metricsAddress":     metricsAddress,
 		"createEvent":        createEvent,
+		"gracePeriod":        gracePeriod,
 	}).Debug("reading config")
 
 	log.WithFields(log.Fields{
@@ -165,6 +168,7 @@ func main() {
 		log.StandardLogger(),
 		dryRun,
 		createEvent,
+		gracePeriod,
 	)
 
 	if metricsAddress != "" {

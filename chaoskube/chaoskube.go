@@ -46,6 +46,8 @@ type Chaoskube struct {
 	DryRun bool
 	// create event with deletion message in victims namespace
 	CreateEvent bool
+	// grace period to terminate the pods
+	GracePeriod time.Duration
 	// a function to retrieve the current time
 	Now func() time.Time
 }
@@ -71,7 +73,7 @@ var (
 // * a logger implementing logrus.FieldLogger to send log output to
 // * whether to enable/disable dry-run mode
 // * whether to enable/disable event creation
-func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, createEvent bool) *Chaoskube {
+func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, createEvent bool, gracePeriod time.Duration) *Chaoskube {
 	return &Chaoskube{
 		Client:             client,
 		Labels:             labels,
@@ -85,6 +87,7 @@ func New(client kubernetes.Interface, labels, annotations, namespaces labels.Sel
 		Logger:             logger,
 		DryRun:             dryRun,
 		CreateEvent:        createEvent,
+		GracePeriod:        gracePeriod,
 		Now:                time.Now,
 	}
 }
@@ -197,7 +200,7 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 		return nil
 	}
 
-	err := c.Client.CoreV1().Pods(victim.Namespace).Delete(victim.Name, nil)
+	err := c.Client.CoreV1().Pods(victim.Namespace).Delete(victim.Name, deleteOptions(c.GracePeriod))
 	if err != nil {
 		return err
 	}
@@ -345,4 +348,12 @@ func filterByMinimumAge(pods []v1.Pod, minimumAge time.Duration, now time.Time) 
 	}
 
 	return filteredList
+}
+
+func deleteOptions(gracePeriod time.Duration) *metav1.DeleteOptions {
+	if gracePeriod < 0 {
+		return nil
+	}
+
+	return &metav1.DeleteOptions{GracePeriodSeconds: (*int64)(&gracePeriod)}
 }

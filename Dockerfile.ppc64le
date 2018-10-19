@@ -1,19 +1,21 @@
 # builder image
-FROM golang:1.9-alpine as builder
+FROM golang:1.11-alpine3.8 as builder
 
 RUN apk --no-cache add git
 RUN go get github.com/golang/dep/cmd/dep
 WORKDIR /go/src/github.com/linki/chaoskube
 COPY . .
-RUN dep ensure
+RUN dep ensure -vendor-only
 RUN go test -v ./...
-RUN GOARCH=ppc64le go build -o /bin/chaoskube -v \
+ENV GOARCH ppc64le
+RUN go build -o /bin/chaoskube -v \
   -ldflags "-X main.version=$(git describe --tags --always --dirty) -w -s"
 
 # final image
-FROM ppc64le/alpine:3.6
+FROM ppc64le/alpine:3.8
 MAINTAINER Linki <linki+docker.com@posteo.de>
 
 COPY --from=builder /bin/chaoskube /bin/chaoskube
 
+USER 65534
 ENTRYPOINT ["/bin/chaoskube"]

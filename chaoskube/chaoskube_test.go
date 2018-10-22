@@ -234,6 +234,26 @@ func (suite *Suite) TestDeletePod() {
 	}
 }
 
+func (suite *Suite) TestDeletePodNotFound() {
+	chaoskube := suite.setup(
+		labels.Everything(),
+		labels.Everything(),
+		labels.Everything(),
+		[]time.Weekday{},
+		[]util.TimePeriod{},
+		[]time.Time{},
+		time.UTC,
+		time.Duration(0),
+		false,
+		10,
+	)
+
+	victim := util.NewPod("default", "foo", v1.PodRunning)
+
+	err := chaoskube.DeletePod(victim)
+	suite.EqualError(err, `pods "foo" not found`)
+}
+
 func (suite *Suite) TestTerminateVictim() {
 	midnight := util.NewTimePeriod(
 		ThankGodItsFriday{}.Now().Add(-16*time.Hour),

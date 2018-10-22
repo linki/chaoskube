@@ -19,8 +19,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/tools/reference"
 
-	"github.com/linki/chaoskube/util"
 	"github.com/linki/chaoskube/metrics"
+	"github.com/linki/chaoskube/util"
 )
 
 // Chaoskube represents an instance of chaoskube
@@ -102,15 +102,13 @@ func New(client kubernetes.Interface, labels, annotations, namespaces labels.Sel
 // described by channel next. It returns when the given context is canceled.
 func (c *Chaoskube) Run(ctx context.Context, next <-chan time.Time) {
 	for {
-		metrics.RunCounter.Inc()
 		if err := c.TerminateVictim(); err != nil {
-			metrics.ErrorCounter.Inc()
 			c.Logger.WithField("err", err).Error("failed to terminate victim")
-		} else {
-			metrics.PodsDeletedCounter.Inc()
+			metrics.ErrorsTotal.Inc()
 		}
 
 		c.Logger.Debug("sleeping...")
+		metrics.IntervalsTotal.Inc()
 		select {
 		case <-next:
 		case <-ctx.Done():
@@ -212,10 +210,12 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 
 	start := time.Now()
 	err := c.Client.CoreV1().Pods(victim.Namespace).Delete(victim.Name, deleteOptions(c.GracePeriod))
-	metrics.TerminationHistogram.Observe(time.Since(start).Seconds())
+	metrics.TerminationDurationSeconds.Observe(time.Since(start).Seconds())
 	if err != nil {
 		return err
 	}
+
+	metrics.PodsDeletedTotal.Inc()
 
 	ref, err := reference.GetReference(scheme.Scheme, &victim)
 	if err != nil {

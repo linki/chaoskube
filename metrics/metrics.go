@@ -1,29 +1,33 @@
 package metrics
 
 import (
-    "github.com/prometheus/client_golang/prometheus"
-    "github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 var (
-    // PodsDeletedCounter is the pods deleted counter
-    PodsDeletedCounter = promauto.NewCounter(prometheus.CounterOpts{
-        Name: "chaoskube_pods_deleted",
-        Help: "The total number of pods deleted",
-    })
-    // RunCounter is the run function executions counter
-    RunCounter = promauto.NewCounter(prometheus.CounterOpts{
-        Name: "chaoskube_run_counts",
-        Help: "The total number of pod termination logic runs",
-    })
-    // ErrorCounter is the run function executions counter
-    ErrorCounter = promauto.NewCounter(prometheus.CounterOpts{
-        Name: "chaoskube_termination_errors",
-        Help: "The total number of errors on terminate victim operation",
-    })
-    // errorCounter is the run function executions counter
-    TerminationHistogram = promauto.NewHistogram(prometheus.HistogramOpts{
-		Name: "chaoskube_termination_time_seconds",
-        Help: "The time took single pod termination to finish",
-    })
+	// PodsDeletedTotal is the total number of deleted pods.
+	PodsDeletedTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: "chaoskube",
+		Name:      "pods_deleted_total",
+		Help:      "The total number of pods deleted",
+	})
+	// IntervalsTotal is the total number of intervals, i.e. call to Run().
+	IntervalsTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: "chaoskube",
+		Name:      "intervals_total",
+		Help:      "The total number of pod termination logic runs",
+	})
+	// ErrorsTotal is the total number of errors encountered while trying to terminate pods.
+	ErrorsTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: "chaoskube",
+		Name:      "errors_total",
+		Help:      "The total number of errors on terminate victim operation",
+	})
+	// TerminationDurationSeconds is a histogram over the time it took to terminate pods.
+	TerminationDurationSeconds = promauto.NewHistogram(prometheus.HistogramOpts{
+		Namespace: "chaoskube",
+		Name:      "termination_duration_seconds",
+		Help:      "The time it took a single pod termination to finish",
+	})
 )

@@ -17,12 +17,13 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
-	"k8s.io/client-go/tools/clientcmd"
 	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+
+	"strings"
 
 	"github.com/linki/chaoskube/chaoskube"
 	"github.com/linki/chaoskube/util"
-	"strings"
 )
 
 var (
@@ -42,10 +43,12 @@ var (
 	kubeconfig         string
 	interval           time.Duration
 	dryRun             bool
+	createEvent        bool
 	debug              bool
 	metricsAddress     string
 	exec               string
 	execContainer      string
+	gracePeriod        time.Duration
 )
 
 func init() {
@@ -65,8 +68,10 @@ func init() {
 	kingpin.Flag("dry-run", "If true, don't actually do anything.").Default("true").BoolVar(&dryRun)
 	kingpin.Flag("exec", "Execute the given terminal command on victim pods, rather than deleting pods, eg killall -9 bash").StringVar(&exec)
 	kingpin.Flag("exec-container", "Name of container to run --exec command in, defaults to first container in spec").Default("").StringVar(&execContainer)
+	kingpin.Flag("create-events", "If true, create an event in victims namespace after termination.").Default("true").BoolVar(&createEvent)
 	kingpin.Flag("debug", "Enable debug logging.").BoolVar(&debug)
 	kingpin.Flag("metrics-address", "Listening address for metrics handler").Default(":8080").StringVar(&metricsAddress)
+	kingpin.Flag("grace-period", "Grace period to terminate Pods. Negative values will use the Pod's grace period.").Default("-1s").DurationVar(&gracePeriod)
 }
 
 func main() {
@@ -94,6 +99,8 @@ func main() {
 		"execContainer":      execContainer,
 		"debug":              debug,
 		"metricsAddress":     metricsAddress,
+		"createEvent":        createEvent,
+		"gracePeriod":        gracePeriod,
 	}).Info("reading config")
 
 	log.WithFields(log.Fields{
@@ -168,7 +175,7 @@ func main() {
 	} else if len(exec) > 0 {
 		action = chaoskube.NewExecAction(client.CoreV1().RESTClient(), config, execContainer, strings.Split(exec, " "))
 	} else {
-		action = chaoskube.NewDeletePodAction(client)
+		action = chaoskube.NewDeletePodAction(client, gracePeriod)
 	}
 
 	chaoskube := chaoskube.New(
@@ -183,6 +190,8 @@ func main() {
 		minimumAge,
 		log.StandardLogger(),
 		action,
+		createEvent,
+		gracePeriod,
 	)
 
 	if metricsAddress != "" {

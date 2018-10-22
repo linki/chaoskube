@@ -14,6 +14,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/reference"
 
 	"github.com/linki/chaoskube/util"
 )
@@ -42,6 +44,10 @@ type Chaoskube struct {
 	Logger log.FieldLogger
 	// action taken against victim pods
 	Action ChaosAction
+	// create event with deletion message in victims namespace
+	CreateEvent bool
+	// grace period to terminate the pods
+	GracePeriod time.Duration
 	// a function to retrieve the current time
 	Now func() time.Time
 }
@@ -66,7 +72,8 @@ var (
 // * a time zone to apply to the aforementioned time-based filters
 // * a logger implementing logrus.FieldLogger to send log output to
 // * what specific action to use to imbue chaos on victim pods
-func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, action ChaosAction) *Chaoskube {
+// * whether to enable/disable event creation
+func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, action ChaosAction, createEvent bool, gracePeriod time.Duration) *Chaoskube {
 	return &Chaoskube{
 		Client:             client,
 		Labels:             labels,
@@ -79,6 +86,8 @@ func New(client kubernetes.Interface, labels, annotations, namespaces labels.Sel
 		MinimumAge:         minimumAge,
 		Logger:             logger,
 		Action:             action,
+		CreateEvent:        createEvent,
+		GracePeriod:        gracePeriod,
 		Now:                time.Now,
 	}
 }
@@ -187,7 +196,43 @@ func (c *Chaoskube) ApplyChaos(victim v1.Pod) error {
 		"name":      victim.Name,
 	}).Info(c.Action.Name())
 
-	return c.Action.ApplyChaos(victim)
+	err := c.Action.ApplyChaos(victim)
+	if err != nil {
+		return err
+	}
+
+	err = c.CreateDeleteEvent(victim)
+	if err != nil {
+		c.Logger.WithField("err", err).Error("failed to create deletion event")
+	}
+
+	return nil
+}
+
+// CreateDeleteEvent creates an event in victims namespace with an deletion message.
+func (c *Chaoskube) CreateDeleteEvent(victim v1.Pod) error {
+	ref, err := reference.GetReference(scheme.Scheme, victim.DeepCopyObject())
+	if err != nil {
+		return err
+	}
+
+	t := metav1.Time{Time: c.Now()}
+	_, err = c.Client.CoreV1().Events(victim.Namespace).Create(&v1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s.chaos.%x", victim.Name, t.UnixNano()),
+			Namespace: victim.Namespace,
+		},
+		InvolvedObject: *ref,
+		Reason:         "Chaos",
+		Message:        fmt.Sprintf("Deleted pod %s", victim.Name),
+		FirstTimestamp: t,
+		LastTimestamp:  t,
+		Count:          1,
+		Action:         "Deleted",
+		Type:           v1.EventTypeNormal,
+	})
+
+	return err
 }
 
 // filterByNamespaces filters a list of pods by a given namespace selector.
@@ -299,4 +344,12 @@ func filterByMinimumAge(pods []v1.Pod, minimumAge time.Duration, now time.Time) 
 	}
 
 	return filteredList
+}
+
+func deleteOptions(gracePeriod time.Duration) *metav1.DeleteOptions {
+	if gracePeriod < 0 {
+		return nil
+	}
+
+	return &metav1.DeleteOptions{GracePeriodSeconds: (*int64)(&gracePeriod)}
 }

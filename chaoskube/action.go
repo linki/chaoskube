@@ -1,13 +1,15 @@
 package chaoskube
 
 import (
+	"fmt"
+	"os"
+	"time"
+
 	"k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/remotecommand"
-	"os"
-	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/kubernetes/scheme"
-	"fmt"
+	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/remotecommand"
 )
 
 type ChaosAction interface {
@@ -21,8 +23,8 @@ func NewDryRunAction() ChaosAction {
 	return &dryRun{}
 }
 
-func NewDeletePodAction(client kubernetes.Interface) ChaosAction {
-	return &deletePod{client}
+func NewDeletePodAction(client kubernetes.Interface, gracePeriod time.Duration) ChaosAction {
+	return &deletePod{client, gracePeriod}
 }
 
 func NewExecAction(client restclient.Interface, config *restclient.Config, containerName string, command []string) ChaosAction {
@@ -31,23 +33,25 @@ func NewExecAction(client restclient.Interface, config *restclient.Config, conta
 
 // no-op
 type dryRun struct {
-
 }
+
 func (s *dryRun) ApplyChaos(victim v1.Pod) error {
 	return nil
 }
-func (s *dryRun) Name() string { return "dry run" }
+func (s *dryRun) Name() string { return "terminating pod" }
 
 var _ ChaosAction = &dryRun{}
 
 // Simply ask k8s to delete the victim pod
 type deletePod struct {
-	client kubernetes.Interface
+	client      kubernetes.Interface
+	gracePeriod time.Duration
 }
+
 func (s *deletePod) ApplyChaos(victim v1.Pod) error {
-	return s.client.CoreV1().Pods(victim.Namespace).Delete(victim.Name, nil)
+	return s.client.CoreV1().Pods(victim.Namespace).Delete(victim.Name, deleteOptions(s.gracePeriod))
 }
-func (s *deletePod) Name() string { return "terminate pod" }
+func (s *deletePod) Name() string { return "terminating pod" }
 
 var _ ChaosAction = &deletePod{}
 
@@ -57,7 +61,7 @@ type execOnPod struct {
 	config *restclient.Config
 
 	containerName string
-	command []string
+	command       []string
 }
 
 // Based on https://github.com/kubernetes/kubernetes/blob/master/pkg/kubectl/cmd/exec.go
@@ -65,7 +69,7 @@ func (s *execOnPod) ApplyChaos(pod v1.Pod) error {
 	var container string
 	if s.containerName != "" {
 		for _, c := range pod.Spec.Containers {
-			container = c.Name;
+			container = c.Name
 		}
 	}
 
@@ -89,7 +93,7 @@ func (s *execOnPod) ApplyChaos(pod v1.Pod) error {
 		return err
 	}
 	// TODO: Collect stderr/stdout in RAM and log
-	err =  exec.Stream(remotecommand.StreamOptions{
+	err = exec.Stream(remotecommand.StreamOptions{
 		Stdin:             nil,
 		Stdout:            os.Stdout,
 		Stderr:            os.Stderr,
@@ -100,4 +104,5 @@ func (s *execOnPod) ApplyChaos(pod v1.Pod) error {
 	return err
 }
 func (s *execOnPod) Name() string { return fmt.Sprintf("exec '%v'", s.command) }
+
 var _ ChaosAction = &execOnPod{}

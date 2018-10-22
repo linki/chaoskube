@@ -1,3 +1,12 @@
+## v0.11.0 - 2018-10-09
+
+  Features:
+  * [#110](https://github.com/linki/chaoskube/pull/110) Add option to define grace period given to pods @palmerabollo
+  * [#105](https://github.com/linki/chaoskube/pull/105) Implement event creation after terminating a pod @djboris9
+
+  Updates:
+  * [#107](https://github.com/linki/chaoskube/pull/107) Replace `glog` with a `noop` logger to allow for read-only filesystem @linki
+
 ## v0.10.0 - 2018-08-06
 
   Features:

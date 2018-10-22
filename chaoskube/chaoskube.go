@@ -86,16 +86,13 @@ func New(client kubernetes.Interface, labels, annotations, namespaces labels.Sel
 // described by channel next. It returns when the given context is canceled.
 func (c *Chaoskube) Run(ctx context.Context, next <-chan time.Time) {
 	for {
-		metrics.RunCounter.Inc()
-
 		if err := c.TerminateVictim(); err != nil {
-			metrics.ErrorCounter.Inc()
 			c.Logger.WithField("err", err).Error("failed to terminate victim")
-		} else {
-			metrics.PodsDeletedCounter.Inc()
+			metrics.ErrorsTotal.Inc()
 		}
 
 		c.Logger.Debug("sleeping...")
+		metrics.IntervalsTotal.Inc()
 		select {
 		case <-next:
 		case <-ctx.Done():
@@ -195,11 +192,12 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 		return nil
 	}
 
-	start := time.Now()
-	e := c.Client.CoreV1().Pods(victim.Namespace).Delete(victim.Name, nil)
-	metrics.TerminationHistogram.Observe(time.Since(start).Seconds())
+	if err := c.Client.CoreV1().Pods(victim.Namespace).Delete(victim.Name, nil); err != nil {
+		return err
+	}
 
-	return e
+	metrics.PodsDeletedTotal.Inc()
+	return nil
 }
 
 // filterByNamespaces filters a list of pods by a given namespace selector.

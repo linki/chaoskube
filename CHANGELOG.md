@@ -1,3 +1,5 @@
+  * [#112](https://github.com/linki/chaoskube/pull/112) Update docker image to alpine v3.8 and go v1.11 @linki
+
 ## v0.11.0 - 2018-10-09
 
   Features:

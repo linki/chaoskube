@@ -191,7 +191,6 @@ func main() {
 		log.StandardLogger(),
 		action,
 		createEvent,
-		gracePeriod,
 	)
 
 	if metricsAddress != "" {

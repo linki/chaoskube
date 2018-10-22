@@ -43,8 +43,7 @@ func (suite *Suite) TestNew() {
 		excludedTimesOfDay = []util.TimePeriod{util.TimePeriod{}}
 		excludedDaysOfYear = []time.Time{time.Now()}
 		minimumAge         = time.Duration(42)
-		action             = NewDeletePodAction(client, -1)
-		gracePeriod        = 10 * time.Second
+		action             = NewDeletePodAction(client, 10*time.Second)
 	)
 
 	chaoskube := New(
@@ -60,7 +59,6 @@ func (suite *Suite) TestNew() {
 		logger,
 		action,
 		true,
-		gracePeriod,
 	)
 	suite.Require().NotNil(chaoskube)
 
@@ -75,7 +73,6 @@ func (suite *Suite) TestNew() {
 	suite.Equal(minimumAge, chaoskube.MinimumAge)
 	suite.Equal(logger, chaoskube.Logger)
 	suite.Equal(action, chaoskube.Action)
-	suite.Equal(gracePeriod, chaoskube.GracePeriod)
 }
 
 // TestRunContextCanceled tests that a canceled context will exit the Run function.
@@ -603,7 +600,7 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 	if dryRun {
 		action = NewDryRunAction()
 	} else {
-		action = NewDeletePodAction(client, -1)
+		action = NewDeletePodAction(client, gracePeriod)
 	}
 
 	return New(
@@ -619,7 +616,6 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 		logger,
 		action,
 		createEvent,
-		gracePeriod,
 	)
 }
 

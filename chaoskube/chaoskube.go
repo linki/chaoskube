@@ -73,7 +73,7 @@ var (
 // * a logger implementing logrus.FieldLogger to send log output to
 // * what specific action to use to imbue chaos on victim pods
 // * whether to enable/disable event creation
-func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, action ChaosAction, createEvent bool, gracePeriod time.Duration) *Chaoskube {
+func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, action ChaosAction, createEvent bool) *Chaoskube {
 	return &Chaoskube{
 		Client:             client,
 		Labels:             labels,
@@ -87,7 +87,6 @@ func New(client kubernetes.Interface, labels, annotations, namespaces labels.Sel
 		Logger:             logger,
 		Action:             action,
 		CreateEvent:        createEvent,
-		GracePeriod:        gracePeriod,
 		Now:                time.Now,
 	}
 }

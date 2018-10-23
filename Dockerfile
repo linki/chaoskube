@@ -1,6 +1,7 @@
 # builder image
 FROM golang:1.11-alpine3.8 as builder
 
+ENV CGO_ENABLED 0
 RUN apk --no-cache add git
 RUN go get github.com/golang/dep/cmd/dep
 WORKDIR /go/src/github.com/linki/chaoskube

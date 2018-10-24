@@ -10,9 +10,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/alecthomas/kingpin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
-	"gopkg.in/alecthomas/kingpin.v2"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"

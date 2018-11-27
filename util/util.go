@@ -127,6 +127,10 @@ func TimeOfDay(pointInTime time.Time) time.Time {
 // NewPod returns a new pod instance for testing purposes.
 func NewPod(namespace, name string, phase v1.PodPhase) v1.Pod {
 	return v1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Pod",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      name,

@@ -188,8 +188,9 @@ func main() {
 		parsedTimezone,
 		minimumAge,
 		log.StandardLogger(),
+		dryRun,
+		gracePeriod,
 		_strategy,
-		createEvent,
 	)
 
 	if metricsAddress != "" {

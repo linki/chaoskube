@@ -44,7 +44,6 @@ var (
 	kubeconfig         string
 	interval           time.Duration
 	dryRun             bool
-	createEvent        bool
 	debug              bool
 	metricsAddress     string
 	exec               string
@@ -69,7 +68,6 @@ func init() {
 	kingpin.Flag("dry-run", "If true, don't actually do anything.").Default("true").BoolVar(&dryRun)
 	kingpin.Flag("exec", "Execute the given terminal command on victim pods, rather than deleting pods, eg killall -9 bash").StringVar(&exec)
 	kingpin.Flag("exec-container", "Name of container to run --exec command in, defaults to first container in spec").Default("").StringVar(&execContainer)
-	kingpin.Flag("create-events", "If true, create an event in victims namespace after termination.").Default("true").BoolVar(&createEvent)
 	kingpin.Flag("debug", "Enable debug logging.").BoolVar(&debug)
 	kingpin.Flag("metrics-address", "Listening address for metrics handler").Default(":8080").StringVar(&metricsAddress)
 	kingpin.Flag("grace-period", "Grace period to terminate Pods. Negative values will use the Pod's grace period.").Default("-1s").DurationVar(&gracePeriod)
@@ -100,8 +98,9 @@ func main() {
 		"execContainer":      execContainer,
 		"debug":              debug,
 		"metricsAddress":     metricsAddress,
-		"createEvent":        createEvent,
 		"gracePeriod":        gracePeriod,
+		// todo strategy
+		// dryRun
 	}).Info("reading config")
 
 	log.WithFields(log.Fields{

@@ -22,6 +22,7 @@ import (
 
 	"strings"
 
+	"github.com/linki/chaoskube/action"
 	"github.com/linki/chaoskube/chaoskube"
 	"github.com/linki/chaoskube/util"
 )
@@ -169,13 +170,13 @@ func main() {
 		"offset":   offset / int(time.Hour/time.Second),
 	}).Info("setting timezone")
 
-	var action chaoskube.ChaosAction
+	var a action.ChaosAction
 	if dryRun {
-		action = chaoskube.NewDryRunAction()
+		a = action.NewDryRunAction()
 	} else if len(exec) > 0 {
-		action = chaoskube.NewExecAction(client.CoreV1().RESTClient(), config, execContainer, strings.Split(exec, " "))
+		a = action.NewExecAction(client.CoreV1().RESTClient(), config, execContainer, strings.Split(exec, " "))
 	} else {
-		action = chaoskube.NewDeletePodAction(client, gracePeriod)
+		a = action.NewDeletePodAction(client, gracePeriod)
 	}
 
 	chaoskube := chaoskube.New(
@@ -189,7 +190,7 @@ func main() {
 		parsedTimezone,
 		minimumAge,
 		log.StandardLogger(),
-		action,
+		a,
 		createEvent,
 	)
 

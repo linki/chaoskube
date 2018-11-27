@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"github.com/linki/chaoskube/action"
 	"github.com/linki/chaoskube/util"
 
 	"github.com/stretchr/testify/suite"
@@ -43,7 +44,7 @@ func (suite *Suite) TestNew() {
 		excludedTimesOfDay = []util.TimePeriod{util.TimePeriod{}}
 		excludedDaysOfYear = []time.Time{time.Now()}
 		minimumAge         = time.Duration(42)
-		action             = NewDeletePodAction(client, 10*time.Second)
+		action             = action.NewDeletePodAction(client, 10*time.Second)
 	)
 
 	chaoskube := New(
@@ -596,11 +597,11 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 
 	client := fake.NewSimpleClientset()
 
-	var action ChaosAction
+	var a action.ChaosAction
 	if dryRun {
-		action = NewDryRunAction()
+		a = action.NewDryRunAction()
 	} else {
-		action = NewDeletePodAction(client, gracePeriod)
+		a = action.NewDeletePodAction(client, gracePeriod)
 	}
 
 	return New(
@@ -614,7 +615,7 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 		timezone,
 		minimumAge,
 		logger,
-		action,
+		a,
 		createEvent,
 	)
 }
@@ -732,30 +733,4 @@ func (suite *Suite) TestMinimumAge() {
 
 		suite.Len(pods, tt.candidates)
 	}
-}
-
-func (suite *Suite) TestDeleteOptions() {
-	for _, tt := range []struct {
-		gracePeriod time.Duration
-		expected    *metav1.DeleteOptions
-	}{
-		{
-			-1,
-			nil,
-		},
-		{
-			0,
-			&metav1.DeleteOptions{GracePeriodSeconds: int64Ptr(0)},
-		},
-		{
-			300,
-			&metav1.DeleteOptions{GracePeriodSeconds: int64Ptr(300)},
-		},
-	} {
-		suite.Equal(tt.expected, deleteOptions(tt.gracePeriod))
-	}
-}
-
-func int64Ptr(value int64) *int64 {
-	return &value
 }

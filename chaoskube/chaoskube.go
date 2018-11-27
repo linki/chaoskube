@@ -17,6 +17,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/reference"
 
+	"github.com/linki/chaoskube/action"
 	"github.com/linki/chaoskube/util"
 )
 
@@ -43,7 +44,7 @@ type Chaoskube struct {
 	// an instance of logrus.StdLogger to write log messages to
 	Logger log.FieldLogger
 	// action taken against victim pods
-	Action ChaosAction
+	Action action.ChaosAction
 	// create event with deletion message in victims namespace
 	CreateEvent bool
 	// grace period to terminate the pods
@@ -73,7 +74,7 @@ var (
 // * a logger implementing logrus.FieldLogger to send log output to
 // * what specific action to use to imbue chaos on victim pods
 // * whether to enable/disable event creation
-func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, action ChaosAction, createEvent bool) *Chaoskube {
+func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, action action.ChaosAction, createEvent bool) *Chaoskube {
 	return &Chaoskube{
 		Client:             client,
 		Labels:             labels,
@@ -343,12 +344,4 @@ func filterByMinimumAge(pods []v1.Pod, minimumAge time.Duration, now time.Time) 
 	}
 
 	return filteredList
-}
-
-func deleteOptions(gracePeriod time.Duration) *metav1.DeleteOptions {
-	if gracePeriod < 0 {
-		return nil
-	}
-
-	return &metav1.DeleteOptions{GracePeriodSeconds: (*int64)(&gracePeriod)}
 }

@@ -17,7 +17,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/reference"
 
-	"github.com/linki/chaoskube/action"
+	"github.com/linki/chaoskube/strategy"
 	"github.com/linki/chaoskube/util"
 )
 
@@ -44,7 +44,7 @@ type Chaoskube struct {
 	// an instance of logrus.StdLogger to write log messages to
 	Logger log.FieldLogger
 	// action taken against victim pods
-	Action action.ChaosAction
+	Strategy strategy.Strategy
 	// create event with deletion message in victims namespace
 	CreateEvent bool
 	// grace period to terminate the pods
@@ -74,7 +74,7 @@ var (
 // * a logger implementing logrus.FieldLogger to send log output to
 // * what specific action to use to imbue chaos on victim pods
 // * whether to enable/disable event creation
-func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, action action.ChaosAction, createEvent bool) *Chaoskube {
+func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, strategy strategy.Strategy, createEvent bool) *Chaoskube {
 	return &Chaoskube{
 		Client:             client,
 		Labels:             labels,
@@ -86,7 +86,7 @@ func New(client kubernetes.Interface, labels, annotations, namespaces labels.Sel
 		Timezone:           timezone,
 		MinimumAge:         minimumAge,
 		Logger:             logger,
-		Action:             action,
+		Strategy:           strategy,
 		CreateEvent:        createEvent,
 		Now:                time.Now,
 	}
@@ -144,7 +144,13 @@ func (c *Chaoskube) TerminateVictim() error {
 		return err
 	}
 
-	return c.ApplyChaos(victim)
+	err = c.Strategy.Terminate(victim)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
 }
 
 // Victim returns a random pod from the list of Candidates.
@@ -186,27 +192,6 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 	pods = filterByMinimumAge(pods, c.MinimumAge, c.Now())
 
 	return pods, nil
-}
-
-// ApplyChaos deletes the given pod.
-// It will not delete the pod if dry-run mode is enabled.
-func (c *Chaoskube) ApplyChaos(victim v1.Pod) error {
-	c.Logger.WithFields(log.Fields{
-		"namespace": victim.Namespace,
-		"name":      victim.Name,
-	}).Info(c.Action.Name())
-
-	err := c.Action.ApplyChaos(victim)
-	if err != nil {
-		return err
-	}
-
-	err = c.CreateDeleteEvent(victim)
-	if err != nil {
-		c.Logger.WithField("err", err).Error("failed to create deletion event")
-	}
-
-	return nil
 }
 
 // CreateDeleteEvent creates an event in victims namespace with an deletion message.

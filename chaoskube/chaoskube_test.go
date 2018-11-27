@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"github.com/linki/chaoskube/action"
+	"github.com/linki/chaoskube/strategy"
 	"github.com/linki/chaoskube/util"
 
 	"github.com/stretchr/testify/suite"
@@ -44,7 +44,7 @@ func (suite *Suite) TestNew() {
 		excludedTimesOfDay = []util.TimePeriod{util.TimePeriod{}}
 		excludedDaysOfYear = []time.Time{time.Now()}
 		minimumAge         = time.Duration(42)
-		action             = action.NewDeletePodAction(client, 10*time.Second)
+		_strategy          = strategy.NewDeletePodStrategy(client, 10*time.Second, true, logger)
 	)
 
 	chaoskube := New(
@@ -58,8 +58,9 @@ func (suite *Suite) TestNew() {
 		time.UTC,
 		minimumAge,
 		logger,
-		action,
+		_strategy,
 		true,
+		// re-add dryRun
 	)
 	suite.Require().NotNil(chaoskube)
 
@@ -73,7 +74,7 @@ func (suite *Suite) TestNew() {
 	suite.Equal(time.UTC, chaoskube.Timezone)
 	suite.Equal(minimumAge, chaoskube.MinimumAge)
 	suite.Equal(logger, chaoskube.Logger)
-	suite.Equal(action, chaoskube.Action)
+	suite.Equal(_strategy, chaoskube.Strategy)
 }
 
 // TestRunContextCanceled tests that a canceled context will exit the Run function.
@@ -231,7 +232,7 @@ func (suite *Suite) TestDeletePod() {
 
 		victim := util.NewPod("default", "foo", v1.PodRunning)
 
-		err := chaoskube.ApplyChaos(victim)
+		err := chaoskube.Strategy.Terminate(victim)
 		suite.Require().NoError(err)
 
 		suite.assertLog(log.InfoLevel, "terminating pod", log.Fields{"namespace": "default", "name": "foo"})
@@ -472,35 +473,6 @@ func (suite *Suite) TestTerminateVictim() {
 	}
 }
 
-func (suite *Suite) TestTerminateVictimCreatesEvent() {
-	chaoskube := suite.setupWithPods(
-		labels.Everything(),
-		labels.Everything(),
-		labels.Everything(),
-		[]time.Weekday{},
-		[]util.TimePeriod{},
-		[]time.Time{},
-		time.UTC,
-		time.Duration(0),
-		false,
-		true,
-		10,
-	)
-	chaoskube.Now = ThankGodItsFriday{}.Now
-
-	err := chaoskube.TerminateVictim()
-	suite.Require().NoError(err)
-
-	events, err := chaoskube.Client.CoreV1().Events(v1.NamespaceAll).List(metav1.ListOptions{})
-	suite.Require().NoError(err)
-
-	suite.Require().Len(events.Items, 1)
-	event := events.Items[0]
-
-	suite.Equal("foo.chaos.-2be96689beac4e00", event.Name)
-	suite.Equal("Deleted pod foo", event.Message)
-}
-
 // TestTerminateNoVictimLogsInfo tests that missing victim prints a log message
 func (suite *Suite) TestTerminateNoVictimLogsInfo() {
 	chaoskube := suite.setup(
@@ -597,12 +569,7 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 
 	client := fake.NewSimpleClientset()
 
-	var a action.ChaosAction
-	if dryRun {
-		a = action.NewDryRunAction()
-	} else {
-		a = action.NewDeletePodAction(client, gracePeriod)
-	}
+	_strategy := strategy.NewDeletePodStrategy(client, gracePeriod, dryRun, logger)
 
 	return New(
 		client,
@@ -615,7 +582,7 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 		timezone,
 		minimumAge,
 		logger,
-		a,
+		_strategy,
 		createEvent,
 	)
 }

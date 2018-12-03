@@ -20,8 +20,6 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"strings"
-
 	"github.com/linki/chaoskube/chaoskube"
 	"github.com/linki/chaoskube/strategy"
 	"github.com/linki/chaoskube/util"
@@ -169,13 +167,6 @@ func main() {
 		"offset":   offset / int(time.Hour/time.Second),
 	}).Info("setting timezone")
 
-	var _strategy strategy.Strategy
-	if len(exec) > 0 {
-		_strategy = strategy.NewExecCommandStrategy(client.CoreV1().RESTClient(), config, execContainer, strings.Split(exec, " "))
-	} else {
-		_strategy = strategy.NewDeletePodStrategy(client, gracePeriod, dryRun, log.StandardLogger())
-	}
-
 	chaoskube := chaoskube.New(
 		client,
 		labelSelector,
@@ -189,7 +180,7 @@ func main() {
 		log.StandardLogger(),
 		dryRun,
 		gracePeriod,
-		_strategy,
+		strategy.NewDeletePodStrategy(client, gracePeriod, dryRun, log.StandardLogger()),
 	)
 
 	if metricsAddress != "" {

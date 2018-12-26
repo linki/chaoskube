@@ -13,6 +13,7 @@ install:
 - go get github.com/mattn/goveralls
 - go get github.com/lawrencewoodman/roveralls
 - go get github.com/golang/dep/cmd/dep
+- go get github.com/prometheus/client_golang
 - dep ensure -vendor-only
 
 script:

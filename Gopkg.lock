@@ -253,11 +253,12 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:20a8a18488bdef471795af0413d9a3c9c35dc24ca93342329b884ba3c15cbaab"
+  digest = "1:6c94c57e53f0e6f57ff74cdb2e5d7813918ff1be2e0fff69303daa506ede46bd"
   name = "github.com/prometheus/client_golang"
   packages = [
     "prometheus",
     "prometheus/internal",
+    "prometheus/promauto",
     "prometheus/promhttp",
   ]
   pruneopts = "UT"
@@ -647,6 +648,8 @@
   analyzer-version = 1
   input-imports = [
     "github.com/alecthomas/kingpin",
+    "github.com/prometheus/client_golang/prometheus",
+    "github.com/prometheus/client_golang/prometheus/promauto",
     "github.com/prometheus/client_golang/prometheus/promhttp",
     "github.com/sirupsen/logrus",
     "github.com/sirupsen/logrus/hooks/test",

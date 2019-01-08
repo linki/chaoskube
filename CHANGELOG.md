@@ -1,3 +1,12 @@
+## v0.12.0 - 2019-01-08
+
+  Features:
+  * [#116](https://github.com/linki/chaoskube/pull/116) Add several useful Prometheus metrics @ruehowl @shaikatz
+
+  Updates:
+  * [#115](https://github.com/linki/chaoskube/pull/115) Replace event related code with Kubernetes's `EventRecorder` @linki
+  * [#114](https://github.com/linki/chaoskube/pull/114) Document major difference to `kube-monkey` @prageethw
+  * [#113](https://github.com/linki/chaoskube/pull/113) Update dependencies to match Kubernetes v1.12 API @linki
   * [#112](https://github.com/linki/chaoskube/pull/112) Update docker image to alpine v3.8 and go v1.11 @linki
 
 ## v0.11.0 - 2018-10-09

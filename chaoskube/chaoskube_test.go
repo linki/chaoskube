@@ -44,8 +44,8 @@ func (suite *Suite) TestNew() {
 		excludedTimesOfDay = []util.TimePeriod{util.TimePeriod{}}
 		excludedDaysOfYear = []time.Time{time.Now()}
 		minimumAge         = time.Duration(42)
-		strategy           = strategy.NewDeletePodStrategy(client, 10*time.Second, true, logger)
 		gracePeriod        = 10 * time.Second
+		strategy           = strategy.NewDeletePodStrategy(client, 10*time.Second, true, logger)
 	)
 
 	chaoskube := New(

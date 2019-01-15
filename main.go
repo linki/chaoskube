@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
-	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/linki/chaoskube/chaoskube"
@@ -42,10 +41,9 @@ var (
 	kubeconfig         string
 	interval           time.Duration
 	dryRun             bool
+	createEvent        bool
 	debug              bool
 	metricsAddress     string
-	exec               string
-	execContainer      string
 	gracePeriod        time.Duration
 )
 
@@ -64,8 +62,7 @@ func init() {
 	kingpin.Flag("kubeconfig", "Path to a kubeconfig file").StringVar(&kubeconfig)
 	kingpin.Flag("interval", "Interval between Pod terminations").Default("10m").DurationVar(&interval)
 	kingpin.Flag("dry-run", "If true, don't actually do anything.").Default("true").BoolVar(&dryRun)
-	kingpin.Flag("exec", "Execute the given terminal command on victim pods, rather than deleting pods, eg killall -9 bash").StringVar(&exec)
-	kingpin.Flag("exec-container", "Name of container to run --exec command in, defaults to first container in spec").Default("").StringVar(&execContainer)
+	kingpin.Flag("create-events", "If true, create an event in victims namespace after termination.").Default("true").BoolVar(&createEvent)
 	kingpin.Flag("debug", "Enable debug logging.").BoolVar(&debug)
 	kingpin.Flag("metrics-address", "Listening address for metrics handler").Default(":8080").StringVar(&metricsAddress)
 	kingpin.Flag("grace-period", "Grace period to terminate Pods. Negative values will use the Pod's grace period.").Default("-1s").DurationVar(&gracePeriod)
@@ -92,14 +89,11 @@ func main() {
 		"kubeconfig":         kubeconfig,
 		"interval":           interval,
 		"dryRun":             dryRun,
-		"exec":               exec,
-		"execContainer":      execContainer,
 		"debug":              debug,
 		"metricsAddress":     metricsAddress,
+		"createEvent":        createEvent,
 		"gracePeriod":        gracePeriod,
-		// todo strategy
-		// dryRun
-	}).Info("reading config")
+	}).Debug("reading config")
 
 	log.WithFields(log.Fields{
 		"version":  version,
@@ -107,12 +101,7 @@ func main() {
 		"interval": interval,
 	}).Info("starting up")
 
-	config, err := newConfig()
-	if err != nil {
-		log.WithField("err", err).Fatal("failed to determine k8s client config")
-	}
-
-	client, err := newClient(config)
+	client, err := newClient()
 	if err != nil {
 		log.WithField("err", err).Fatal("failed to connect to cluster")
 	}
@@ -225,7 +214,7 @@ func main() {
 	chaoskube.Run(ctx, ticker.C)
 }
 
-func newConfig() (*restclient.Config, error) {
+func newClient() (*kubernetes.Clientset, error) {
 	if kubeconfig == "" {
 		if _, err := os.Stat(clientcmd.RecommendedHomeFile); err == nil {
 			kubeconfig = clientcmd.RecommendedHomeFile
@@ -242,10 +231,6 @@ func newConfig() (*restclient.Config, error) {
 		return nil, err
 	}
 
-	return config, nil
-}
-
-func newClient(config *restclient.Config) (*kubernetes.Clientset, error) {
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, err

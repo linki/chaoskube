@@ -95,9 +95,9 @@ func New(client kubernetes.Interface, labels, annotations, namespaces labels.Sel
 		Timezone:           timezone,
 		MinimumAge:         minimumAge,
 		Logger:             logger,
-		Strategy:           strategy,
 		DryRun:             dryRun,
 		GracePeriod:        gracePeriod,
+		Strategy:           strategy,
 		EventRecorder:      recorder,
 		Now:                time.Now,
 	}
@@ -157,13 +157,7 @@ func (c *Chaoskube) TerminateVictim() error {
 		return err
 	}
 
-	err = c.Strategy.Terminate(victim)
-	if err != nil {
-		return err
-	}
-
-	return nil
-
+	return c.Strategy.Terminate(victim)
 }
 
 // Victim returns a random pod from the list of Candidates.

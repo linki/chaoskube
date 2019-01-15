@@ -44,7 +44,7 @@ func (suite *Suite) TestNew() {
 		excludedTimesOfDay = []util.TimePeriod{util.TimePeriod{}}
 		excludedDaysOfYear = []time.Time{time.Now()}
 		minimumAge         = time.Duration(42)
-		_strategy          = strategy.NewDeletePodStrategy(client, 10*time.Second, true, logger)
+		strategy           = strategy.NewDeletePodStrategy(client, 10*time.Second, true, logger)
 		gracePeriod        = 10 * time.Second
 	)
 
@@ -61,7 +61,7 @@ func (suite *Suite) TestNew() {
 		logger,
 		false,
 		gracePeriod,
-		_strategy,
+		strategy,
 	)
 	suite.Require().NotNil(chaoskube)
 
@@ -75,9 +75,9 @@ func (suite *Suite) TestNew() {
 	suite.Equal(time.UTC, chaoskube.Timezone)
 	suite.Equal(minimumAge, chaoskube.MinimumAge)
 	suite.Equal(logger, chaoskube.Logger)
-	suite.Equal(_strategy, chaoskube.Strategy)
-	suite.Equal(gracePeriod, chaoskube.GracePeriod)
 	suite.Equal(false, chaoskube.DryRun)
+	suite.Equal(gracePeriod, chaoskube.GracePeriod)
+	suite.Equal(strategy, chaoskube.Strategy)
 }
 
 // TestRunContextCanceled tests that a canceled context will exit the Run function.
@@ -584,8 +584,6 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 
 	client := fake.NewSimpleClientset()
 
-	_strategy := strategy.NewDeletePodStrategy(client, gracePeriod, dryRun, logger)
-
 	return New(
 		client,
 		labelSelector,
@@ -599,7 +597,7 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 		logger,
 		dryRun,
 		gracePeriod,
-		_strategy,
+		strategy.NewDeletePodStrategy(client, gracePeriod, dryRun, logger),
 	)
 }
 

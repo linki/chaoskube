@@ -19,6 +19,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/tools/reference"
 
+	"github.com/linki/chaoskube/metrics"
 	"github.com/linki/chaoskube/strategy"
 	"github.com/linki/chaoskube/util"
 )
@@ -108,9 +109,11 @@ func (c *Chaoskube) Run(ctx context.Context, next <-chan time.Time) {
 	for {
 		if err := c.TerminateVictim(); err != nil {
 			c.Logger.WithField("err", err).Error("failed to terminate victim")
+			metrics.ErrorsTotal.Inc()
 		}
 
 		c.Logger.Debug("sleeping...")
+		metrics.IntervalsTotal.Inc()
 		select {
 		case <-next:
 		case <-ctx.Done():
@@ -216,10 +219,14 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 		return nil
 	}
 
+	start := time.Now()
 	err := c.Strategy.Terminate(victim)
+	metrics.TerminationDurationSeconds.Observe(time.Since(start).Seconds())
 	if err != nil {
 		return err
 	}
+
+	metrics.PodsDeletedTotal.Inc()
 
 	ref, err := reference.GetReference(scheme.Scheme, &victim)
 	if err != nil {

@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"github.com/linki/chaoskube/internal/testutil"
 	"github.com/linki/chaoskube/strategy"
 	"github.com/linki/chaoskube/util"
 
@@ -21,7 +22,7 @@ import (
 )
 
 type Suite struct {
-	suite.Suite
+	testutil.TestSuite
 }
 
 var (
@@ -44,8 +45,8 @@ func (suite *Suite) TestNew() {
 		excludedTimesOfDay = []util.TimePeriod{util.TimePeriod{}}
 		excludedDaysOfYear = []time.Time{time.Now()}
 		minimumAge         = time.Duration(42)
-		gracePeriod        = 10 * time.Second
-		strategy           = strategy.NewDeletePodStrategy(client, 10*time.Second, true, logger)
+		dryRun             = true
+		strategy           = strategy.NewDeletePodStrategy(client, logger, 10*time.Second)
 	)
 
 	chaoskube := New(
@@ -59,8 +60,7 @@ func (suite *Suite) TestNew() {
 		time.UTC,
 		minimumAge,
 		logger,
-		false,
-		gracePeriod,
+		dryRun,
 		strategy,
 	)
 	suite.Require().NotNil(chaoskube)
@@ -75,8 +75,7 @@ func (suite *Suite) TestNew() {
 	suite.Equal(time.UTC, chaoskube.Timezone)
 	suite.Equal(minimumAge, chaoskube.MinimumAge)
 	suite.Equal(logger, chaoskube.Logger)
-	suite.Equal(false, chaoskube.DryRun)
-	suite.Equal(gracePeriod, chaoskube.GracePeriod)
+	suite.Equal(dryRun, chaoskube.DryRun)
 	suite.Equal(strategy, chaoskube.Strategy)
 }
 
@@ -101,6 +100,7 @@ func (suite *Suite) TestRunContextCanceled() {
 	chaoskube.Run(ctx, nil)
 }
 
+// TestCandidates tests that the various pod filters are applied correctly.
 func (suite *Suite) TestCandidates() {
 	foo := map[string]string{"namespace": "default", "name": "foo"}
 	bar := map[string]string{"namespace": "testing", "name": "bar"}
@@ -149,6 +149,7 @@ func (suite *Suite) TestCandidates() {
 	}
 }
 
+// TestVictim tests that a random victim is chosen from selected candidates.
 func (suite *Suite) TestVictim() {
 	foo := map[string]string{"namespace": "default", "name": "foo"}
 	bar := map[string]string{"namespace": "testing", "name": "bar"}
@@ -204,6 +205,7 @@ func (suite *Suite) TestNoVictimReturnsError() {
 	suite.EqualError(err, "pod not found")
 }
 
+// TestDeletePod tests that a given pod is deleted and dryRun is respected.
 func (suite *Suite) TestDeletePod() {
 	foo := map[string]string{"namespace": "default", "name": "foo"}
 	bar := map[string]string{"namespace": "testing", "name": "bar"}
@@ -230,14 +232,15 @@ func (suite *Suite) TestDeletePod() {
 
 		victim := util.NewPod("default", "foo", v1.PodRunning)
 
-		err := chaoskube.Strategy.Terminate(victim)
+		err := chaoskube.DeletePod(victim)
 		suite.Require().NoError(err)
 
-		suite.assertLog(log.InfoLevel, "terminating pod", log.Fields{"namespace": "default", "name": "foo"})
+		suite.AssertLog(logOutput, log.InfoLevel, "terminating pod", log.Fields{"namespace": "default", "name": "foo"})
 		suite.assertCandidates(chaoskube, tt.remainingPods)
 	}
 }
 
+// TestDeletePodNotFound tests missing target pod will return an error.
 func (suite *Suite) TestDeletePodNotFound() {
 	chaoskube := suite.setup(
 		labels.Everything(),
@@ -508,7 +511,7 @@ func (suite *Suite) TestTerminateNoVictimLogsInfo() {
 	err := chaoskube.TerminateVictim()
 	suite.Require().NoError(err)
 
-	suite.assertLog(log.DebugLevel, msgVictimNotFound, log.Fields{})
+	suite.AssertLog(logOutput, log.DebugLevel, msgVictimNotFound, log.Fields{})
 }
 
 // helper functions
@@ -517,38 +520,14 @@ func (suite *Suite) assertCandidates(chaoskube *Chaoskube, expected []map[string
 	pods, err := chaoskube.Candidates()
 	suite.Require().NoError(err)
 
-	suite.assertPods(pods, expected)
+	suite.AssertPods(pods, expected)
 }
 
 func (suite *Suite) assertVictim(chaoskube *Chaoskube, expected map[string]string) {
 	victim, err := chaoskube.Victim()
 	suite.Require().NoError(err)
 
-	suite.assertPod(victim, expected)
-}
-
-func (suite *Suite) assertPods(pods []v1.Pod, expected []map[string]string) {
-	suite.Require().Len(pods, len(expected))
-
-	for i, pod := range pods {
-		suite.assertPod(pod, expected[i])
-	}
-}
-
-func (suite *Suite) assertPod(pod v1.Pod, expected map[string]string) {
-	suite.Equal(expected["namespace"], pod.Namespace)
-	suite.Equal(expected["name"], pod.Name)
-}
-
-func (suite *Suite) assertLog(level log.Level, msg string, fields log.Fields) {
-	suite.Require().NotEmpty(logOutput.Entries)
-
-	lastEntry := logOutput.LastEntry()
-	suite.Equal(level, lastEntry.Level)
-	suite.Equal(msg, lastEntry.Message)
-	for k := range fields {
-		suite.Equal(fields[k], lastEntry.Data[k])
-	}
+	suite.AssertPod(victim, expected)
 }
 
 func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration) *Chaoskube {
@@ -583,6 +562,7 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 	logOutput.Reset()
 
 	client := fake.NewSimpleClientset()
+	nullLogger, _ := test.NewNullLogger()
 
 	return New(
 		client,
@@ -596,8 +576,7 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 		minimumAge,
 		logger,
 		dryRun,
-		gracePeriod,
-		strategy.NewDeletePodStrategy(client, gracePeriod, dryRun, logger),
+		strategy.NewDeletePodStrategy(client, nullLogger, gracePeriod),
 	)
 }
 

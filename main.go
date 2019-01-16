@@ -168,8 +168,7 @@ func main() {
 		minimumAge,
 		log.StandardLogger(),
 		dryRun,
-		gracePeriod,
-		strategy.NewDeletePodStrategy(client, gracePeriod, dryRun, log.StandardLogger()),
+		strategy.NewDeletePodStrategy(client, log.StandardLogger(), gracePeriod),
 	)
 
 	if metricsAddress != "" {

@@ -7,6 +7,8 @@
 
 `chaoskube` periodically kills random pods in your Kubernetes cluster.
 
+<p align="center"><img src="chaoskube.png" width="40%" align="center" alt="chaoskube"></p>
+
 ## Why
 
 Test how your system behaves under arbitrary pod failures.

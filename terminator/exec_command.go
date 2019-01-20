@@ -1,4 +1,4 @@
-package strategy
+package terminator
 
 import (
 	"os"
@@ -11,8 +11,8 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 )
 
-// ExecCommandStrategy simply asks k8s to delete the victim pod
-type ExecCommandStrategy struct {
+// ExecCommandTerminator todo
+type ExecCommandTerminator struct {
 	client        restclient.Interface
 	config        *restclient.Config
 	containerName string
@@ -21,39 +21,39 @@ type ExecCommandStrategy struct {
 	logger        log.FieldLogger
 }
 
-// NewExecCommandStrategy todo
-func NewExecCommandStrategy(client restclient.Interface, config *restclient.Config, containerName string, command []string, dryRun bool, logger log.FieldLogger) Strategy {
-	return &ExecCommandStrategy{
+// NewExecCommandTerminator todo
+func NewExecCommandTerminator(client restclient.Interface, config *restclient.Config, containerName string, command []string, dryRun bool, logger log.FieldLogger) *ExecCommandTerminator {
+	return &ExecCommandTerminator{
 		client:        client,
 		config:        config,
 		containerName: containerName,
 		command:       command,
 		dryRun:        dryRun,
-		logger:        logger.WithField("strategy", "ExecCommand"),
+		logger:        logger.WithField("terminator", "ExecCommand"),
 	}
 }
 
-func (s *ExecCommandStrategy) Terminate(victim v1.Pod) error {
-	s.logger.WithFields(log.Fields{
+func (t *ExecCommandTerminator) Terminate(victim v1.Pod) error {
+	t.logger.WithFields(log.Fields{
 		"namespace": victim.Namespace,
 		"name":      victim.Name,
 	}).Info("terminating pod") // todo
 
-	if s.dryRun {
+	if t.dryRun {
 		return nil
 	}
 
 	var container string
-	if s.containerName == "" {
+	if t.containerName == "" {
 		for _, c := range victim.Spec.Containers {
 			container = c.Name
 			break
 		}
 	} else {
-		container = s.containerName
+		container = t.containerName
 	}
 
-	req := s.client.Post().
+	req := t.client.Post().
 		Resource("pods").
 		Name(victim.Name).
 		Namespace(victim.Namespace).
@@ -61,14 +61,14 @@ func (s *ExecCommandStrategy) Terminate(victim v1.Pod) error {
 		Param("container", container)
 	req.VersionedParams(&v1.PodExecOptions{
 		Container: container,
-		Command:   s.command,
+		Command:   t.command,
 		Stdin:     false,
 		Stdout:    true,
 		Stderr:    true,
 		TTY:       false,
 	}, scheme.ParameterCodec)
 
-	exec, err := remotecommand.NewSPDYExecutor(s.config, "POST", req.URL())
+	exec, err := remotecommand.NewSPDYExecutor(t.config, "POST", req.URL())
 	if err != nil {
 		return err
 	}

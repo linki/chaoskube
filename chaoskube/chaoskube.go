@@ -20,6 +20,7 @@ import (
 	"k8s.io/client-go/tools/reference"
 
 	"github.com/linki/chaoskube/metrics"
+	"github.com/linki/chaoskube/terminator"
 	"github.com/linki/chaoskube/util"
 )
 
@@ -45,6 +46,8 @@ type Chaoskube struct {
 	MinimumAge time.Duration
 	// an instance of logrus.StdLogger to write log messages to
 	Logger log.FieldLogger
+	// a terminator that termiantes victim pods
+	Terminator terminator.Terminator
 	// dry run will not allow any pod terminations
 	DryRun bool
 	// grace period to terminate the pods
@@ -74,8 +77,9 @@ var (
 // * a list of weekdays, times of day and/or days of a year when chaos mode is disabled
 // * a time zone to apply to the aforementioned time-based filters
 // * a logger implementing logrus.FieldLogger to send log output to
+// * what specific terminator to use to imbue chaos on victim pods
 // * whether to enable/disable dry-run mode
-func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, gracePeriod time.Duration) *Chaoskube {
+func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator) *Chaoskube {
 	broadcaster := record.NewBroadcaster()
 	broadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events(v1.NamespaceAll)})
 	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "chaoskube"})
@@ -92,7 +96,7 @@ func New(client kubernetes.Interface, labels, annotations, namespaces labels.Sel
 		MinimumAge:         minimumAge,
 		Logger:             logger,
 		DryRun:             dryRun,
-		GracePeriod:        gracePeriod,
+		Terminator:         terminator,
 		EventRecorder:      recorder,
 		Now:                time.Now,
 	}
@@ -196,7 +200,7 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 	return pods, nil
 }
 
-// DeletePod deletes the given pod.
+// DeletePod deletes the given pod with the selected terminator.
 // It will not delete the pod if dry-run mode is enabled.
 func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 	c.Logger.WithFields(log.Fields{
@@ -204,12 +208,13 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 		"name":      victim.Name,
 	}).Info("terminating pod")
 
+	// return early if we're running in dryRun mode.
 	if c.DryRun {
 		return nil
 	}
 
 	start := time.Now()
-	err := c.Client.CoreV1().Pods(victim.Namespace).Delete(victim.Name, deleteOptions(c.GracePeriod))
+	err := c.Terminator.Terminate(victim)
 	metrics.TerminationDurationSeconds.Observe(time.Since(start).Seconds())
 	if err != nil {
 		return err
@@ -222,7 +227,7 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 		return err
 	}
 
-	c.EventRecorder.Event(ref, v1.EventTypeNormal, "Killing", "Pod was deleted by chaoskube to introduce chaos.")
+	c.EventRecorder.Event(ref, v1.EventTypeNormal, "Killing", "Pod was terminated by chaoskube to introduce chaos.")
 
 	return nil
 }
@@ -336,12 +341,4 @@ func filterByMinimumAge(pods []v1.Pod, minimumAge time.Duration, now time.Time) 
 	}
 
 	return filteredList
-}
-
-func deleteOptions(gracePeriod time.Duration) *metav1.DeleteOptions {
-	if gracePeriod < 0 {
-		return nil
-	}
-
-	return &metav1.DeleteOptions{GracePeriodSeconds: (*int64)(&gracePeriod)}
 }

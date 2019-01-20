@@ -1,4 +1,4 @@
-package strategy
+package terminator
 
 import (
 	"testing"
@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-type DeletePodStrategySuite struct {
+type DeletePodTerminatorSuite struct {
 	testutil.TestSuite
 }
 
@@ -25,19 +25,19 @@ var (
 	logger, logOutput = test.NewNullLogger()
 )
 
-func (suite *DeletePodStrategySuite) SetupTest() {
+func (suite *DeletePodTerminatorSuite) SetupTest() {
 	logger.SetLevel(log.DebugLevel)
 	logOutput.Reset()
 }
 
-func (suite *DeletePodStrategySuite) TestInterface() {
-	suite.Implements((*Strategy)(nil), new(DeletePodStrategy))
+func (suite *DeletePodTerminatorSuite) TestInterface() {
+	suite.Implements((*Terminator)(nil), new(DeletePodTerminator))
 }
 
-func (suite *DeletePodStrategySuite) TestTerminate() {
+func (suite *DeletePodTerminatorSuite) TestTerminate() {
 	logOutput.Reset()
 	client := fake.NewSimpleClientset()
-	strategy := NewDeletePodStrategy(client, logger, 10*time.Second)
+	terminator := NewDeletePodTerminator(client, logger, 10*time.Second)
 
 	pods := []v1.Pod{
 		util.NewPod("default", "foo", v1.PodRunning),
@@ -51,7 +51,7 @@ func (suite *DeletePodStrategySuite) TestTerminate() {
 
 	victim := util.NewPod("default", "foo", v1.PodRunning)
 
-	err := strategy.Terminate(victim)
+	err := terminator.Terminate(victim)
 	suite.Require().NoError(err)
 
 	suite.AssertLog(logOutput, log.DebugLevel, "calling deletePod endpoint", log.Fields{"namespace": "default", "name": "foo"})
@@ -64,7 +64,7 @@ func (suite *DeletePodStrategySuite) TestTerminate() {
 	})
 }
 
-func (suite *DeletePodStrategySuite) TestDeleteOptions() {
+func (suite *DeletePodTerminatorSuite) TestDeleteOptions() {
 	for _, tt := range []struct {
 		gracePeriod time.Duration
 		expected    *metav1.DeleteOptions
@@ -86,8 +86,8 @@ func (suite *DeletePodStrategySuite) TestDeleteOptions() {
 	}
 }
 
-func TestDeletePodStrategySuite(t *testing.T) {
-	suite.Run(t, new(DeletePodStrategySuite))
+func TestDeletePodTerminatorSuite(t *testing.T) {
+	suite.Run(t, new(DeletePodTerminatorSuite))
 }
 
 func int64Ptr(value int64) *int64 {

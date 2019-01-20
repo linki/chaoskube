@@ -79,7 +79,7 @@ var (
 // * a logger implementing logrus.FieldLogger to send log output to
 // * what specific action to use to imbue chaos on victim pods
 // * whether to enable/disable dry-run mode
-func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, gracePeriod time.Duration, strategy strategy.Strategy) *Chaoskube {
+func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, strategy strategy.Strategy) *Chaoskube {
 	broadcaster := record.NewBroadcaster()
 	broadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events(v1.NamespaceAll)})
 	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "chaoskube"})
@@ -96,7 +96,6 @@ func New(client kubernetes.Interface, labels, annotations, namespaces labels.Sel
 		MinimumAge:         minimumAge,
 		Logger:             logger,
 		DryRun:             dryRun,
-		GracePeriod:        gracePeriod,
 		Strategy:           strategy,
 		EventRecorder:      recorder,
 		Now:                time.Now,
@@ -157,7 +156,7 @@ func (c *Chaoskube) TerminateVictim() error {
 		return err
 	}
 
-	return c.Strategy.Terminate(victim)
+	return c.DeletePod(victim)
 }
 
 // Victim returns a random pod from the list of Candidates.
@@ -201,7 +200,7 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 	return pods, nil
 }
 
-// DeletePod deletes the given pod.
+// DeletePod deletes the given pod with the selected strategy.
 // It will not delete the pod if dry-run mode is enabled.
 func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 	c.Logger.WithFields(log.Fields{
@@ -209,6 +208,7 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 		"name":      victim.Name,
 	}).Info("terminating pod")
 
+	// return early if we're running in dryRun mode.
 	if c.DryRun {
 		return nil
 	}
@@ -227,7 +227,7 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 		return err
 	}
 
-	c.EventRecorder.Event(ref, v1.EventTypeNormal, "Killing", "Pod was deleted by chaoskube to introduce chaos.")
+	c.EventRecorder.Event(ref, v1.EventTypeNormal, "Killing", "Pod was terminated by chaoskube to introduce chaos.")
 
 	return nil
 }

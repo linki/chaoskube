@@ -10,33 +10,28 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// DeletePodStrategy simply asks k8s to delete the victim pod
+// DeletePodStrategy simply asks k8s to delete the victim pod.
 type DeletePodStrategy struct {
 	client      kubernetes.Interface
-	gracePeriod time.Duration
-	dryRun      bool
 	logger      log.FieldLogger
+	gracePeriod time.Duration
 }
 
-// NewDeletePodStrategy todo
-func NewDeletePodStrategy(client kubernetes.Interface, gracePeriod time.Duration, dryRun bool, logger log.FieldLogger) Strategy {
+// NewDeletePodStrategy creates and returns a DeletePodStrategy object.
+func NewDeletePodStrategy(client kubernetes.Interface, logger log.FieldLogger, gracePeriod time.Duration) Strategy {
 	return &DeletePodStrategy{
 		client:      client,
-		gracePeriod: gracePeriod,
-		dryRun:      dryRun,
 		logger:      logger.WithField("strategy", "DeletePod"),
+		gracePeriod: gracePeriod,
 	}
 }
 
+// Terminate sends a request to Kubernetes to delete the pod.
 func (s *DeletePodStrategy) Terminate(victim v1.Pod) error {
 	s.logger.WithFields(log.Fields{
 		"namespace": victim.Namespace,
 		"name":      victim.Name,
-	}).Info("terminating pod") // todo
-
-	if s.dryRun {
-		return nil
-	}
+	}).Debug("calling deletePod endpoint")
 
 	return s.client.CoreV1().Pods(victim.Namespace).Delete(victim.Name, deleteOptions(s.gracePeriod))
 }

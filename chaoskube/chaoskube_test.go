@@ -15,7 +15,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/linki/chaoskube/internal/testutil"
-	"github.com/linki/chaoskube/strategy"
+	"github.com/linki/chaoskube/terminator"
 	"github.com/linki/chaoskube/util"
 
 	"github.com/stretchr/testify/suite"
@@ -46,7 +46,7 @@ func (suite *Suite) TestNew() {
 		excludedDaysOfYear = []time.Time{time.Now()}
 		minimumAge         = time.Duration(42)
 		dryRun             = true
-		strategy           = strategy.NewDeletePodStrategy(client, logger, 10*time.Second)
+		terminator         = terminator.NewDeletePodTerminator(client, logger, 10*time.Second)
 	)
 
 	chaoskube := New(
@@ -61,7 +61,7 @@ func (suite *Suite) TestNew() {
 		minimumAge,
 		logger,
 		dryRun,
-		strategy,
+		terminator,
 	)
 	suite.Require().NotNil(chaoskube)
 
@@ -76,7 +76,7 @@ func (suite *Suite) TestNew() {
 	suite.Equal(minimumAge, chaoskube.MinimumAge)
 	suite.Equal(logger, chaoskube.Logger)
 	suite.Equal(dryRun, chaoskube.DryRun)
-	suite.Equal(strategy, chaoskube.Strategy)
+	suite.Equal(terminator, chaoskube.Terminator)
 }
 
 // TestRunContextCanceled tests that a canceled context will exit the Run function.
@@ -576,7 +576,7 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 		minimumAge,
 		logger,
 		dryRun,
-		strategy.NewDeletePodStrategy(client, nullLogger, gracePeriod),
+		terminator.NewDeletePodTerminator(client, nullLogger, gracePeriod),
 	)
 }
 

@@ -20,7 +20,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/linki/chaoskube/chaoskube"
-	"github.com/linki/chaoskube/strategy"
+	"github.com/linki/chaoskube/terminator"
 	"github.com/linki/chaoskube/util"
 )
 
@@ -168,7 +168,7 @@ func main() {
 		minimumAge,
 		log.StandardLogger(),
 		dryRun,
-		strategy.NewDeletePodStrategy(client, log.StandardLogger(), gracePeriod),
+		terminator.NewDeletePodTerminator(client, log.StandardLogger(), gracePeriod),
 	)
 
 	if metricsAddress != "" {

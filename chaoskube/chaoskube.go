@@ -77,7 +77,7 @@ var (
 // * a list of weekdays, times of day and/or days of a year when chaos mode is disabled
 // * a time zone to apply to the aforementioned time-based filters
 // * a logger implementing logrus.FieldLogger to send log output to
-// * what specific action to use to imbue chaos on victim pods
+// * what specific termiantor to use to imbue chaos on victim pods
 // * whether to enable/disable dry-run mode
 func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator) *Chaoskube {
 	broadcaster := record.NewBroadcaster()

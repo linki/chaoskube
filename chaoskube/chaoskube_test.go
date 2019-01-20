@@ -46,7 +46,7 @@ func (suite *Suite) TestNew() {
 		excludedDaysOfYear = []time.Time{time.Now()}
 		minimumAge         = time.Duration(42)
 		dryRun             = true
-		strategy           = strategy.NewDeletePodStrategy(client, logger, 10*time.Second)
+		strategy           = strategy.NewDeletePodTerminator(client, logger, 10*time.Second)
 	)
 
 	chaoskube := New(
@@ -76,7 +76,7 @@ func (suite *Suite) TestNew() {
 	suite.Equal(minimumAge, chaoskube.MinimumAge)
 	suite.Equal(logger, chaoskube.Logger)
 	suite.Equal(dryRun, chaoskube.DryRun)
-	suite.Equal(strategy, chaoskube.Strategy)
+	suite.Equal(strategy, chaoskube.Terminator)
 }
 
 // TestRunContextCanceled tests that a canceled context will exit the Run function.
@@ -576,7 +576,7 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 		minimumAge,
 		logger,
 		dryRun,
-		strategy.NewDeletePodStrategy(client, nullLogger, gracePeriod),
+		strategy.NewDeletePodTerminator(client, nullLogger, gracePeriod),
 	)
 }
 

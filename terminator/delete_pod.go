@@ -1,4 +1,4 @@
-package strategy
+package terminator
 
 import (
 	"time"
@@ -21,19 +21,19 @@ type DeletePodTerminator struct {
 func NewDeletePodTerminator(client kubernetes.Interface, logger log.FieldLogger, gracePeriod time.Duration) *DeletePodTerminator {
 	return &DeletePodTerminator{
 		client:      client,
-		logger:      logger.WithField("strategy", "DeletePod"),
+		logger:      logger.WithField("terminator", "DeletePod"),
 		gracePeriod: gracePeriod,
 	}
 }
 
 // Terminate sends a request to Kubernetes to delete the pod.
-func (s *DeletePodTerminator) Terminate(victim v1.Pod) error {
-	s.logger.WithFields(log.Fields{
+func (t *DeletePodTerminator) Terminate(victim v1.Pod) error {
+	t.logger.WithFields(log.Fields{
 		"namespace": victim.Namespace,
 		"name":      victim.Name,
 	}).Debug("calling deletePod endpoint")
 
-	return s.client.CoreV1().Pods(victim.Namespace).Delete(victim.Name, deleteOptions(s.gracePeriod))
+	return t.client.CoreV1().Pods(victim.Namespace).Delete(victim.Name, deleteOptions(t.gracePeriod))
 }
 
 func deleteOptions(gracePeriod time.Duration) *metav1.DeleteOptions {

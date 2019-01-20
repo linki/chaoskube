@@ -20,7 +20,7 @@ import (
 	"k8s.io/client-go/tools/reference"
 
 	"github.com/linki/chaoskube/metrics"
-	"github.com/linki/chaoskube/strategy"
+	"github.com/linki/chaoskube/terminator"
 	"github.com/linki/chaoskube/util"
 )
 
@@ -47,7 +47,7 @@ type Chaoskube struct {
 	// an instance of logrus.StdLogger to write log messages to
 	Logger log.FieldLogger
 	// a terminator that termiantes victim pods
-	Terminator strategy.Terminator
+	Terminator terminator.Terminator
 	// dry run will not allow any pod terminations
 	DryRun bool
 	// grace period to terminate the pods
@@ -79,7 +79,7 @@ var (
 // * a logger implementing logrus.FieldLogger to send log output to
 // * what specific action to use to imbue chaos on victim pods
 // * whether to enable/disable dry-run mode
-func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, strategy strategy.Terminator) *Chaoskube {
+func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator) *Chaoskube {
 	broadcaster := record.NewBroadcaster()
 	broadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events(v1.NamespaceAll)})
 	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "chaoskube"})
@@ -96,7 +96,7 @@ func New(client kubernetes.Interface, labels, annotations, namespaces labels.Sel
 		MinimumAge:         minimumAge,
 		Logger:             logger,
 		DryRun:             dryRun,
-		Terminator:         strategy,
+		Terminator:         terminator,
 		EventRecorder:      recorder,
 		Now:                time.Now,
 	}
@@ -200,7 +200,7 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 	return pods, nil
 }
 
-// DeletePod deletes the given pod with the selected strategy.
+// DeletePod deletes the given pod with the selected terminator.
 // It will not delete the pod if dry-run mode is enabled.
 func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 	c.Logger.WithFields(log.Fields{

@@ -1,4 +1,4 @@
-package strategy
+package terminator
 
 import (
 	"testing"
@@ -37,7 +37,7 @@ func (suite *DeletePodTerminatorSuite) TestInterface() {
 func (suite *DeletePodTerminatorSuite) TestTerminate() {
 	logOutput.Reset()
 	client := fake.NewSimpleClientset()
-	strategy := NewDeletePodTerminator(client, logger, 10*time.Second)
+	terminator := NewDeletePodTerminator(client, logger, 10*time.Second)
 
 	pods := []v1.Pod{
 		util.NewPod("default", "foo", v1.PodRunning),
@@ -51,7 +51,7 @@ func (suite *DeletePodTerminatorSuite) TestTerminate() {
 
 	victim := util.NewPod("default", "foo", v1.PodRunning)
 
-	err := strategy.Terminate(victim)
+	err := terminator.Terminate(victim)
 	suite.Require().NoError(err)
 
 	suite.AssertLog(logOutput, log.DebugLevel, "calling deletePod endpoint", log.Fields{"namespace": "default", "name": "foo"})

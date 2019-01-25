@@ -45,6 +45,7 @@ var (
 	debug              bool
 	metricsAddress     string
 	gracePeriod        time.Duration
+	structuredLogs     bool
 )
 
 func init() {
@@ -66,6 +67,7 @@ func init() {
 	kingpin.Flag("debug", "Enable debug logging.").BoolVar(&debug)
 	kingpin.Flag("metrics-address", "Listening address for metrics handler").Default(":8080").StringVar(&metricsAddress)
 	kingpin.Flag("grace-period", "Grace period to terminate Pods. Negative values will use the Pod's grace period.").Default("-1s").DurationVar(&gracePeriod)
+	kingpin.Flag("structured-logs", "If true, output logs in JSON format.").Default("false").BoolVar(&structuredLogs)
 }
 
 func main() {
@@ -74,6 +76,10 @@ func main() {
 
 	if debug {
 		log.SetLevel(log.DebugLevel)
+	}
+
+	if structuredLogs {
+		log.SetFormatter(&log.JSONFormatter{})
 	}
 
 	log.WithFields(log.Fields{

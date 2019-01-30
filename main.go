@@ -41,7 +41,6 @@ var (
 	kubeconfig         string
 	interval           time.Duration
 	dryRun             bool
-	createEvent        bool
 	debug              bool
 	metricsAddress     string
 	gracePeriod        time.Duration
@@ -63,7 +62,6 @@ func init() {
 	kingpin.Flag("kubeconfig", "Path to a kubeconfig file").StringVar(&kubeconfig)
 	kingpin.Flag("interval", "Interval between Pod terminations").Default("10m").DurationVar(&interval)
 	kingpin.Flag("dry-run", "If true, don't actually do anything.").Default("true").BoolVar(&dryRun)
-	kingpin.Flag("create-events", "If true, create an event in victims namespace after termination.").Default("true").BoolVar(&createEvent)
 	kingpin.Flag("debug", "Enable debug logging.").BoolVar(&debug)
 	kingpin.Flag("metrics-address", "Listening address for metrics handler").Default(":8080").StringVar(&metricsAddress)
 	kingpin.Flag("grace-period", "Grace period to terminate Pods. Negative values will use the Pod's grace period.").Default("-1s").DurationVar(&gracePeriod)
@@ -97,7 +95,6 @@ func main() {
 		"dryRun":             dryRun,
 		"debug":              debug,
 		"metricsAddress":     metricsAddress,
-		"createEvent":        createEvent,
 		"gracePeriod":        gracePeriod,
 	}).Debug("reading config")
 

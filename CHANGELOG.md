@@ -1,3 +1,15 @@
+## v0.13.0 - 2019-01-30
+
+  Features:
+  * [#120](https://github.com/linki/chaoskube/pull/120) Adding JSON as additional log format @syedimam0012
+
+## v0.12.1 - 2019-01-20
+
+  Updates:
+  * [#119](https://github.com/linki/chaoskube/pull/119) Add logo for chaoskube @linki
+  * [#118](https://github.com/linki/chaoskube/pull/118) [#81](https://github.com/linki/chaoskube/pull/81) Add Dockerfile for `arm32v6` and `arm64v8` @toolboc
+  * [#117](https://github.com/linki/chaoskube/pull/117) [#104](https://github.com/linki/chaoskube/pull/104) Abstract termination strategy in order to add more means of killing pods @jakewins @linki
+
 ## v0.12.0 - 2019-01-08
 
   Features:

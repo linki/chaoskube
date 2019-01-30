@@ -96,6 +96,7 @@ func main() {
 		"debug":              debug,
 		"metricsAddress":     metricsAddress,
 		"gracePeriod":        gracePeriod,
+		"logFormat":          logFormat,
 	}).Debug("reading config")
 
 	log.WithFields(log.Fields{

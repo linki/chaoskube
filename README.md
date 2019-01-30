@@ -19,7 +19,7 @@ Running it will kill a pod in any namespace every 10 minutes by default.
 
 ```console
 $ chaoskube
-INFO[0000] starting up              dryRun=true interval=10m0s version=v0.12.0
+INFO[0000] starting up              dryRun=true interval=10m0s version=v0.13.0
 INFO[0000] connecting to cluster    master="https://kube.you.me" serverVersion=v1.10.5+coreos.0
 INFO[0000] setting pod filter       annotations= labels= minimumAge=0s namespaces=
 INFO[0000] setting quiet times      daysOfYear="[]" timesOfDay="[]" weekdays="[]"
@@ -66,7 +66,7 @@ spec:
     spec:
       containers:
       - name: chaoskube
-        image: quay.io/linki/chaoskube:v0.12.0
+        image: quay.io/linki/chaoskube:v0.13.0
         args:
         # kill a pod every 10 minutes
         - --interval=10m

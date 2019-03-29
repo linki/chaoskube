@@ -22,6 +22,7 @@ import (
 	"github.com/linki/chaoskube/chaoskube"
 	"github.com/linki/chaoskube/terminator"
 	"github.com/linki/chaoskube/util"
+	"regexp"
 )
 
 var (
@@ -32,6 +33,8 @@ var (
 	labelString        string
 	annString          string
 	nsString           string
+	includePattern     string
+	excludePattern     string
 	excludedWeekdays   string
 	excludedTimesOfDay string
 	excludedDaysOfYear string
@@ -53,6 +56,8 @@ func init() {
 	kingpin.Flag("labels", "A set of labels to restrict the list of affected pods. Defaults to everything.").StringVar(&labelString)
 	kingpin.Flag("annotations", "A set of annotations to restrict the list of affected pods. Defaults to everything.").StringVar(&annString)
 	kingpin.Flag("namespaces", "A set of namespaces to restrict the list of affected pods. Defaults to everything.").StringVar(&nsString)
+	kingpin.Flag("include-pattern", "Regex pattern for pod names to include.  All included by default").StringVar(&includePattern)
+	kingpin.Flag("exclude-pattern", "Regex pattern for pod names to exclude.  None excluded by default").StringVar(&excludePattern)
 	kingpin.Flag("excluded-weekdays", "A list of weekdays when termination is suspended, e.g. Sat,Sun").StringVar(&excludedWeekdays)
 	kingpin.Flag("excluded-times-of-day", "A list of time periods of a day when termination is suspended, e.g. 22:00-08:00").StringVar(&excludedTimesOfDay)
 	kingpin.Flag("excluded-days-of-year", "A list of days of a year when termination is suspended, e.g. Apr1,Dec24").StringVar(&excludedDaysOfYear)
@@ -84,6 +89,8 @@ func main() {
 		"labels":             labelString,
 		"annotations":        annString,
 		"namespaces":         nsString,
+		"includePattern":     includePattern,
+		"excludePattern":     excludePattern,
 		"excludedWeekdays":   excludedWeekdays,
 		"excludedTimesOfDay": excludedTimesOfDay,
 		"excludedDaysOfYear": excludedDaysOfYear,
@@ -114,13 +121,17 @@ func main() {
 		labelSelector = parseSelector(labelString)
 		annotations   = parseSelector(annString)
 		namespaces    = parseSelector(nsString)
+		includeRegex  = parseRegex(includePattern)
+		excludeRegex  = parseRegex(excludePattern)
 	)
 
 	log.WithFields(log.Fields{
-		"labels":      labelSelector,
-		"annotations": annotations,
-		"namespaces":  namespaces,
-		"minimumAge":  minimumAge,
+		"labels":         labelSelector,
+		"annotations":    annotations,
+		"includePattern": includePattern,
+		"excludePattern": excludePattern,
+		"namespaces":     namespaces,
+		"minimumAge":     minimumAge,
 	}).Info("setting pod filter")
 
 	parsedWeekdays := util.ParseWeekdays(excludedWeekdays)
@@ -165,6 +176,8 @@ func main() {
 		labelSelector,
 		annotations,
 		namespaces,
+		includeRegex,
+		excludeRegex,
 		parsedWeekdays,
 		parsedTimesOfDay,
 		parsedDaysOfYear,
@@ -261,6 +274,17 @@ func parseSelector(str string) labels.Selector {
 		}).Fatal("failed to parse selector")
 	}
 	return selector
+}
+
+func parseRegex(str string) *regexp.Regexp {
+	regex, err := regexp.Compile(str)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"regex": str,
+			"err":   err,
+		}).Fatal("failed to parse regex")
+	}
+	return regex
 }
 
 func formatDays(days []time.Time) []string {

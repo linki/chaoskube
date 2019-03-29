@@ -19,6 +19,7 @@ import (
 	"github.com/linki/chaoskube/util"
 
 	"github.com/stretchr/testify/suite"
+	"regexp"
 )
 
 type Suite struct {
@@ -41,6 +42,8 @@ func (suite *Suite) TestNew() {
 		labelSelector, _   = labels.Parse("foo=bar")
 		annotations, _     = labels.Parse("baz=waldo")
 		namespaces, _      = labels.Parse("qux")
+		includeRegex, _    = regexp.Compile("foo")
+		excludeRegex, _    = regexp.Compile("bar")
 		excludedWeekdays   = []time.Weekday{time.Friday}
 		excludedTimesOfDay = []util.TimePeriod{util.TimePeriod{}}
 		excludedDaysOfYear = []time.Time{time.Now()}
@@ -54,6 +57,8 @@ func (suite *Suite) TestNew() {
 		labelSelector,
 		annotations,
 		namespaces,
+		includeRegex,
+		excludeRegex,
 		excludedWeekdays,
 		excludedTimesOfDay,
 		excludedDaysOfYear,
@@ -69,6 +74,8 @@ func (suite *Suite) TestNew() {
 	suite.Equal("foo=bar", chaoskube.Labels.String())
 	suite.Equal("baz=waldo", chaoskube.Annotations.String())
 	suite.Equal("qux", chaoskube.Namespaces.String())
+	suite.Equal("foo", chaoskube.IncludeRegex.String())
+	suite.Equal("bar", chaoskube.ExcludeRegex.String())
 	suite.Equal(excludedWeekdays, chaoskube.ExcludedWeekdays)
 	suite.Equal(excludedTimesOfDay, chaoskube.ExcludedTimesOfDay)
 	suite.Equal(excludedDaysOfYear, chaoskube.ExcludedDaysOfYear)
@@ -85,6 +92,8 @@ func (suite *Suite) TestRunContextCanceled() {
 		labels.Everything(),
 		labels.Everything(),
 		labels.Everything(),
+		&regexp.Regexp{},
+		&regexp.Regexp{},
 		[]time.Weekday{},
 		[]util.TimePeriod{},
 		[]time.Time{},
@@ -109,19 +118,25 @@ func (suite *Suite) TestCandidates() {
 		labelSelector      string
 		annotationSelector string
 		namespaceSelector  string
+		includePattern     string
+		excludePattern     string
 		pods               []map[string]string
 	}{
-		{"", "", "", []map[string]string{foo, bar}},
-		{"app=foo", "", "", []map[string]string{foo}},
-		{"app!=foo", "", "", []map[string]string{bar}},
-		{"", "chaos=foo", "", []map[string]string{foo}},
-		{"", "chaos!=foo", "", []map[string]string{bar}},
-		{"", "", "default", []map[string]string{foo}},
-		{"", "", "default,testing", []map[string]string{foo, bar}},
-		{"", "", "!testing", []map[string]string{foo}},
-		{"", "", "!default,!testing", []map[string]string{}},
-		{"", "", "default,!testing", []map[string]string{foo}},
-		{"", "", "default,!default", []map[string]string{}},
+		{"", "", "", "", "", []map[string]string{foo, bar}},
+		{"app=foo", "", "", "", "", []map[string]string{foo}},
+		{"app!=foo", "", "", "", "", []map[string]string{bar}},
+		{"", "chaos=foo", "", "", "", []map[string]string{foo}},
+		{"", "chaos!=foo", "", "", "", []map[string]string{bar}},
+		{"", "", "default", "", "", []map[string]string{foo}},
+		{"", "", "default,testing", "", "", []map[string]string{foo, bar}},
+		{"", "", "!testing", "", "", []map[string]string{foo}},
+		{"", "", "!default,!testing", "", "", []map[string]string{}},
+		{"", "", "default,!testing", "", "", []map[string]string{foo}},
+		{"", "", "default,!default", "", "", []map[string]string{}},
+		{"", "", "", "fo.*", "", []map[string]string{foo}},
+		{"", "", "", "ba.*", "", []map[string]string{bar}},
+		{"", "", "", "", "ba.*", []map[string]string{foo}},
+		{"", "", "", "foo", "f.*", []map[string]string{}},
 	} {
 		labelSelector, err := labels.Parse(tt.labelSelector)
 		suite.Require().NoError(err)
@@ -132,10 +147,18 @@ func (suite *Suite) TestCandidates() {
 		namespaceSelector, err := labels.Parse(tt.namespaceSelector)
 		suite.Require().NoError(err)
 
+		includeRegex, err := regexp.Compile(tt.includePattern)
+		suite.Require().NoError(err)
+
+		excludeRegex, err := regexp.Compile(tt.excludePattern)
+		suite.Require().NoError(err)
+
 		chaoskube := suite.setupWithPods(
 			labelSelector,
 			annotationSelector,
 			namespaceSelector,
+			includeRegex,
+			excludeRegex,
 			[]time.Weekday{},
 			[]util.TimePeriod{},
 			[]time.Time{},
@@ -172,6 +195,8 @@ func (suite *Suite) TestVictim() {
 			labelSelector,
 			labels.Everything(),
 			labels.Everything(),
+			&regexp.Regexp{},
+			&regexp.Regexp{},
 			[]time.Weekday{},
 			[]util.TimePeriod{},
 			[]time.Time{},
@@ -191,6 +216,8 @@ func (suite *Suite) TestNoVictimReturnsError() {
 		labels.Everything(),
 		labels.Everything(),
 		labels.Everything(),
+		&regexp.Regexp{},
+		&regexp.Regexp{},
 		[]time.Weekday{},
 		[]util.TimePeriod{},
 		[]time.Time{},
@@ -221,6 +248,8 @@ func (suite *Suite) TestDeletePod() {
 			labels.Everything(),
 			labels.Everything(),
 			labels.Everything(),
+			&regexp.Regexp{},
+			&regexp.Regexp{},
 			[]time.Weekday{},
 			[]util.TimePeriod{},
 			[]time.Time{},
@@ -246,6 +275,8 @@ func (suite *Suite) TestDeletePodNotFound() {
 		labels.Everything(),
 		labels.Everything(),
 		labels.Everything(),
+		&regexp.Regexp{},
+		&regexp.Regexp{},
 		[]time.Weekday{},
 		[]util.TimePeriod{},
 		[]time.Time{},
@@ -473,6 +504,8 @@ func (suite *Suite) TestTerminateVictim() {
 			labels.Everything(),
 			labels.Everything(),
 			labels.Everything(),
+			&regexp.Regexp{},
+			&regexp.Regexp{},
 			tt.excludedWeekdays,
 			tt.excludedTimesOfDay,
 			tt.excludedDaysOfYear,
@@ -499,6 +532,8 @@ func (suite *Suite) TestTerminateNoVictimLogsInfo() {
 		labels.Everything(),
 		labels.Everything(),
 		labels.Everything(),
+		&regexp.Regexp{},
+		&regexp.Regexp{},
 		[]time.Weekday{},
 		[]util.TimePeriod{},
 		[]time.Time{},
@@ -530,11 +565,13 @@ func (suite *Suite) assertVictim(chaoskube *Chaoskube, expected map[string]strin
 	suite.AssertPod(victim, expected)
 }
 
-func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration) *Chaoskube {
+func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, includePattern *regexp.Regexp, exludePattern *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration) *Chaoskube {
 	chaoskube := suite.setup(
 		labelSelector,
 		annotations,
 		namespaces,
+		includePattern,
+		exludePattern,
 		excludedWeekdays,
 		excludedTimesOfDay,
 		excludedDaysOfYear,
@@ -558,7 +595,7 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 	return chaoskube
 }
 
-func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration) *Chaoskube {
+func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, includeRegex *regexp.Regexp, excludeRegex *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration) *Chaoskube {
 	logOutput.Reset()
 
 	client := fake.NewSimpleClientset()
@@ -569,6 +606,8 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 		labelSelector,
 		annotations,
 		namespaces,
+		includeRegex,
+		excludeRegex,
 		excludedWeekdays,
 		excludedTimesOfDay,
 		excludedDaysOfYear,
@@ -670,6 +709,8 @@ func (suite *Suite) TestMinimumAge() {
 			labels.Everything(),
 			labels.Everything(),
 			labels.Everything(),
+			&regexp.Regexp{},
+			&regexp.Regexp{},
 			[]time.Weekday{},
 			[]util.TimePeriod{},
 			[]time.Time{},

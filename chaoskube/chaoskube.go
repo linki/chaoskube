@@ -22,6 +22,8 @@ import (
 	"github.com/linki/chaoskube/metrics"
 	"github.com/linki/chaoskube/terminator"
 	"github.com/linki/chaoskube/util"
+	"regexp"
+	"strconv"
 )
 
 // Chaoskube represents an instance of chaoskube
@@ -34,6 +36,10 @@ type Chaoskube struct {
 	Annotations labels.Selector
 	// a namespace selector which restricts the pods to choose from
 	Namespaces labels.Selector
+	// a regex for pod names to include
+	IncludeRegex *regexp.Regexp
+	// a regex for pod names to exclude
+	ExcludeRegex *regexp.Regexp
 	// a list of weekdays when termination is suspended
 	ExcludedWeekdays []time.Weekday
 	// a list of time periods of a day when termination is suspended
@@ -79,7 +85,7 @@ var (
 // * a logger implementing logrus.FieldLogger to send log output to
 // * what specific terminator to use to imbue chaos on victim pods
 // * whether to enable/disable dry-run mode
-func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator) *Chaoskube {
+func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, includeRegex, excludeRegex *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator) *Chaoskube {
 	broadcaster := record.NewBroadcaster()
 	broadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events(v1.NamespaceAll)})
 	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "chaoskube"})
@@ -89,6 +95,8 @@ func New(client kubernetes.Interface, labels, annotations, namespaces labels.Sel
 		Labels:             labels,
 		Annotations:        annotations,
 		Namespaces:         namespaces,
+		IncludeRegex:       includeRegex,
+		ExcludeRegex:       excludeRegex,
 		ExcludedWeekdays:   excludedWeekdays,
 		ExcludedTimesOfDay: excludedTimesOfDay,
 		ExcludedDaysOfYear: excludedDaysOfYear,
@@ -196,7 +204,12 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 	pods = filterByAnnotations(pods, c.Annotations)
 	pods = filterByPhase(pods, v1.PodRunning)
 	pods = filterByMinimumAge(pods, c.MinimumAge, c.Now())
-
+	fmt.Println("BEFORE " + strconv.Itoa(len(pods)))
+	if c.IncludeRegex != nil {
+		fmt.Println(c.IncludeRegex.String())
+	}
+	pods = filterByPodName(pods, c.IncludeRegex, c.ExcludeRegex)
+	fmt.Println("AFTER " + strconv.Itoa(len(pods)))
 	return pods, nil
 }
 
@@ -336,6 +349,22 @@ func filterByMinimumAge(pods []v1.Pod, minimumAge time.Duration, now time.Time) 
 
 	for _, pod := range pods {
 		if pod.ObjectMeta.CreationTimestamp.Time.Before(creationTime) {
+			filteredList = append(filteredList, pod)
+		}
+	}
+
+	return filteredList
+}
+
+// filterByPodName filters pods by name.  Only pods matching the includeRegex and not
+// matching the excludeRegex are returned
+func filterByPodName(pods []v1.Pod, includeRegex, excludeRegex *regexp.Regexp) []v1.Pod {
+	filteredList := []v1.Pod{}
+
+	for _, pod := range pods {
+		include := includeRegex == nil || includeRegex.String() == "" || includeRegex.MatchString(pod.Name)
+		exclude := excludeRegex != nil && excludeRegex.String() != "" && excludeRegex.MatchString(pod.Name)
+		if include && !exclude {
 			filteredList = append(filteredList, pod)
 		}
 	}

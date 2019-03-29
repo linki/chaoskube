@@ -23,7 +23,6 @@ import (
 	"github.com/linki/chaoskube/terminator"
 	"github.com/linki/chaoskube/util"
 	"regexp"
-	"strconv"
 )
 
 // Chaoskube represents an instance of chaoskube
@@ -204,12 +203,10 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 	pods = filterByAnnotations(pods, c.Annotations)
 	pods = filterByPhase(pods, v1.PodRunning)
 	pods = filterByMinimumAge(pods, c.MinimumAge, c.Now())
-	fmt.Println("BEFORE " + strconv.Itoa(len(pods)))
 	if c.IncludeRegex != nil {
 		fmt.Println(c.IncludeRegex.String())
 	}
 	pods = filterByPodName(pods, c.IncludeRegex, c.ExcludeRegex)
-	fmt.Println("AFTER " + strconv.Itoa(len(pods)))
 	return pods, nil
 }
 

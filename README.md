@@ -213,8 +213,8 @@ Use `UTC`, `Local` or pick a timezone name from the [(IANA) tz database](https:/
 | `--labels`                | label selector to filter pods by                                     | (matches everything)       |
 | `--annotations`           | annotation selector to filter pods by                                | (matches everything)       |
 | `--namespaces`            | namespace selector to filter pods by                                 | (all namespaces)           |
-| `--include-pattern`       | regex pattern for pod names to include                               | (all included  )           |
-| `--exclude-pattern`       | regex pattern for pod names to exclude                               | (none excluded )           |
+| `--include-pattern`       | regex pattern for pod names to include                               | (all included)             |
+| `--exclude-pattern`       | regex pattern for pod names to exclude                               | (none excluded)            |
 | `--excluded-weekdays`     | weekdays when chaos is to be suspended, e.g. "Sat,Sun"               | (no weekday excluded)      |
 | `--excluded-times-of-day` | times of day when chaos is to be suspended, e.g. "22:00-08:00"       | (no times of day excluded) |
 | `--excluded-days-of-year` | days of a year when chaos is to be suspended, e.g. "Apr1,Dec24"      | (no days of year excluded) |

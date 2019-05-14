@@ -77,9 +77,9 @@ spec:
         # exclude all pods in the kube-system namespace
         - --namespaces=!kube-system
         # include all pods whose names match a certain pattern
-        - --include-pattern=
+        - --included-pod-names=foo|bar
         # exclude all pods whose names match a certain pattern
-        - --exclude-pattern=
+        - --excluded-pod-names=prod
         # don't kill anything on weekends
         - --excluded-weekdays=Sat,Sun
         # don't kill anything during the night or at lunchtime
@@ -131,9 +131,9 @@ This will filter for pods in the three namespaces `default`, `staging` and `test
 You can filter pods by name:
 
 ```console
-$ chaoskube --include-pattern 'foo|bar' --exclude-pattern 'prod'
+$ chaoskube --included-pod-names 'foo|bar' --excluded-pod-names 'prod'
 ...
-INFO[0000] setting pod filter       excludePattern="prod" includePattern="foo|bar"
+INFO[0000] setting pod filter       excludedPodNames="prod" includedPodNames="foo|bar"
 ```
 
 This will cause only pods whose name contains 'foo' or 'bar' and does _not_ contain 'prod' to be targeted.
@@ -213,8 +213,8 @@ Use `UTC`, `Local` or pick a timezone name from the [(IANA) tz database](https:/
 | `--labels`                | label selector to filter pods by                                     | (matches everything)       |
 | `--annotations`           | annotation selector to filter pods by                                | (matches everything)       |
 | `--namespaces`            | namespace selector to filter pods by                                 | (all namespaces)           |
-| `--include-pattern`       | regex pattern for pod names to include                               | (all included)             |
-| `--exclude-pattern`       | regex pattern for pod names to exclude                               | (none excluded)            |
+| `--included-pod-names`    | regex pattern for pod names to include                               | (all included)             |
+| `--excluded-pod-names`    | regex pattern for pod names to exclude                               | (none excluded)            |
 | `--excluded-weekdays`     | weekdays when chaos is to be suspended, e.g. "Sat,Sun"               | (no weekday excluded)      |
 | `--excluded-times-of-day` | times of day when chaos is to be suspended, e.g. "22:00-08:00"       | (no times of day excluded) |
 | `--excluded-days-of-year` | days of a year when chaos is to be suspended, e.g. "Apr1,Dec24"      | (no days of year excluded) |

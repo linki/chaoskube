@@ -38,18 +38,18 @@ func (suite *Suite) SetupTest() {
 // TestNew tests that arguments are passed to the new instance correctly
 func (suite *Suite) TestNew() {
 	var (
-		client              = fake.NewSimpleClientset()
-		labelSelector, _    = labels.Parse("foo=bar")
-		annotations, _      = labels.Parse("baz=waldo")
-		namespaces, _       = labels.Parse("qux")
-		includedPodNames, _ = regexp.Compile("foo")
-		excludedPodNames, _ = regexp.Compile("bar")
-		excludedWeekdays    = []time.Weekday{time.Friday}
-		excludedTimesOfDay  = []util.TimePeriod{util.TimePeriod{}}
-		excludedDaysOfYear  = []time.Time{time.Now()}
-		minimumAge          = time.Duration(42)
-		dryRun              = true
-		terminator          = terminator.NewDeletePodTerminator(client, logger, 10*time.Second)
+		client             = fake.NewSimpleClientset()
+		labelSelector, _   = labels.Parse("foo=bar")
+		annotations, _     = labels.Parse("baz=waldo")
+		namespaces, _      = labels.Parse("qux")
+		includedPodNames   = regexp.MustCompile("foo")
+		excludedPodNames   = regexp.MustCompile("bar")
+		excludedWeekdays   = []time.Weekday{time.Friday}
+		excludedTimesOfDay = []util.TimePeriod{util.TimePeriod{}}
+		excludedDaysOfYear = []time.Time{time.Now()}
+		minimumAge         = time.Duration(42)
+		dryRun             = true
+		terminator         = terminator.NewDeletePodTerminator(client, logger, 10*time.Second)
 	)
 
 	chaoskube := New(
@@ -160,8 +160,9 @@ func (suite *Suite) TestCandidates() {
 	}
 }
 
-// TestCandidates tests that the various pod filters are applied correctly.
-func (suite *Suite) TestCandidateNamesRegexp() {
+// TestCandidatesPodNameRegexp tests that the included and excluded pod name regular expressions
+// are applied correctly.
+func (suite *Suite) TestCandidatesPodNameRegexp() {
 	foo := map[string]string{"namespace": "default", "name": "foo"}
 	bar := map[string]string{"namespace": "testing", "name": "bar"}
 
@@ -170,16 +171,15 @@ func (suite *Suite) TestCandidateNamesRegexp() {
 		excludedPodNames *regexp.Regexp
 		pods             []map[string]string
 	}{
+		// no included nor excluded regular expressions given
 		{nil, nil, []map[string]string{foo, bar}},
-
+		// either included or excluded regular expression given
 		{regexp.MustCompile("fo.*"), nil, []map[string]string{foo}},
 		{nil, regexp.MustCompile("fo.*"), []map[string]string{bar}},
-
+		// either included or excluded regular expression is empty
 		{regexp.MustCompile("fo.*"), regexp.MustCompile(""), []map[string]string{foo}},
 		{regexp.MustCompile(""), regexp.MustCompile("fo.*"), []map[string]string{bar}},
-		{regexp.MustCompile("ba.*"), regexp.MustCompile(""), []map[string]string{bar}},
-		{regexp.MustCompile(""), regexp.MustCompile("ba.*"), []map[string]string{foo}},
-
+		// both included and excluded regular expressions are considered
 		{regexp.MustCompile("fo.*"), regexp.MustCompile("f.*"), []map[string]string{}},
 	} {
 		chaoskube := suite.setupWithPods(
@@ -594,13 +594,13 @@ func (suite *Suite) assertVictim(chaoskube *Chaoskube, expected map[string]strin
 	suite.AssertPod(victim, expected)
 }
 
-func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, includedPodNames *regexp.Regexp, exludePattern *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration) *Chaoskube {
+func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration) *Chaoskube {
 	chaoskube := suite.setup(
 		labelSelector,
 		annotations,
 		namespaces,
 		includedPodNames,
-		exludePattern,
+		excludedPodNames,
 		excludedWeekdays,
 		excludedTimesOfDay,
 		excludedDaysOfYear,

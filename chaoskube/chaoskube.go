@@ -354,7 +354,7 @@ func filterByMinimumAge(pods []v1.Pod, minimumAge time.Duration, now time.Time) 
 // filterByPodName filters pods by name.  Only pods matching the includedPodNames and not
 // matching the excludedPodNames are returned
 func filterByPodName(pods []v1.Pod, includedPodNames, excludedPodNames *regexp.Regexp) []v1.Pod {
-	// early return optimization
+	// return early if neither included nor excluded regular expressions are given
 	if includedPodNames == nil && excludedPodNames == nil {
 		return pods
 	}

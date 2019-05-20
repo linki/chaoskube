@@ -133,7 +133,7 @@ You can filter pods by name:
 ```console
 $ chaoskube --included-pod-names 'foo|bar' --excluded-pod-names 'prod'
 ...
-INFO[0000] setting pod filter       excludedPodNames="prod" includedPodNames="foo|bar"
+INFO[0000] setting pod filter       excludedPodNames=prod includedPodNames="foo|bar"
 ```
 
 This will cause only pods whose name contains 'foo' or 'bar' and does _not_ contain 'prod' to be targeted.
@@ -213,8 +213,8 @@ Use `UTC`, `Local` or pick a timezone name from the [(IANA) tz database](https:/
 | `--labels`                | label selector to filter pods by                                     | (matches everything)       |
 | `--annotations`           | annotation selector to filter pods by                                | (matches everything)       |
 | `--namespaces`            | namespace selector to filter pods by                                 | (all namespaces)           |
-| `--included-pod-names`    | regex pattern for pod names to include                               | (all included)             |
-| `--excluded-pod-names`    | regex pattern for pod names to exclude                               | (none excluded)            |
+| `--included-pod-names`    | regular expression pattern for pod names to include                  | (all included)             |
+| `--excluded-pod-names`    | regular expression pattern for pod names to exclude                  | (none excluded)            |
 | `--excluded-weekdays`     | weekdays when chaos is to be suspended, e.g. "Sat,Sun"               | (no weekday excluded)      |
 | `--excluded-times-of-day` | times of day when chaos is to be suspended, e.g. "22:00-08:00"       | (no times of day excluded) |
 | `--excluded-days-of-year` | days of a year when chaos is to be suspended, e.g. "Apr1,Dec24"      | (no days of year excluded) |

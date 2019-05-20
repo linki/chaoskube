@@ -1,3 +1,8 @@
+## v0.14.0 - 2019-05-20
+
+  Features:
+  * [#121](https://github.com/linki/chaoskube/pull/121) Add include and exclude regular expression filters for pod names @dansimone
+
 ## v0.13.0 - 2019-01-30
 
   Features:

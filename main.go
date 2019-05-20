@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"regexp"
 	"syscall"
 	"time"
 
@@ -32,6 +33,8 @@ var (
 	labelString        string
 	annString          string
 	nsString           string
+	includedPodNames   *regexp.Regexp
+	excludedPodNames   *regexp.Regexp
 	excludedWeekdays   string
 	excludedTimesOfDay string
 	excludedDaysOfYear string
@@ -53,6 +56,8 @@ func init() {
 	kingpin.Flag("labels", "A set of labels to restrict the list of affected pods. Defaults to everything.").StringVar(&labelString)
 	kingpin.Flag("annotations", "A set of annotations to restrict the list of affected pods. Defaults to everything.").StringVar(&annString)
 	kingpin.Flag("namespaces", "A set of namespaces to restrict the list of affected pods. Defaults to everything.").StringVar(&nsString)
+	kingpin.Flag("included-pod-names", "Regular expression that defines which pods to include. All included by default.").RegexpVar(&includedPodNames)
+	kingpin.Flag("excluded-pod-names", "Regular expression that defines which pods to exclude. None excluded by default.").RegexpVar(&excludedPodNames)
 	kingpin.Flag("excluded-weekdays", "A list of weekdays when termination is suspended, e.g. Sat,Sun").StringVar(&excludedWeekdays)
 	kingpin.Flag("excluded-times-of-day", "A list of time periods of a day when termination is suspended, e.g. 22:00-08:00").StringVar(&excludedTimesOfDay)
 	kingpin.Flag("excluded-days-of-year", "A list of days of a year when termination is suspended, e.g. Apr1,Dec24").StringVar(&excludedDaysOfYear)
@@ -84,6 +89,8 @@ func main() {
 		"labels":             labelString,
 		"annotations":        annString,
 		"namespaces":         nsString,
+		"includedPodNames":   includedPodNames,
+		"excludedPodNames":   excludedPodNames,
 		"excludedWeekdays":   excludedWeekdays,
 		"excludedTimesOfDay": excludedTimesOfDay,
 		"excludedDaysOfYear": excludedDaysOfYear,
@@ -117,10 +124,12 @@ func main() {
 	)
 
 	log.WithFields(log.Fields{
-		"labels":      labelSelector,
-		"annotations": annotations,
-		"namespaces":  namespaces,
-		"minimumAge":  minimumAge,
+		"labels":           labelSelector,
+		"annotations":      annotations,
+		"namespaces":       namespaces,
+		"includedPodNames": includedPodNames,
+		"excludedPodNames": excludedPodNames,
+		"minimumAge":       minimumAge,
 	}).Info("setting pod filter")
 
 	parsedWeekdays := util.ParseWeekdays(excludedWeekdays)
@@ -165,6 +174,8 @@ func main() {
 		labelSelector,
 		annotations,
 		namespaces,
+		includedPodNames,
+		excludedPodNames,
 		parsedWeekdays,
 		parsedTimesOfDay,
 		parsedDaysOfYear,

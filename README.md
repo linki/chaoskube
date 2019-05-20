@@ -76,6 +76,10 @@ spec:
         - --annotations=chaos.alpha.kubernetes.io/enabled=true
         # exclude all pods in the kube-system namespace
         - --namespaces=!kube-system
+        # include all pods whose names match a certain pattern
+        - --included-pod-names=foo|bar
+        # exclude all pods whose names match a certain pattern
+        - --excluded-pod-names=prod
         # don't kill anything on weekends
         - --excluded-weekdays=Sat,Sun
         # don't kill anything during the night or at lunchtime
@@ -104,7 +108,7 @@ Remember that `chaoskube` by default kills any pod in all your namespaces, inclu
 
 ## Filtering targets
 
-However, you can limit the search space of `chaoskube` by providing label, annotation and namespace selectors as well as a minimum age setting.
+However, you can limit the search space of `chaoskube` by providing label, annotation, and namespace selectors, pod name include/exclude patterns, as well as a minimum age setting.
 
 ```console
 $ chaoskube --labels 'app=mate,chaos,stage!=production'
@@ -123,6 +127,16 @@ INFO[0000] setting pod filter       namespaces="default,staging,testing"
 ```
 
 This will filter for pods in the three namespaces `default`, `staging` and `testing`.
+
+You can filter pods by name:
+
+```console
+$ chaoskube --included-pod-names 'foo|bar' --excluded-pod-names 'prod'
+...
+INFO[0000] setting pod filter       excludedPodNames=prod includedPodNames="foo|bar"
+```
+
+This will cause only pods whose name contains 'foo' or 'bar' and does _not_ contain 'prod' to be targeted.
 
 You can also exclude namespaces and mix and match with the label and annotation selectors.
 
@@ -199,6 +213,8 @@ Use `UTC`, `Local` or pick a timezone name from the [(IANA) tz database](https:/
 | `--labels`                | label selector to filter pods by                                     | (matches everything)       |
 | `--annotations`           | annotation selector to filter pods by                                | (matches everything)       |
 | `--namespaces`            | namespace selector to filter pods by                                 | (all namespaces)           |
+| `--included-pod-names`    | regular expression pattern for pod names to include                  | (all included)             |
+| `--excluded-pod-names`    | regular expression pattern for pod names to exclude                  | (none excluded)            |
 | `--excluded-weekdays`     | weekdays when chaos is to be suspended, e.g. "Sat,Sun"               | (no weekday excluded)      |
 | `--excluded-times-of-day` | times of day when chaos is to be suspended, e.g. "22:00-08:00"       | (no times of day excluded) |
 | `--excluded-days-of-year` | days of a year when chaos is to be suspended, e.g. "Apr1,Dec24"      | (no days of year excluded) |

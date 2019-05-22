@@ -193,7 +193,7 @@ func main() {
 				fmt.Fprintln(w, "OK")
 			})
 		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte(`<html>
+			_, err := w.Write([]byte(`<html>
 					<head><title>chaoskube</title></head>
 					<body>
 					<h1>chaoskube</h1>
@@ -201,6 +201,9 @@ func main() {
 					<p><a href="/healthz">Health Check</a></p>
 					</body>
 					</html>`))
+			if err != nil {
+				log.WithField("err", err).Error("failed to write HTTP response")
+			}
 		})
 		go func() {
 			if err := http.ListenAndServe(metricsAddress, nil); err != nil {

@@ -753,7 +753,7 @@ func (suite *Suite) TestMinimumAge() {
 		for _, p := range tt.pods {
 			pod := util.NewPod(p.namespace, p.name, v1.PodRunning)
 			pod.ObjectMeta.CreationTimestamp = metav1.Time{Time: p.creationTime}
-			_, err := chaoskube.Client.Core().Pods(pod.Namespace).Create(&pod)
+			_, err := chaoskube.Client.CoreV1().Pods(pod.Namespace).Create(&pod)
 			suite.Require().NoError(err)
 		}
 

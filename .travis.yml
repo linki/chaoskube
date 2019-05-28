@@ -15,6 +15,13 @@ install:
 - go get github.com/golang/dep/cmd/dep
 - dep ensure -vendor-only
 
+before_script:
+- curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+- curl -Lo kind https://github.com/kubernetes-sigs/kind/releases/download/v0.3.0/kind-linux-amd64 && chmod +x kind && sudo mv kind /usr/local/bin/
+- kind create cluster
+- export KUBECONFIG="$(kind get kubeconfig-path)"
+
 script:
+- kubectl --kubeconfig="$(kind get kubeconfig-path)" get nodes && kubectl --kubeconfig="$(kind get kubeconfig-path)" get pods --all-namespaces -o wide
 - roveralls
 - goveralls -coverprofile=roveralls.coverprofile -service=travis-ci

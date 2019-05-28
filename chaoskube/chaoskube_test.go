@@ -10,7 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes/fake"
@@ -288,7 +288,7 @@ func (suite *Suite) TestDeletePod() {
 			10,
 		)
 
-		victim := util.NewPod("default", "foo", v1.PodRunning)
+		victim := util.NewPod("default", "foo", v1.PodRunning, nil)
 
 		err := chaoskube.DeletePod(victim)
 		suite.Require().NoError(err)
@@ -315,7 +315,7 @@ func (suite *Suite) TestDeletePodNotFound() {
 		10,
 	)
 
-	victim := util.NewPod("default", "foo", v1.PodRunning)
+	victim := util.NewPod("default", "foo", v1.PodRunning, nil)
 
 	err := chaoskube.DeletePod(victim)
 	suite.EqualError(err, `pods "foo" not found`)
@@ -611,9 +611,10 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 	)
 
 	pods := []v1.Pod{
-		util.NewPod("default", "foo", v1.PodRunning),
-		util.NewPod("testing", "bar", v1.PodRunning),
-		util.NewPod("testing", "baz", v1.PodPending), // Non-running pods are ignored
+		util.NewPod("default", "foo", v1.PodRunning, nil),
+		util.NewPod("testing", "bar", v1.PodRunning, map[string]string{"some": "annotation"}),
+		util.NewPod("testing", "wambo", v1.PodRunning, map[string]string{v1.MirrorPodAnnotationKey: ""}), // Mirror pods are ignored
+		util.NewPod("testing", "baz", v1.PodPending, map[string]string{}),                                // Non-running pods are ignored
 	}
 
 	for _, pod := range pods {
@@ -751,7 +752,7 @@ func (suite *Suite) TestMinimumAge() {
 		chaoskube.Now = tt.now
 
 		for _, p := range tt.pods {
-			pod := util.NewPod(p.namespace, p.name, v1.PodRunning)
+			pod := util.NewPod(p.namespace, p.name, v1.PodRunning, nil)
 			pod.ObjectMeta.CreationTimestamp = metav1.Time{Time: p.creationTime}
 			_, err := chaoskube.Client.CoreV1().Pods(pod.Namespace).Create(&pod)
 			suite.Require().NoError(err)

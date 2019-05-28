@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
+
 	"github.com/stretchr/testify/suite"
 )
 
@@ -384,6 +386,50 @@ func (suite *Suite) TestFormatDays() {
 		},
 	} {
 		suite.Equal(tt.expected, FormatDays(tt.given))
+	}
+}
+
+func (suite *Suite) TestNewPod() {
+	for _, tt := range []struct {
+		namespace           string
+		name                string
+		phase               v1.PodPhase
+		annotations         map[string]string
+		expectedLabels      map[string]string
+		expectedAnnotations map[string]string
+		expectedSelfLink    string
+	}{
+		{
+			"foo",
+			"bar",
+			v1.PodRunning,
+			map[string]string{"key": "value"},
+			// expected values
+			map[string]string{"app": "bar"},
+			map[string]string{"key": "value", "chaos": "bar"},
+			"/api/v1/namespaces/foo/pods/bar",
+		},
+		{
+			"",
+			"",
+			v1.PodRunning,
+			nil,
+			// expected values
+			map[string]string{"app": ""},
+			map[string]string{"chaos": ""},
+			"/api/v1/namespaces//pods/",
+		},
+	} {
+		pod := NewPod(tt.namespace, tt.name, tt.phase, tt.annotations)
+
+		suite.Equal("v1", pod.APIVersion)
+		suite.Equal("Pod", pod.Kind)
+		suite.Equal(tt.namespace, pod.Namespace)
+		suite.Equal(tt.name, pod.Name)
+		suite.Equal(tt.phase, pod.Status.Phase)
+		suite.Equal(tt.expectedLabels, pod.Labels)
+		suite.Equal(tt.expectedAnnotations, pod.Annotations)
+		suite.Equal(tt.expectedSelfLink, pod.SelfLink)
 	}
 }
 

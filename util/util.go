@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -134,7 +134,12 @@ func FormatDays(days []time.Time) []string {
 }
 
 // NewPod returns a new pod instance for testing purposes.
-func NewPod(namespace, name string, phase v1.PodPhase) v1.Pod {
+func NewPod(namespace, name string, phase v1.PodPhase, annotations map[string]string) v1.Pod {
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+	annotations["chaos"] = name
+
 	return v1.Pod{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -146,10 +151,8 @@ func NewPod(namespace, name string, phase v1.PodPhase) v1.Pod {
 			Labels: map[string]string{
 				"app": name,
 			},
-			Annotations: map[string]string{
-				"chaos": name,
-			},
-			SelfLink: fmt.Sprintf("/api/v1/namespaces/%s/pods/%s", namespace, name),
+			Annotations: annotations,
+			SelfLink:    fmt.Sprintf("/api/v1/namespaces/%s/pods/%s", namespace, name),
 		},
 		Status: v1.PodStatus{
 			Phase: phase,

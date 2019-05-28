@@ -10,7 +10,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -202,6 +202,7 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 
 	pods = filterByAnnotations(pods, c.Annotations)
 	pods = filterByPhase(pods, v1.PodRunning)
+	pods = filterMirrorPods(pods)
 	pods = filterByMinimumAge(pods, c.MinimumAge, c.Now())
 	pods = filterByPodName(pods, c.IncludedPodNames, c.ExcludedPodNames)
 
@@ -324,6 +325,18 @@ func filterByPhase(pods []v1.Pod, phase v1.PodPhase) []v1.Pod {
 
 	for _, pod := range pods {
 		if pod.Status.Phase == phase {
+			filteredList = append(filteredList, pod)
+		}
+	}
+
+	return filteredList
+}
+
+func filterMirrorPods(pods []v1.Pod) []v1.Pod {
+	filteredList := []v1.Pod{}
+
+	for _, pod := range pods {
+		if _, isMirror := pod.Annotations[v1.MirrorPodAnnotationKey]; !isMirror {
 			filteredList = append(filteredList, pod)
 		}
 	}

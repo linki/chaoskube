@@ -365,6 +365,28 @@ func (suite *Suite) TestParseDates() {
 	}
 }
 
+func (suite *Suite) TestFormatDays() {
+	for _, tt := range []struct {
+		given    []time.Time
+		expected []string
+	}{
+		{
+			[]time.Time{
+				time.Date(1869, 9, 24, 15, 04, 05, 06, time.UTC),
+			},
+			[]string{"Sep24"},
+		}, {
+			[]time.Time{
+				time.Date(1869, 9, 24, 15, 04, 05, 06, time.UTC),
+				time.Date(0, 4, 1, 0, 0, 0, 0, time.UTC),
+			},
+			[]string{"Sep24", "Apr 1"},
+		},
+	} {
+		suite.Equal(tt.expected, FormatDays(tt.given))
+	}
+}
+
 func TestSuite(t *testing.T) {
 	suite.Run(t, new(Suite))
 }

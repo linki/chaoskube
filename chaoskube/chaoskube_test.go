@@ -10,7 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes/fake"
@@ -762,4 +762,34 @@ func (suite *Suite) TestMinimumAge() {
 
 		suite.Len(pods, tt.candidates)
 	}
+}
+
+func (suite *Suite) TestTerminateVictimCreatesEvent() {
+	chaoskube := suite.setupWithPods(
+		labels.Everything(),
+		labels.Everything(),
+		labels.Everything(),
+		nil,
+		nil,
+		[]time.Weekday{},
+		[]util.TimePeriod{},
+		[]time.Time{},
+		time.UTC,
+		time.Duration(0),
+		false,
+		10,
+	)
+	chaoskube.Now = ThankGodItsFriday{}.Now
+
+	err := chaoskube.TerminateVictim()
+	suite.Require().NoError(err)
+
+	events, err := chaoskube.Client.CoreV1().Events(v1.NamespaceAll).List(metav1.ListOptions{})
+	suite.Require().NoError(err)
+
+	suite.Require().Len(events.Items, 1)
+	event := events.Items[0]
+
+	suite.Equal("foo.chaos.-2be96689beac4e00", event.Name)
+	suite.Equal("Deleted pod foo", event.Message)
 }

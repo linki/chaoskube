@@ -151,7 +151,7 @@ func main() {
 	log.WithFields(log.Fields{
 		"weekdays":   parsedWeekdays,
 		"timesOfDay": parsedTimesOfDay,
-		"daysOfYear": formatDays(parsedDaysOfYear),
+		"daysOfYear": util.FormatDays(parsedDaysOfYear),
 	}).Info("setting quiet times")
 
 	parsedTimezone, err := time.LoadLocation(timezone)
@@ -275,12 +275,4 @@ func parseSelector(str string) labels.Selector {
 		}).Fatal("failed to parse selector")
 	}
 	return selector
-}
-
-func formatDays(days []time.Time) []string {
-	formattedDays := make([]string, 0, len(days))
-	for _, d := range days {
-		formattedDays = append(formattedDays, d.Format(util.YearDay))
-	}
-	return formattedDays
 }

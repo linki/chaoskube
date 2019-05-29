@@ -124,6 +124,15 @@ func TimeOfDay(pointInTime time.Time) time.Time {
 	return time.Date(0, 0, 0, pointInTime.Hour(), pointInTime.Minute(), pointInTime.Second(), pointInTime.Nanosecond(), time.UTC)
 }
 
+// FormatDays takes a slice of times and returns a slice of strings in YearDate format (e.g. [Apr 1, Sep 24])
+func FormatDays(days []time.Time) []string {
+	formattedDays := make([]string, 0, len(days))
+	for _, d := range days {
+		formattedDays = append(formattedDays, d.Format(YearDay))
+	}
+	return formattedDays
+}
+
 // NewPod returns a new pod instance for testing purposes.
 func NewPod(namespace, name string, phase v1.PodPhase) v1.Pod {
 	return v1.Pod{

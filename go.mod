@@ -39,3 +39,5 @@ require (
 	k8s.io/client-go v9.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20190603182131-db7b694dc208 // indirect
 )
+
+replace github.com/golang/glog => github.com/kubermatic/glog-logrus v0.0.0-20180829085450-3fa5b9870d1d

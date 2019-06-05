@@ -9,6 +9,9 @@ go:
 - "1.12"
 - tip
 
+env:
+- GO111MODULE=on
+
 install:
 - go get github.com/mattn/goveralls
 - go get github.com/lawrencewoodman/roveralls

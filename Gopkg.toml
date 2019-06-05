@@ -30,10 +30,6 @@
   name = "github.com/Azure/go-autorest"
   version = "~10.15.5"
 
-[[override]]
-  name = "github.com/golang/glog"
-  source = "github.com/kubermatic/glog-logrus"
-
 [prune]
   go-tests = true
   unused-packages = true

@@ -2,6 +2,7 @@
 FROM golang:1.12-alpine3.9 as builder
 
 ENV CGO_ENABLED 0
+ENV GO111MODULE on
 RUN apk --no-cache add git
 WORKDIR /go/src/github.com/linki/chaoskube
 COPY . .

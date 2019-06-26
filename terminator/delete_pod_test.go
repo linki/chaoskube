@@ -40,8 +40,8 @@ func (suite *DeletePodTerminatorSuite) TestTerminate() {
 	terminator := NewDeletePodTerminator(client, logger, 10*time.Second)
 
 	pods := []v1.Pod{
-		util.NewPod("default", "foo", v1.PodRunning),
-		util.NewPod("testing", "bar", v1.PodRunning),
+		util.NewPod("default", "foo", v1.PodRunning, nil),
+		util.NewPod("testing", "bar", v1.PodRunning, nil),
 	}
 
 	for _, pod := range pods {
@@ -49,7 +49,7 @@ func (suite *DeletePodTerminatorSuite) TestTerminate() {
 		suite.Require().NoError(err)
 	}
 
-	victim := util.NewPod("default", "foo", v1.PodRunning)
+	victim := util.NewPod("default", "foo", v1.PodRunning, nil)
 
 	err := terminator.Terminate(victim)
 	suite.Require().NoError(err)

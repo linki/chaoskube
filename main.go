@@ -48,6 +48,7 @@ var (
 	metricsAddress     string
 	gracePeriod        time.Duration
 	logFormat          string
+	logCaller          bool
 )
 
 func init() {
@@ -71,6 +72,7 @@ func init() {
 	kingpin.Flag("metrics-address", "Listening address for metrics handler").Default(":8080").StringVar(&metricsAddress)
 	kingpin.Flag("grace-period", "Grace period to terminate Pods. Negative values will use the Pod's grace period.").Default("-1s").DurationVar(&gracePeriod)
 	kingpin.Flag("log-format", "Specify the format of the log messages. Options are text and json. Defaults to text.").Default("text").EnumVar(&logFormat, "text", "json")
+	kingpin.Flag("log-caller", "Include the calling function name and location in the log messages.").BoolVar(&logCaller)
 }
 
 func main() {
@@ -84,6 +86,8 @@ func main() {
 	if logFormat == "json" {
 		log.SetFormatter(&log.JSONFormatter{})
 	}
+
+	log.SetReportCaller(logCaller)
 
 	log.WithFields(log.Fields{
 		"labels":             labelString,

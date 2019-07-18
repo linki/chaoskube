@@ -221,6 +221,8 @@ Use `UTC`, `Local` or pick a timezone name from the [(IANA) tz database](https:/
 | `--timezone`              | timezone from tz database, e.g. "America/New_York", "UTC" or "Local" | (UTC)                      |
 | `--minimum-age`           | Minimum age to filter pods by                                        | 0s (matches every pod)     |
 | `--dry-run`               | don't kill pods, only log what would have been done                  | true                       |
+| `--log-format`            | specify the format of the log messages. Options are text and json    | text                       |
+| `--log-caller`            | include the calling function name and location in the log messages   | false                      |
 
 ## Related work
 

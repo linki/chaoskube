@@ -191,31 +191,7 @@ func main() {
 	)
 
 	if metricsAddress != "" {
-		http.Handle("/metrics", promhttp.Handler())
-		http.HandleFunc("/healthz",
-			func(w http.ResponseWriter, r *http.Request) {
-				fmt.Fprintln(w, "OK")
-			})
-		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			_, err := w.Write([]byte(`<html>
-					<head><title>chaoskube</title></head>
-					<body>
-					<h1>chaoskube</h1>
-					<p><a href="/metrics">Metrics</a></p>
-					<p><a href="/healthz">Health Check</a></p>
-					</body>
-					</html>`))
-			if err != nil {
-				log.WithField("err", err).Error("failed to write HTTP response")
-			}
-		})
-		go func() {
-			if err := http.ListenAndServe(metricsAddress, nil); err != nil {
-				log.WithFields(log.Fields{
-					"err": err,
-				}).Fatal("failed to start HTTP server")
-			}
-		}()
+		go serveMetrics()
 	}
 
 	done := make(chan os.Signal, 1)
@@ -280,3 +256,27 @@ func parseSelector(str string) labels.Selector {
 	}
 	return selector
 }
+
+func serveMetrics() {
+	http.Handle("/metrics", promhttp.Handler())
+	http.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprintln(w, "OK")
+	})
+	http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprintln(w, adminPage)
+	})
+	if err := http.ListenAndServe(metricsAddress, nil); err != nil {
+		log.WithField("err", err).Fatal("failed to start HTTP server")
+	}
+}
+
+var adminPage = `<html>
+	<head>
+		<title>chaoskube</title>
+	</head>
+	<body>
+		<h1>chaoskube</h1>
+		<p><a href="/metrics">Metrics</a></p>
+		<p><a href="/healthz">Health Check</a></p>
+	</body>
+</html>`

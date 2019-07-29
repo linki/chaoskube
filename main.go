@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path"
 	"regexp"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -83,8 +85,11 @@ func main() {
 		log.SetLevel(log.DebugLevel)
 	}
 
-	if logFormat == "json" {
-		log.SetFormatter(&log.JSONFormatter{})
+	switch logFormat {
+	case "json":
+		log.SetFormatter(&log.JSONFormatter{CallerPrettyfier: prettifyCaller})
+	default:
+		log.SetFormatter(&log.TextFormatter{CallerPrettyfier: prettifyCaller})
 	}
 
 	log.SetReportCaller(logCaller)
@@ -268,6 +273,11 @@ func serveMetrics() {
 	if err := http.ListenAndServe(metricsAddress, nil); err != nil {
 		log.WithField("err", err).Fatal("failed to start HTTP server")
 	}
+}
+
+func prettifyCaller(f *runtime.Frame) (string, string) {
+	_, filename := path.Split(f.File)
+	return "", fmt.Sprintf("%s:%d", filename, f.Line)
 }
 
 var adminPage = `<html>

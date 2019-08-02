@@ -35,6 +35,8 @@ type Chaoskube struct {
 	Annotations labels.Selector
 	// a namespace selector which restricts the pods to choose from
 	Namespaces labels.Selector
+	// a namespace label selector which restricts the namespaces to choose from
+	NamespaceLabels labels.Selector
 	// a regular expression for pod names to include
 	IncludedPodNames *regexp.Regexp
 	// a regular expression for pod names to exclude
@@ -84,7 +86,7 @@ var (
 // * a logger implementing logrus.FieldLogger to send log output to
 // * what specific terminator to use to imbue chaos on victim pods
 // * whether to enable/disable dry-run mode
-func New(client kubernetes.Interface, labels, annotations, namespaces labels.Selector, includedPodNames, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator) *Chaoskube {
+func New(client kubernetes.Interface, labels, annotations, namespaces, namespaceLabels labels.Selector, includedPodNames, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator) *Chaoskube {
 	broadcaster := record.NewBroadcaster()
 	broadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events(v1.NamespaceAll)})
 	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "chaoskube"})
@@ -94,6 +96,7 @@ func New(client kubernetes.Interface, labels, annotations, namespaces labels.Sel
 		Labels:             labels,
 		Annotations:        annotations,
 		Namespaces:         namespaces,
+		NamespaceLabels:    namespaceLabels,
 		IncludedPodNames:   includedPodNames,
 		ExcludedPodNames:   excludedPodNames,
 		ExcludedWeekdays:   excludedWeekdays,
@@ -200,6 +203,11 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 		return nil, err
 	}
 
+	pods, err = filterPodsByNamespaceLabels(pods, c.NamespaceLabels, c.Client)
+	if err != nil {
+		return nil, err
+	}
+
 	pods = filterByAnnotations(pods, c.Annotations)
 	pods = filterByPhase(pods, v1.PodRunning)
 	pods = filterByMinimumAge(pods, c.MinimumAge, c.Now())
@@ -290,6 +298,35 @@ func filterByNamespaces(pods []v1.Pod, namespaces labels.Selector) ([]v1.Pod, er
 
 		if included {
 			filteredList = append(filteredList, pod)
+		}
+	}
+
+	return filteredList, nil
+}
+
+// filterPodsByNamespaceLabels filters a list of pods by a given label selector on their namespace.
+func filterPodsByNamespaceLabels(pods []v1.Pod, labels labels.Selector, client kubernetes.Interface) ([]v1.Pod, error) {
+	// empty filter returns original list
+	if labels.Empty() {
+		return pods, nil
+	}
+
+	// find all namespaces matching the label selector
+	listOptions := metav1.ListOptions{LabelSelector: labels.String()}
+
+	namespaces, err := client.CoreV1().Namespaces().List(listOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	filteredList := []v1.Pod{}
+
+	for _, pod := range pods {
+		for _, namespace := range namespaces.Items {
+			// include pod if its in one of the matched namespaces
+			if pod.Namespace == namespace.Name {
+				filteredList = append(filteredList, pod)
+			}
 		}
 	}
 

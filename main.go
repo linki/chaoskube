@@ -35,6 +35,7 @@ var (
 	labelString        string
 	annString          string
 	nsString           string
+	nsLabelString      string
 	includedPodNames   *regexp.Regexp
 	excludedPodNames   *regexp.Regexp
 	excludedWeekdays   string
@@ -59,6 +60,7 @@ func init() {
 	kingpin.Flag("labels", "A set of labels to restrict the list of affected pods. Defaults to everything.").StringVar(&labelString)
 	kingpin.Flag("annotations", "A set of annotations to restrict the list of affected pods. Defaults to everything.").StringVar(&annString)
 	kingpin.Flag("namespaces", "A set of namespaces to restrict the list of affected pods. Defaults to everything.").StringVar(&nsString)
+	kingpin.Flag("namespace-labels", "A set of labels to restrict the list of affected namespaces. Defaults to everything.").StringVar(&nsLabelString)
 	kingpin.Flag("included-pod-names", "Regular expression that defines which pods to include. All included by default.").RegexpVar(&includedPodNames)
 	kingpin.Flag("excluded-pod-names", "Regular expression that defines which pods to exclude. None excluded by default.").RegexpVar(&excludedPodNames)
 	kingpin.Flag("excluded-weekdays", "A list of weekdays when termination is suspended, e.g. Sat,Sun").StringVar(&excludedWeekdays)
@@ -98,6 +100,7 @@ func main() {
 		"labels":             labelString,
 		"annotations":        annString,
 		"namespaces":         nsString,
+		"namespaceLabels":    nsLabelString,
 		"includedPodNames":   includedPodNames,
 		"excludedPodNames":   excludedPodNames,
 		"excludedWeekdays":   excludedWeekdays,
@@ -127,15 +130,17 @@ func main() {
 	}
 
 	var (
-		labelSelector = parseSelector(labelString)
-		annotations   = parseSelector(annString)
-		namespaces    = parseSelector(nsString)
+		labelSelector   = parseSelector(labelString)
+		annotations     = parseSelector(annString)
+		namespaces      = parseSelector(nsString)
+		namespaceLabels = parseSelector(nsLabelString)
 	)
 
 	log.WithFields(log.Fields{
 		"labels":           labelSelector,
 		"annotations":      annotations,
 		"namespaces":       namespaces,
+		"namespaceLabels":  namespaceLabels,
 		"includedPodNames": includedPodNames,
 		"excludedPodNames": excludedPodNames,
 		"minimumAge":       minimumAge,
@@ -183,6 +188,7 @@ func main() {
 		labelSelector,
 		annotations,
 		namespaces,
+		namespaceLabels,
 		includedPodNames,
 		excludedPodNames,
 		parsedWeekdays,

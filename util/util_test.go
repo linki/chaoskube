@@ -387,6 +387,13 @@ func (suite *Suite) TestFormatDays() {
 	}
 }
 
+func (suite *Suite) TestNewNamespace() {
+	namespace := NewNamespace("name")
+
+	suite.Equal("name", namespace.Name)
+	suite.Equal("name", namespace.Labels["env"])
+}
+
 func TestSuite(t *testing.T) {
 	suite.Run(t, new(Suite))
 }

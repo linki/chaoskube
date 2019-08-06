@@ -128,6 +128,16 @@ INFO[0000] setting pod filter       namespaces="default,staging,testing"
 
 This will filter for pods in the three namespaces `default`, `staging` and `testing`.
 
+Namespaces can additionally be filtered by a namespace label selector.
+
+```console
+$ chaoskube --namespace-labels='!integration'
+...
+INFO[0000] setting pod filter       namespaceLabels="!integration"
+```
+
+This will exclude all pods from namespaces with the label `integration`.
+
 You can filter pods by name:
 
 ```console
@@ -213,6 +223,7 @@ Use `UTC`, `Local` or pick a timezone name from the [(IANA) tz database](https:/
 | `--labels`                | label selector to filter pods by                                     | (matches everything)       |
 | `--annotations`           | annotation selector to filter pods by                                | (matches everything)       |
 | `--namespaces`            | namespace selector to filter pods by                                 | (all namespaces)           |
+| `--namespace-labels`      | label selector to filter namespaces and its pods by                  | (all namespaces)           |
 | `--included-pod-names`    | regular expression pattern for pod names to include                  | (all included)             |
 | `--excluded-pod-names`    | regular expression pattern for pod names to exclude                  | (none excluded)            |
 | `--excluded-weekdays`     | weekdays when chaos is to be suspended, e.g. "Sat,Sun"               | (no weekday excluded)      |

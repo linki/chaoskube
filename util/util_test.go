@@ -387,6 +387,26 @@ func (suite *Suite) TestFormatDays() {
 	}
 }
 
+func (suite *Suite) TestNewPod() {
+	pod := NewPod("namespace", "name", "phase")
+
+	suite.Equal("v1", pod.APIVersion)
+	suite.Equal("Pod", pod.Kind)
+	suite.Equal("namespace", pod.Namespace)
+	suite.Equal("name", pod.Name)
+	suite.Equal("name", pod.Labels["app"])
+	suite.Equal("name", pod.Annotations["chaos"])
+	suite.Equal("/api/v1/namespaces/namespace/pods/name", pod.SelfLink)
+	suite.EqualValues("phase", pod.Status.Phase)
+}
+
+func (suite *Suite) TestNewNamespace() {
+	namespace := NewNamespace("name")
+
+	suite.Equal("name", namespace.Name)
+	suite.Equal("name", namespace.Labels["env"])
+}
+
 func TestSuite(t *testing.T) {
 	suite.Run(t, new(Suite))
 }

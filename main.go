@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"path"
@@ -294,5 +295,6 @@ var adminPage = `<html>
 		<h1>chaoskube</h1>
 		<p><a href="/metrics">Metrics</a></p>
 		<p><a href="/healthz">Health Check</a></p>
+		<p><a href="/debug/pprof">pprof</a></p>
 	</body>
 </html>`

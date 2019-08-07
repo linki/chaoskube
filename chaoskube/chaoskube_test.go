@@ -135,6 +135,7 @@ func (suite *Suite) TestCandidates() {
 		{"", "", "!default,!testing", []map[string]string{}},
 		{"", "", "default,!testing", []map[string]string{foo}},
 		{"", "", "default,!default", []map[string]string{}},
+		{"app=foo", "chaos=foo", "default,!testing", []map[string]string{foo}},
 	} {
 		labelSelector, err := labels.Parse(tt.labelSelector)
 		suite.Require().NoError(err)
@@ -828,5 +829,81 @@ func (suite *Suite) TestMinimumAge() {
 		suite.Require().NoError(err)
 
 		suite.Len(pods, tt.candidates)
+	}
+}
+
+// from fib_test.go
+func BenchmarkCandidates(b *testing.B) {
+	// foo := map[string]string{"namespace": "default", "name": "foo"}
+
+	labelSelectorStr := "app=foo"
+	annotationSelectorStr := "chaos=foo"
+	namespaceSelectorStr := "default,!testing"
+	// pods := []map[string]string{foo}
+
+	labelSelector, err := labels.Parse(labelSelectorStr)
+	if err != nil {
+		panic(err)
+	}
+
+	annotationSelector, err := labels.Parse(annotationSelectorStr)
+	if err != nil {
+		panic(err)
+	}
+
+	namespaceSelector, err := labels.Parse(namespaceSelectorStr)
+	if err != nil {
+		panic(err)
+	}
+
+	logOutput.Reset()
+
+	client := fake.NewSimpleClientset()
+	nullLogger, _ := test.NewNullLogger()
+
+	chaoskube := New(
+		client,
+		labelSelector,
+		annotationSelector,
+		namespaceSelector,
+		labels.Everything(),
+		&regexp.Regexp{},
+		&regexp.Regexp{},
+		[]time.Weekday{},
+		[]util.TimePeriod{},
+		[]time.Time{},
+		time.UTC,
+		10,
+		logger,
+		false,
+		terminator.NewDeletePodTerminator(client, nullLogger, 10*time.Second),
+	)
+
+	for _, namespace := range []v1.Namespace{
+		util.NewNamespace("default"),
+		util.NewNamespace("testing"),
+	} {
+		_, err := chaoskube.Client.CoreV1().Namespaces().Create(&namespace)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	pods := []v1.Pod{
+		util.NewPod("default", "foo", v1.PodRunning),
+		util.NewPod("testing", "bar", v1.PodRunning),
+		util.NewPod("testing", "baz", v1.PodPending), // Non-running pods are ignored
+	}
+
+	for _, pod := range pods {
+		_, err := chaoskube.Client.CoreV1().Pods(pod.Namespace).Create(&pod)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	// run the Fib function b.N times
+	for n := 0; n < b.N; n++ {
+		_, _ = chaoskube.Candidates()
 	}
 }

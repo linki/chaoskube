@@ -201,6 +201,8 @@ func main() {
 		terminator.NewDeletePodTerminator(client, log.StandardLogger(), gracePeriod),
 	)
 
+	chaoskube.SingleNamespaceMode = true
+
 	if metricsAddress != "" {
 		go serveMetrics()
 	}

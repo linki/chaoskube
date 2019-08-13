@@ -212,7 +212,11 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 		for _, namespace := range namespaces {
 			podList, err := c.Client.CoreV1().Pods(namespace.Name).List(listOptions)
 			if err != nil {
-				return nil, err
+				c.Logger.WithFields(log.Fields{
+					"err":       err,
+					"namespace": namespace.Name,
+				}).Error("failed to list pods")
+				continue
 			}
 
 			pods = append(pods, podList.Items...)

@@ -18,20 +18,21 @@ spec:
       serviceAccountName: chaoskube
       containers:
       - name: chaoskube
-        image: quay.io/linki/chaoskube:v0.15.0
+        image: chaoskube:single-namespace-enabled-2
         args:
         # kill a pod every 10 minutes
         - --interval=1m
         # exclude all pods in the kube-system namespace
-        - --namespaces=!kube-system
+        - --namespaces=foo,kube-system
         # terminate pods for real: this disables dry-run mode which is on by default
         - --no-dry-run
-        securityContext:
-          runAsNonRoot: true
-          runAsUser: 65534
-          readOnlyRootFilesystem: true
-          capabilities:
-            drop: ["ALL"]
+        - --debug
+        securityContext: {}
+          # runAsNonRoot: true
+          # runAsUser: 65534
+          # readOnlyRootFilesystem: true
+          # capabilities:
+          #   drop: ["ALL"]
 
 ---
 

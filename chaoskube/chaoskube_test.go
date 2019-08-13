@@ -165,6 +165,60 @@ func (suite *Suite) TestCandidates() {
 	}
 }
 
+// TestCandidates tests that the various pod filters are applied correctly.
+func (suite *Suite) TestCandidatesSingleNamespace() {
+	foo := map[string]string{"namespace": "default", "name": "foo"}
+	bar := map[string]string{"namespace": "testing", "name": "bar"}
+
+	for _, tt := range []struct {
+		labelSelector      string
+		annotationSelector string
+		namespaceSelector  string
+		pods               []map[string]string
+	}{
+		{"", "", "", []map[string]string{foo, bar}},
+		{"app=foo", "", "", []map[string]string{foo}},
+		{"app!=foo", "", "", []map[string]string{bar}},
+		{"", "chaos=foo", "", []map[string]string{foo}},
+		{"", "chaos!=foo", "", []map[string]string{bar}},
+		{"", "", "default", []map[string]string{foo}},
+		{"", "", "default,testing", []map[string]string{foo, bar}},
+		{"", "", "!testing", []map[string]string{foo}},
+		{"", "", "!default,!testing", []map[string]string{}},
+		{"", "", "default,!testing", []map[string]string{foo}},
+		{"", "", "default,!default", []map[string]string{}},
+	} {
+		labelSelector, err := labels.Parse(tt.labelSelector)
+		suite.Require().NoError(err)
+
+		annotationSelector, err := labels.Parse(tt.annotationSelector)
+		suite.Require().NoError(err)
+
+		namespaceSelector, err := labels.Parse(tt.namespaceSelector)
+		suite.Require().NoError(err)
+
+		chaoskube := suite.setupWithPods(
+			labelSelector,
+			annotationSelector,
+			namespaceSelector,
+			labels.Everything(),
+			nil,
+			nil,
+			[]time.Weekday{},
+			[]util.TimePeriod{},
+			[]time.Time{},
+			time.UTC,
+			time.Duration(0),
+			false,
+			10,
+		)
+
+		chaoskube.SingleNamespaceMode = true
+
+		suite.assertCandidates(chaoskube, tt.pods)
+	}
+}
+
 // TestCandidatesNamespaceLabels tests that the label selector for namespaces works correctly.
 func (suite *Suite) TestCandidatesNamespaceLabels() {
 	foo := map[string]string{"namespace": "default", "name": "foo"}

@@ -63,6 +63,8 @@ type Chaoskube struct {
 	EventRecorder record.EventRecorder
 	// a function to retrieve the current time
 	Now func() time.Time
+
+	SingleNamespaceMode bool
 }
 
 var (
@@ -193,15 +195,63 @@ func (c *Chaoskube) Victim() (v1.Pod, error) {
 func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 	listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
 
-	podList, err := c.Client.CoreV1().Pods(v1.NamespaceAll).List(listOptions)
-	if err != nil {
-		return nil, err
+	pods := []v1.Pod{}
+	var err error
+
+	if c.SingleNamespaceMode {
+		namespaceList, err := c.Client.CoreV1().Namespaces().List(metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		namespaces, err := filterNamespaces(namespaceList.Items, c.Namespaces)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, namespace := range namespaces {
+			podList, err := c.Client.CoreV1().Pods(namespace.Name).List(listOptions)
+			if err != nil {
+				return nil, err
+			}
+
+			pods = append(pods, podList.Items...)
+		}
+	} else {
+		podList, err := c.Client.CoreV1().Pods(v1.NamespaceAll).List(listOptions)
+		if err != nil {
+			return nil, err
+		}
+
+		pods = podList.Items
+
+		pods, err = filterByNamespaces(pods, c.Namespaces)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	pods, err := filterByNamespaces(podList.Items, c.Namespaces)
-	if err != nil {
-		return nil, err
-	}
+	// 	-       podList, err := c.Client.CoreV1().Pods(v1.NamespaceAll).List(listOptions)
+	// -       if err != nil {
+	// -               return nil, err
+	// +
+	// +       req, _ := c.Namespaces.Requirements()
+	// +
+	// +       var podList *v1.PodList
+	// +       var err error
+	// +       if len(req) == 1 && string([]rune(c.Namespaces.String())[0]) != "!" {
+	// +               c.Logger.WithField("scope", "single namespace").Info("fetching podlist")
+	// +               podList, err = c.Client.CoreV1().Pods(c.Namespaces.String()).List(listOptions)
+	// +               if err != nil {
+	// +                       return nil, err
+	// +               }
+	// +       } else {
+	// +               c.Logger.WithField("scope", "cluster").Info("fetching podlist")
+	// +               podList, err = c.Client.CoreV1().Pods(v1.NamespaceAll).List(listOptions)
+	// +               if err != nil {
+	// +                       return nil, err
+	// +               }
+	//         }
 
 	pods, err = filterPodsByNamespaceLabels(pods, c.NamespaceLabels, c.Client)
 	if err != nil {
@@ -298,6 +348,62 @@ func filterByNamespaces(pods []v1.Pod, namespaces labels.Selector) ([]v1.Pod, er
 
 		if included {
 			filteredList = append(filteredList, pod)
+		}
+	}
+
+	return filteredList, nil
+}
+
+// filterByNamespaces filters a list of pods by a given namespace selector.
+func filterNamespaces(namespaces []v1.Namespace, namespaceSelector labels.Selector) ([]v1.Namespace, error) {
+	// empty filter returns original list
+	if namespaceSelector.Empty() {
+		return namespaces, nil
+	}
+
+	// split requirements into including and excluding groups
+	reqs, _ := namespaceSelector.Requirements()
+	reqIncl := []labels.Requirement{}
+	reqExcl := []labels.Requirement{}
+
+	for _, req := range reqs {
+		switch req.Operator() {
+		case selection.Exists:
+			reqIncl = append(reqIncl, req)
+		case selection.DoesNotExist:
+			reqExcl = append(reqExcl, req)
+		default:
+			return nil, fmt.Errorf("unsupported operator: %s", req.Operator())
+		}
+	}
+
+	filteredList := []v1.Namespace{}
+
+	for _, namespace := range namespaces {
+		// if there aren't any including requirements, we're in by default
+		included := len(reqIncl) == 0
+
+		// convert the pod's namespace to an equivalent label selector
+		selector := labels.Set{namespace.Name: ""}
+
+		// include pod if one including requirement matches
+		for _, req := range reqIncl {
+			if req.Matches(selector) {
+				included = true
+				break
+			}
+		}
+
+		// exclude pod if it is filtered out by at least one excluding requirement
+		for _, req := range reqExcl {
+			if !req.Matches(selector) {
+				included = false
+				break
+			}
+		}
+
+		if included {
+			filteredList = append(filteredList, namespace)
 		}
 	}
 

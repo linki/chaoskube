@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
@@ -22,6 +23,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog"
 
 	"github.com/linki/chaoskube/chaoskube"
 	"github.com/linki/chaoskube/terminator"
@@ -57,6 +59,7 @@ var (
 
 func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
+	klog.SetOutput(ioutil.Discard)
 
 	kingpin.Flag("labels", "A set of labels to restrict the list of affected pods. Defaults to everything.").StringVar(&labelString)
 	kingpin.Flag("annotations", "A set of annotations to restrict the list of affected pods. Defaults to everything.").StringVar(&annString)

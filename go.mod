@@ -7,7 +7,7 @@ require (
 	github.com/gogo/protobuf v1.2.0 // indirect
 	github.com/gophercloud/gophercloud v0.2.0 // indirect
 	github.com/imdario/mergo v0.3.7 // indirect
-	github.com/prometheus/client_golang v1.0.0
+	github.com/prometheus/client_golang v1.1.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/stretchr/testify v1.3.0
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45 // indirect

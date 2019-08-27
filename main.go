@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kingpin"
+	"github.com/operator-framework/operator-sdk/pkg/leader"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 
@@ -219,6 +220,10 @@ func main() {
 		<-done
 		cancel()
 	}()
+
+	if err := leader.Become(ctx, "chaoskube-lock"); err != nil {
+		log.WithField("err", err).Fatal("failed to aquire leader lock")
+	}
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()

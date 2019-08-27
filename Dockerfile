@@ -3,7 +3,7 @@ FROM golang:1.12-alpine3.10 as builder
 
 ENV CGO_ENABLED 0
 ENV GO111MODULE on
-RUN apk --no-cache add git
+RUN apk --no-cache add git mercurial
 WORKDIR /go/src/github.com/linki/chaoskube
 COPY . .
 RUN go test -v ./...

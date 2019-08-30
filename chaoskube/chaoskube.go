@@ -64,7 +64,11 @@ type Chaoskube struct {
 	// a function to retrieve the current time
 	Now func() time.Time
 
-	CutOffNamespaceCount int
+	PodLister PodLister
+}
+
+type PodLister interface {
+	List(*Chaoskube) ([]v1.Pod, bool, error)
 }
 
 var (
@@ -111,6 +115,7 @@ func New(client kubernetes.Interface, labels, annotations, namespaces, namespace
 		Terminator:         terminator,
 		EventRecorder:      recorder,
 		Now:                time.Now,
+		PodLister:          &GlobalPodLister{},
 	}
 }
 
@@ -190,70 +195,8 @@ func (c *Chaoskube) Victim() (v1.Pod, error) {
 	return pods[index], nil
 }
 
-func (c *Chaoskube) ElegibleNamespaces() ([]v1.Namespace, error) {
-	namespaceList, err := c.Client.CoreV1().Namespaces().List(metav1.ListOptions{LabelSelector: c.NamespaceLabels.String()})
-	if err != nil {
-		return nil, err
-	}
-
-	namespaces, err := filterNamespaces(namespaceList.Items, c.Namespaces)
-	if err != nil {
-		return nil, err
-	}
-
-	return namespaces, nil
-}
-
 func (c *Chaoskube) podsByNamespace() ([]v1.Pod, bool, error) {
-	global := false
-
-	namespaces, err := c.ElegibleNamespaces()
-	if err != nil {
-		return nil, global, err
-	}
-
-	listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
-	pods := []v1.Pod{}
-
-	if len(namespaces) <= c.CutOffNamespaceCount {
-		for _, namespace := range namespaces {
-			c.Logger.WithField("scope", namespace.Name).Info("fetching podlist")
-
-			podList, err := c.Client.CoreV1().Pods(namespace.Name).List(listOptions)
-			if err != nil {
-				c.Logger.WithFields(log.Fields{
-					"err":       err,
-					"namespace": namespace.Name,
-				}).Error("failed to list pods")
-				continue
-			}
-
-			pods = append(pods, podList.Items...)
-		}
-	} else {
-		global = true
-
-		c.Logger.WithField("scope", "cluster").Info("fetching podlist")
-
-		podList, err := c.Client.CoreV1().Pods(v1.NamespaceAll).List(listOptions)
-		if err != nil {
-			return nil, global, err
-		}
-
-		pods = podList.Items
-
-		pods, err = filterByNamespaces(pods, c.Namespaces)
-		if err != nil {
-			return nil, global, err
-		}
-
-		pods, err = filterPodsByNamespaceLabels(pods, c.NamespaceLabels, c.Client)
-		if err != nil {
-			return nil, global, err
-		}
-	}
-
-	return pods, global, err
+	return c.PodLister.List(c)
 }
 
 // Candidates returns the list of pods that are available for termination.
@@ -520,4 +463,81 @@ func filterByPodName(pods []v1.Pod, includedPodNames, excludedPodNames *regexp.R
 	}
 
 	return filteredList
+}
+
+//
+
+type GlobalPodLister struct{}
+
+func (l *GlobalPodLister) List(c *Chaoskube) ([]v1.Pod, bool, error) {
+	global := true
+
+	listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
+	pods := []v1.Pod{}
+
+	c.Logger.WithField("scope", "cluster").Info("fetching podlist")
+
+	podList, err := c.Client.CoreV1().Pods(v1.NamespaceAll).List(listOptions)
+	if err != nil {
+		return nil, global, err
+	}
+
+	pods = podList.Items
+
+	pods, err = filterByNamespaces(pods, c.Namespaces)
+	if err != nil {
+		return nil, global, err
+	}
+
+	pods, err = filterPodsByNamespaceLabels(pods, c.NamespaceLabels, c.Client)
+	if err != nil {
+		return nil, global, err
+	}
+
+	return pods, global, err
+}
+
+type NamespacePodLister struct{}
+
+func (l *NamespacePodLister) ElegibleNamespaces(c *Chaoskube) ([]v1.Namespace, error) {
+	namespaceList, err := c.Client.CoreV1().Namespaces().List(metav1.ListOptions{LabelSelector: c.NamespaceLabels.String()})
+	if err != nil {
+		return nil, err
+	}
+
+	namespaces, err := filterNamespaces(namespaceList.Items, c.Namespaces)
+	if err != nil {
+		return nil, err
+	}
+
+	return namespaces, nil
+}
+
+func (l *NamespacePodLister) List(c *Chaoskube) ([]v1.Pod, bool, error) {
+	global := false
+
+	namespaces, err := l.ElegibleNamespaces(c)
+	if err != nil {
+		return nil, global, err
+	}
+
+	listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
+	pods := []v1.Pod{}
+
+	for _, namespace := range namespaces {
+		c.Logger.WithField("scope", namespace.Name).Info("fetching podlist")
+
+		podList, err := c.Client.CoreV1().Pods(namespace.Name).List(listOptions)
+		if err != nil {
+			c.Logger.WithFields(log.Fields{
+				"err":       err,
+				"namespace": namespace.Name,
+			}).Error("failed to list pods")
+			continue
+		}
+
+		pods = append(pods, podList.Items...)
+	}
+
+	return pods, global, err
 }

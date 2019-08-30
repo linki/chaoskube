@@ -53,7 +53,7 @@ var (
 	logFormat          string
 	logCaller          bool
 
-	cutoffNamespaceCount int
+	clusterWideReadAccess int
 )
 
 func init() {
@@ -80,7 +80,7 @@ func init() {
 	kingpin.Flag("log-format", "Specify the format of the log messages. Options are text and json. Defaults to text.").Default("text").EnumVar(&logFormat, "text", "json")
 	kingpin.Flag("log-caller", "Include the calling function name and location in the log messages.").BoolVar(&logCaller)
 
-	kingpin.Flag("cutoff-namespacecount", "foo").Default("1").IntVar(&cutoffNamespaceCount)
+	kingpin.Flag("cluster-wide-read-access", "foo").Default("1").IntVar(&clusterWideReadAccess)
 }
 
 func main() {
@@ -205,7 +205,7 @@ func main() {
 		terminator.NewDeletePodTerminator(client, log.StandardLogger(), gracePeriod),
 	)
 
-	chaoskube.CutOffNamespaceCount = cutoffNamespaceCount
+	chaoskube.CutOffNamespaceCount = clusterWideReadAccess
 
 	if metricsAddress != "" {
 		go serveMetrics()

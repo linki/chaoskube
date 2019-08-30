@@ -130,12 +130,12 @@ func (suite *Suite) TestCandidates() {
 		{"app!=foo", "", "", []map[string]string{bar}, true},
 		{"", "chaos=foo", "", []map[string]string{foo}, true},
 		{"", "chaos!=foo", "", []map[string]string{bar}, true},
-		{"", "", "default", []map[string]string{foo}, false},
+		{"", "", "default", []map[string]string{foo}, true},
 		{"", "", "default,testing", []map[string]string{foo, bar}, true},
-		{"", "", "!testing", []map[string]string{foo}, false},
-		{"", "", "!default,!testing", []map[string]string{}, false},
-		{"", "", "default,!testing", []map[string]string{foo}, false},
-		{"", "", "default,!default", []map[string]string{}, false},
+		{"", "", "!testing", []map[string]string{foo}, true},
+		{"", "", "!default,!testing", []map[string]string{}, true},
+		{"", "", "default,!testing", []map[string]string{foo}, true},
+		{"", "", "default,!default", []map[string]string{}, true},
 	} {
 		labelSelector, err := labels.Parse(tt.labelSelector)
 		suite.Require().NoError(err)
@@ -162,7 +162,7 @@ func (suite *Suite) TestCandidates() {
 			10,
 		)
 
-		chaoskube.CutOffNamespaceCount = 1
+		chaoskube.PodLister = &GlobalPodLister{}
 
 		suite.assertCandidates(chaoskube, tt.pods)
 		_, global, err := chaoskube.Candidates()
@@ -219,7 +219,7 @@ func (suite *Suite) TestCandidatesSingleNamespace() {
 			10,
 		)
 
-		chaoskube.CutOffNamespaceCount = 2
+		chaoskube.PodLister = &NamespacePodLister{}
 
 		suite.assertCandidates(chaoskube, tt.pods)
 		_, global, err := chaoskube.Candidates()
@@ -268,7 +268,7 @@ func (suite *Suite) TestCandidatesNamespaceLabels() {
 			10,
 		)
 
-		chaoskube.CutOffNamespaceCount = 1
+		chaoskube.PodLister = &GlobalPodLister{}
 
 		suite.assertCandidates(chaoskube, tt.pods)
 	}
@@ -314,7 +314,7 @@ func (suite *Suite) TestCandidatesNamespaceLabelsLocal() {
 			10,
 		)
 
-		chaoskube.CutOffNamespaceCount = 2
+		chaoskube.PodLister = &NamespacePodLister{}
 
 		suite.assertCandidates(chaoskube, tt.pods)
 	}
@@ -943,7 +943,7 @@ func (suite *Suite) TestMinimumAge() {
 			suite.Require().NoError(err)
 		}
 
-		chaoskube.CutOffNamespaceCount = 0
+		chaoskube.PodLister = &GlobalPodLister{}
 
 		pods, _, err := chaoskube.Candidates()
 		suite.Require().NoError(err)
@@ -1002,7 +1002,7 @@ func (suite *Suite) TestEligableNamespaces() {
 			10,
 		)
 
-		namespaces, err := chaoskube.ElegibleNamespaces()
+		namespaces, err := (&NamespacePodLister{}).ElegibleNamespaces(chaoskube)
 		suite.Require().NoError(err)
 
 		suite.Require().Len(namespaces, len(tt.expected))

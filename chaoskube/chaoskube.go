@@ -10,7 +10,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -64,7 +64,7 @@ type Chaoskube struct {
 	// a function to retrieve the current time
 	Now func() time.Time
 
-	SingleNamespaceMode bool
+	CutOffNamespaceCount int
 }
 
 var (
@@ -174,7 +174,7 @@ func (c *Chaoskube) TerminateVictim() error {
 // Victim returns a random pod from the list of Candidates.
 // It returns an error if there are no candidates to choose from.
 func (c *Chaoskube) Victim() (v1.Pod, error) {
-	pods, err := c.Candidates()
+	pods, _, err := c.Candidates()
 	if err != nil {
 		return v1.Pod{}, err
 	}
@@ -190,26 +190,35 @@ func (c *Chaoskube) Victim() (v1.Pod, error) {
 	return pods[index], nil
 }
 
-// Candidates returns the list of pods that are available for termination.
-// It returns all pods that match the configured label, annotation and namespace selectors.
-func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
+func (c *Chaoskube) ElegibleNamespaces() ([]v1.Namespace, error) {
+	namespaceList, err := c.Client.CoreV1().Namespaces().List(metav1.ListOptions{LabelSelector: c.NamespaceLabels.String()})
+	if err != nil {
+		return nil, err
+	}
+
+	namespaces, err := filterNamespaces(namespaceList.Items, c.Namespaces)
+	if err != nil {
+		return nil, err
+	}
+
+	return namespaces, nil
+}
+
+func (c *Chaoskube) podsByNamespace() ([]v1.Pod, bool, error) {
+	global := false
+
+	namespaces, err := c.ElegibleNamespaces()
+	if err != nil {
+		return nil, global, err
+	}
+
 	listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
-
 	pods := []v1.Pod{}
-	var err error
 
-	if c.SingleNamespaceMode {
-		namespaceList, err := c.Client.CoreV1().Namespaces().List(metav1.ListOptions{})
-		if err != nil {
-			return nil, err
-		}
-
-		namespaces, err := filterNamespaces(namespaceList.Items, c.Namespaces)
-		if err != nil {
-			return nil, err
-		}
-
+	if len(namespaces) <= c.CutOffNamespaceCount {
 		for _, namespace := range namespaces {
+			c.Logger.WithField("scope", namespace.Name).Info("fetching podlist")
+
 			podList, err := c.Client.CoreV1().Pods(namespace.Name).List(listOptions)
 			if err != nil {
 				c.Logger.WithFields(log.Fields{
@@ -222,44 +231,37 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 			pods = append(pods, podList.Items...)
 		}
 	} else {
+		global = true
+
+		c.Logger.WithField("scope", "cluster").Info("fetching podlist")
+
 		podList, err := c.Client.CoreV1().Pods(v1.NamespaceAll).List(listOptions)
 		if err != nil {
-			return nil, err
+			return nil, global, err
 		}
 
 		pods = podList.Items
 
 		pods, err = filterByNamespaces(pods, c.Namespaces)
 		if err != nil {
-			return nil, err
+			return nil, global, err
+		}
+
+		pods, err = filterPodsByNamespaceLabels(pods, c.NamespaceLabels, c.Client)
+		if err != nil {
+			return nil, global, err
 		}
 	}
 
-	// 	-       podList, err := c.Client.CoreV1().Pods(v1.NamespaceAll).List(listOptions)
-	// -       if err != nil {
-	// -               return nil, err
-	// +
-	// +       req, _ := c.Namespaces.Requirements()
-	// +
-	// +       var podList *v1.PodList
-	// +       var err error
-	// +       if len(req) == 1 && string([]rune(c.Namespaces.String())[0]) != "!" {
-	// +               c.Logger.WithField("scope", "single namespace").Info("fetching podlist")
-	// +               podList, err = c.Client.CoreV1().Pods(c.Namespaces.String()).List(listOptions)
-	// +               if err != nil {
-	// +                       return nil, err
-	// +               }
-	// +       } else {
-	// +               c.Logger.WithField("scope", "cluster").Info("fetching podlist")
-	// +               podList, err = c.Client.CoreV1().Pods(v1.NamespaceAll).List(listOptions)
-	// +               if err != nil {
-	// +                       return nil, err
-	// +               }
-	//         }
+	return pods, global, err
+}
 
-	pods, err = filterPodsByNamespaceLabels(pods, c.NamespaceLabels, c.Client)
+// Candidates returns the list of pods that are available for termination.
+// It returns all pods that match the configured label, annotation and namespace selectors.
+func (c *Chaoskube) Candidates() ([]v1.Pod, bool, error) {
+	pods, global, err := c.podsByNamespace()
 	if err != nil {
-		return nil, err
+		return nil, global, err
 	}
 
 	pods = filterByAnnotations(pods, c.Annotations)
@@ -267,7 +269,7 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 	pods = filterByMinimumAge(pods, c.MinimumAge, c.Now())
 	pods = filterByPodName(pods, c.IncludedPodNames, c.ExcludedPodNames)
 
-	return pods, nil
+	return pods, global, nil
 }
 
 // DeletePod deletes the given pod with the selected terminator.

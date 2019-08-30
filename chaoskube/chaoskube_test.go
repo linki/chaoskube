@@ -10,7 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes/fake"
@@ -123,18 +123,19 @@ func (suite *Suite) TestCandidates() {
 		annotationSelector string
 		namespaceSelector  string
 		pods               []map[string]string
+		global             bool
 	}{
-		{"", "", "", []map[string]string{foo, bar}},
-		{"app=foo", "", "", []map[string]string{foo}},
-		{"app!=foo", "", "", []map[string]string{bar}},
-		{"", "chaos=foo", "", []map[string]string{foo}},
-		{"", "chaos!=foo", "", []map[string]string{bar}},
-		{"", "", "default", []map[string]string{foo}},
-		{"", "", "default,testing", []map[string]string{foo, bar}},
-		{"", "", "!testing", []map[string]string{foo}},
-		{"", "", "!default,!testing", []map[string]string{}},
-		{"", "", "default,!testing", []map[string]string{foo}},
-		{"", "", "default,!default", []map[string]string{}},
+		{"", "", "", []map[string]string{foo, bar}, true},
+		{"app=foo", "", "", []map[string]string{foo}, true},
+		{"app!=foo", "", "", []map[string]string{bar}, true},
+		{"", "chaos=foo", "", []map[string]string{foo}, true},
+		{"", "chaos!=foo", "", []map[string]string{bar}, true},
+		{"", "", "default", []map[string]string{foo}, false},
+		{"", "", "default,testing", []map[string]string{foo, bar}, true},
+		{"", "", "!testing", []map[string]string{foo}, false},
+		{"", "", "!default,!testing", []map[string]string{}, false},
+		{"", "", "default,!testing", []map[string]string{foo}, false},
+		{"", "", "default,!default", []map[string]string{}, false},
 	} {
 		labelSelector, err := labels.Parse(tt.labelSelector)
 		suite.Require().NoError(err)
@@ -161,7 +162,12 @@ func (suite *Suite) TestCandidates() {
 			10,
 		)
 
+		chaoskube.CutOffNamespaceCount = 1
+
 		suite.assertCandidates(chaoskube, tt.pods)
+		_, global, err := chaoskube.Candidates()
+		suite.Require().NoError(err)
+		suite.Equal(tt.global, global)
 	}
 }
 
@@ -213,9 +219,12 @@ func (suite *Suite) TestCandidatesSingleNamespace() {
 			10,
 		)
 
-		chaoskube.SingleNamespaceMode = true
+		chaoskube.CutOffNamespaceCount = 2
 
 		suite.assertCandidates(chaoskube, tt.pods)
+		_, global, err := chaoskube.Candidates()
+		suite.Require().NoError(err)
+		suite.False(global)
 	}
 }
 
@@ -258,6 +267,54 @@ func (suite *Suite) TestCandidatesNamespaceLabels() {
 			false,
 			10,
 		)
+
+		chaoskube.CutOffNamespaceCount = 1
+
+		suite.assertCandidates(chaoskube, tt.pods)
+	}
+}
+
+// TestCandidatesNamespaceLabels tests that the label selector for namespaces works correctly.
+func (suite *Suite) TestCandidatesNamespaceLabelsLocal() {
+	foo := map[string]string{"namespace": "default", "name": "foo"}
+	bar := map[string]string{"namespace": "testing", "name": "bar"}
+
+	for _, tt := range []struct {
+		labels string
+		pods   []map[string]string
+	}{
+		{"", []map[string]string{foo, bar}},
+		{"env", []map[string]string{foo, bar}},
+		{"!env", []map[string]string{}},
+		{"env=default", []map[string]string{foo}},
+		{"env=testing", []map[string]string{bar}},
+		{"env!=default", []map[string]string{bar}},
+		{"env!=testing", []map[string]string{foo}},
+		{"env!=default,env!=testing", []map[string]string{}},
+		{"env=default,env!=testing", []map[string]string{foo}},
+		{"env=default,env!=default", []map[string]string{}},
+		{"nomatch", []map[string]string{}},
+	} {
+		namespaceLabels, err := labels.Parse(tt.labels)
+		suite.Require().NoError(err)
+
+		chaoskube := suite.setupWithPods(
+			labels.Everything(),
+			labels.Everything(),
+			labels.Everything(),
+			namespaceLabels,
+			nil,
+			nil,
+			[]time.Weekday{},
+			[]util.TimePeriod{},
+			[]time.Time{},
+			time.UTC,
+			time.Duration(0),
+			false,
+			10,
+		)
+
+		chaoskube.CutOffNamespaceCount = 2
 
 		suite.assertCandidates(chaoskube, tt.pods)
 	}
@@ -657,7 +714,7 @@ func (suite *Suite) TestTerminateVictim() {
 		err := chaoskube.TerminateVictim()
 		suite.Require().NoError(err)
 
-		pods, err := chaoskube.Candidates()
+		pods, _, err := chaoskube.Candidates()
 		suite.Require().NoError(err)
 
 		suite.Len(pods, tt.remainingPodCount)
@@ -691,7 +748,7 @@ func (suite *Suite) TestTerminateNoVictimLogsInfo() {
 // helper functions
 
 func (suite *Suite) assertCandidates(chaoskube *Chaoskube, expected []map[string]string) {
-	pods, err := chaoskube.Candidates()
+	pods, _, err := chaoskube.Candidates()
 	suite.Require().NoError(err)
 
 	suite.AssertPods(pods, expected)
@@ -854,6 +911,7 @@ func (suite *Suite) TestMinimumAge() {
 			0,
 		},
 	} {
+
 		chaoskube := suite.setup(
 			labels.Everything(),
 			labels.Everything(),
@@ -871,6 +929,13 @@ func (suite *Suite) TestMinimumAge() {
 		)
 		chaoskube.Now = tt.now
 
+		for _, namespace := range []v1.Namespace{
+			util.NewNamespace("test"),
+		} {
+			_, err := chaoskube.Client.CoreV1().Namespaces().Create(&namespace)
+			suite.Require().NoError(err)
+		}
+
 		for _, p := range tt.pods {
 			pod := util.NewPod(p.namespace, p.name, v1.PodRunning)
 			pod.ObjectMeta.CreationTimestamp = metav1.Time{Time: p.creationTime}
@@ -878,9 +943,72 @@ func (suite *Suite) TestMinimumAge() {
 			suite.Require().NoError(err)
 		}
 
-		pods, err := chaoskube.Candidates()
+		chaoskube.CutOffNamespaceCount = 0
+
+		pods, _, err := chaoskube.Candidates()
 		suite.Require().NoError(err)
 
 		suite.Len(pods, tt.candidates)
+	}
+}
+
+//
+
+func (suite *Suite) TestEligableNamespaces() {
+	for _, tt := range []struct {
+		namespaceSelector      string
+		namespaceLabelSelector string
+		expected               []string
+	}{
+		{"", "", []string{"default", "testing"}},
+		// selector
+		{"default", "", []string{"default"}},
+		{"default,testing", "", []string{"default", "testing"}},
+		{"!testing", "", []string{"default"}},
+		{"!default,!testing", "", []string{}},
+		{"default,!testing", "", []string{"default"}},
+		{"default,!default", "", []string{}},
+		// labels
+		{"", "env", []string{"default", "testing"}},
+		{"", "!env", []string{}},
+		{"", "env=default", []string{"default"}},
+		{"", "env=testing", []string{"testing"}},
+		{"", "env!=default", []string{"testing"}},
+		{"", "env!=testing", []string{"default"}},
+		{"", "env!=default,env!=testing", []string{}},
+		{"", "env=default,env!=testing", []string{"default"}},
+		{"", "env=default,env!=default", []string{}},
+		{"", "nomatch", []string{}},
+	} {
+		namespaceSelector, err := labels.Parse(tt.namespaceSelector)
+		suite.Require().NoError(err)
+
+		namespaceLabelSelector, err := labels.Parse(tt.namespaceLabelSelector)
+		suite.Require().NoError(err)
+
+		chaoskube := suite.setupWithPods(
+			labels.Everything(),
+			labels.Everything(),
+			namespaceSelector,
+			namespaceLabelSelector,
+			nil,
+			nil,
+			[]time.Weekday{},
+			[]util.TimePeriod{},
+			[]time.Time{},
+			time.UTC,
+			time.Duration(0),
+			false,
+			10,
+		)
+
+		namespaces, err := chaoskube.ElegibleNamespaces()
+		suite.Require().NoError(err)
+
+		suite.Require().Len(namespaces, len(tt.expected))
+
+		for i, ns := range namespaces {
+			suite.Equal(tt.expected[i], ns.Name)
+		}
 	}
 }

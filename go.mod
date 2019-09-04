@@ -1,6 +1,6 @@
 module github.com/linki/chaoskube
 
-go 1.12
+go 1.13
 
 require (
 	github.com/alecthomas/kingpin v0.0.0-20190705085659-95eb9edaa399

@@ -55,6 +55,8 @@ var (
 	gracePeriod        time.Duration
 	logFormat          string
 	logCaller          bool
+
+	cutoffNamespaceCount int
 )
 
 func init() {
@@ -81,6 +83,8 @@ func init() {
 	kingpin.Flag("grace-period", "Grace period to terminate Pods. Negative values will use the Pod's grace period.").Default("-1s").DurationVar(&gracePeriod)
 	kingpin.Flag("log-format", "Specify the format of the log messages. Options are text and json. Defaults to text.").Default("text").EnumVar(&logFormat, "text", "json")
 	kingpin.Flag("log-caller", "Include the calling function name and location in the log messages.").BoolVar(&logCaller)
+
+	kingpin.Flag("cutoff-namespacecount", "foo").Default("1").IntVar(&cutoffNamespaceCount)
 }
 
 func main() {
@@ -204,6 +208,8 @@ func main() {
 		dryRun,
 		terminator.NewDeletePodTerminator(client, log.StandardLogger(), gracePeriod),
 	)
+
+	chaoskube.CutOffNamespaceCount = cutoffNamespaceCount
 
 	if metricsAddress != "" {
 		go serveMetrics()

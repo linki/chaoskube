@@ -10,7 +10,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -63,6 +63,8 @@ type Chaoskube struct {
 	EventRecorder record.EventRecorder
 	// a function to retrieve the current time
 	Now func() time.Time
+
+	CutOffNamespaceCount int
 }
 
 var (
@@ -172,7 +174,7 @@ func (c *Chaoskube) TerminateVictim() error {
 // Victim returns a random pod from the list of Candidates.
 // It returns an error if there are no candidates to choose from.
 func (c *Chaoskube) Victim() (v1.Pod, error) {
-	pods, err := c.Candidates()
+	pods, _, err := c.Candidates()
 	if err != nil {
 		return v1.Pod{}, err
 	}
@@ -188,24 +190,78 @@ func (c *Chaoskube) Victim() (v1.Pod, error) {
 	return pods[index], nil
 }
 
+func (c *Chaoskube) ElegibleNamespaces() ([]v1.Namespace, error) {
+	namespaceList, err := c.Client.CoreV1().Namespaces().List(metav1.ListOptions{LabelSelector: c.NamespaceLabels.String()})
+	if err != nil {
+		return nil, err
+	}
+
+	namespaces, err := filterNamespaces(namespaceList.Items, c.Namespaces)
+	if err != nil {
+		return nil, err
+	}
+
+	return namespaces, nil
+}
+
+func (c *Chaoskube) podsByNamespace() ([]v1.Pod, bool, error) {
+	global := false
+
+	namespaces, err := c.ElegibleNamespaces()
+	if err != nil {
+		return nil, global, err
+	}
+
+	listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
+	pods := []v1.Pod{}
+
+	if len(namespaces) <= c.CutOffNamespaceCount {
+		for _, namespace := range namespaces {
+			c.Logger.WithField("scope", namespace.Name).Info("fetching podlist")
+
+			podList, err := c.Client.CoreV1().Pods(namespace.Name).List(listOptions)
+			if err != nil {
+				c.Logger.WithFields(log.Fields{
+					"err":       err,
+					"namespace": namespace.Name,
+				}).Error("failed to list pods")
+				continue
+			}
+
+			pods = append(pods, podList.Items...)
+		}
+	} else {
+		global = true
+
+		c.Logger.WithField("scope", "cluster").Info("fetching podlist")
+
+		podList, err := c.Client.CoreV1().Pods(v1.NamespaceAll).List(listOptions)
+		if err != nil {
+			return nil, global, err
+		}
+
+		pods = podList.Items
+
+		pods, err = filterByNamespaces(pods, c.Namespaces)
+		if err != nil {
+			return nil, global, err
+		}
+
+		pods, err = filterPodsByNamespaceLabels(pods, c.NamespaceLabels, c.Client)
+		if err != nil {
+			return nil, global, err
+		}
+	}
+
+	return pods, global, err
+}
+
 // Candidates returns the list of pods that are available for termination.
 // It returns all pods that match the configured label, annotation and namespace selectors.
-func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
-	listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
-
-	podList, err := c.Client.CoreV1().Pods(v1.NamespaceAll).List(listOptions)
+func (c *Chaoskube) Candidates() ([]v1.Pod, bool, error) {
+	pods, global, err := c.podsByNamespace()
 	if err != nil {
-		return nil, err
-	}
-
-	pods, err := filterByNamespaces(podList.Items, c.Namespaces)
-	if err != nil {
-		return nil, err
-	}
-
-	pods, err = filterPodsByNamespaceLabels(pods, c.NamespaceLabels, c.Client)
-	if err != nil {
-		return nil, err
+		return nil, global, err
 	}
 
 	pods = filterByAnnotations(pods, c.Annotations)
@@ -213,7 +269,7 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 	pods = filterByMinimumAge(pods, c.MinimumAge, c.Now())
 	pods = filterByPodName(pods, c.IncludedPodNames, c.ExcludedPodNames)
 
-	return pods, nil
+	return pods, global, nil
 }
 
 // DeletePod deletes the given pod with the selected terminator.
@@ -298,6 +354,62 @@ func filterByNamespaces(pods []v1.Pod, namespaces labels.Selector) ([]v1.Pod, er
 
 		if included {
 			filteredList = append(filteredList, pod)
+		}
+	}
+
+	return filteredList, nil
+}
+
+// filterByNamespaces filters a list of pods by a given namespace selector.
+func filterNamespaces(namespaces []v1.Namespace, namespaceSelector labels.Selector) ([]v1.Namespace, error) {
+	// empty filter returns original list
+	if namespaceSelector.Empty() {
+		return namespaces, nil
+	}
+
+	// split requirements into including and excluding groups
+	reqs, _ := namespaceSelector.Requirements()
+	reqIncl := []labels.Requirement{}
+	reqExcl := []labels.Requirement{}
+
+	for _, req := range reqs {
+		switch req.Operator() {
+		case selection.Exists:
+			reqIncl = append(reqIncl, req)
+		case selection.DoesNotExist:
+			reqExcl = append(reqExcl, req)
+		default:
+			return nil, fmt.Errorf("unsupported operator: %s", req.Operator())
+		}
+	}
+
+	filteredList := []v1.Namespace{}
+
+	for _, namespace := range namespaces {
+		// if there aren't any including requirements, we're in by default
+		included := len(reqIncl) == 0
+
+		// convert the pod's namespace to an equivalent label selector
+		selector := labels.Set{namespace.Name: ""}
+
+		// include pod if one including requirement matches
+		for _, req := range reqIncl {
+			if req.Matches(selector) {
+				included = true
+				break
+			}
+		}
+
+		// exclude pod if it is filtered out by at least one excluding requirement
+		for _, req := range reqExcl {
+			if !req.Matches(selector) {
+				included = false
+				break
+			}
+		}
+
+		if included {
+			filteredList = append(filteredList, namespace)
 		}
 	}
 

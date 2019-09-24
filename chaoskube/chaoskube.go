@@ -1,10 +1,14 @@
 package chaoskube
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
+	"net/http"
+	"net/url"
 	"regexp"
 	"time"
 
@@ -63,6 +67,8 @@ type Chaoskube struct {
 	EventRecorder record.EventRecorder
 	// a function to retrieve the current time
 	Now func() time.Time
+	// Webhook
+	Webhook url.URL
 }
 
 var (
@@ -86,7 +92,7 @@ var (
 // * a logger implementing logrus.FieldLogger to send log output to
 // * what specific terminator to use to imbue chaos on victim pods
 // * whether to enable/disable dry-run mode
-func New(client kubernetes.Interface, labels, annotations, namespaces, namespaceLabels labels.Selector, includedPodNames, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator) *Chaoskube {
+func New(client kubernetes.Interface, labels, annotations, namespaces, namespaceLabels labels.Selector, includedPodNames, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator, Webhook url.URL) *Chaoskube {
 	broadcaster := record.NewBroadcaster()
 	broadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events(v1.NamespaceAll)})
 	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "chaoskube"})
@@ -109,6 +115,7 @@ func New(client kubernetes.Interface, labels, annotations, namespaces, namespace
 		Terminator:         terminator,
 		EventRecorder:      recorder,
 		Now:                time.Now,
+		Webhook:            Webhook,
 	}
 }
 
@@ -212,6 +219,7 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 	pods = filterByPhase(pods, v1.PodRunning)
 	pods = filterByMinimumAge(pods, c.MinimumAge, c.Now())
 	pods = filterByPodName(pods, c.IncludedPodNames, c.ExcludedPodNames)
+	pods = filterByWebhook(pods, c.Webhook)
 
 	return pods, nil
 }
@@ -403,6 +411,35 @@ func filterByPodName(pods []v1.Pod, includedPodNames, excludedPodNames *regexp.R
 		exclude := excludedPodNames != nil && excludedPodNames.String() != "" && excludedPodNames.MatchString(pod.Name)
 
 		if include && !exclude {
+			filteredList = append(filteredList, pod)
+		}
+	}
+
+	return filteredList
+}
+
+// filterByWebhook filters pods by a POST webhook. Only pods where the webhooks returns an
+// HTTP 200 are returned
+func filterByWebhook(pods []v1.Pod, url url.URL) []v1.Pod {
+	// return early if url is not given
+	if url.String() == "" {
+		return pods
+	}
+
+	filteredList := []v1.Pod{}
+
+	for _, pod := range pods {
+		postData := new(bytes.Buffer)
+		err := json.NewEncoder(postData).Encode(pod)
+		if err != nil {
+			continue
+		}
+		resp, err := http.Post(url.String(), "application/json", postData)
+		if err != nil {
+			continue
+		}
+
+		if resp.StatusCode == http.StatusOK {
 			filteredList = append(filteredList, pod)
 		}
 	}

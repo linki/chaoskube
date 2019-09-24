@@ -90,6 +90,8 @@ spec:
         - --timezone=Europe/Berlin
         # exclude all pods that haven't been running for at least one hour
         - --minimum-age=1h
+        # check with a webhook before killing a pod
+        - --webhook=https://httpbin.org/post
         # terminate pods for real: this disables dry-run mode which is on by default
         # - --no-dry-run
 ```
@@ -234,6 +236,7 @@ Use `UTC`, `Local` or pick a timezone name from the [(IANA) tz database](https:/
 | `--dry-run`               | don't kill pods, only log what would have been done                  | true                       |
 | `--log-format`            | specify the format of the log messages. Options are text and json    | text                       |
 | `--log-caller`            | include the calling function name and location in the log messages   | false                      |
+| `--webhook`               | filter pods by a POST webhook, if non HTTP 200 returned, exclude pod | no webhook calls           |
 
 ## Related work
 

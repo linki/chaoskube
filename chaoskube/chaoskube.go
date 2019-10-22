@@ -10,7 +10,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -210,6 +210,7 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 
 	pods = filterByAnnotations(pods, c.Annotations)
 	pods = filterByPhase(pods, v1.PodRunning)
+	pods = filterDeletedPods(pods)
 	pods = filterByMinimumAge(pods, c.MinimumAge, c.Now())
 	pods = filterByPodName(pods, c.IncludedPodNames, c.ExcludedPodNames)
 
@@ -365,6 +366,18 @@ func filterByPhase(pods []v1.Pod, phase v1.PodPhase) []v1.Pod {
 		}
 	}
 
+	return filteredList
+}
+
+// filterDeletedPods removes pod which have a non nil DeletionTimestamp
+func filterDeletedPods(pods []v1.Pod) []v1.Pod {
+	filteredList := []v1.Pod{}
+	for _, pod := range pods {
+		if pod.DeletionTimestamp != nil {
+			continue
+		}
+		filteredList = append(filteredList, pod)
+	}
 	return filteredList
 }
 

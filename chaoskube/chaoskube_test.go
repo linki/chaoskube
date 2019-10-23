@@ -840,7 +840,7 @@ func (suite *Suite) TestFilterDeletedPods() {
 
 	pods := []v1.Pod{runningPod, deletedPod}
 
-	filtered := filterDeletedPods(pods)
+	filtered := filterTerminatingPods(pods)
 	suite.Equal(len(filtered), 1)
 	suite.Equal(pods[0].Name, "running")
 }

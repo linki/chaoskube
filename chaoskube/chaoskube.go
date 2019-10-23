@@ -210,7 +210,7 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 
 	pods = filterByAnnotations(pods, c.Annotations)
 	pods = filterByPhase(pods, v1.PodRunning)
-	pods = filterDeletedPods(pods)
+	pods = filterTerminatingPods(pods)
 	pods = filterByMinimumAge(pods, c.MinimumAge, c.Now())
 	pods = filterByPodName(pods, c.IncludedPodNames, c.ExcludedPodNames)
 
@@ -370,7 +370,7 @@ func filterByPhase(pods []v1.Pod, phase v1.PodPhase) []v1.Pod {
 }
 
 // filterDeletedPods removes pod which have a non nil DeletionTimestamp
-func filterDeletedPods(pods []v1.Pod) []v1.Pod {
+func filterTerminatingPods(pods []v1.Pod) []v1.Pod {
 	filteredList := []v1.Pod{}
 	for _, pod := range pods {
 		if pod.DeletionTimestamp != nil {

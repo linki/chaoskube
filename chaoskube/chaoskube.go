@@ -369,7 +369,7 @@ func filterByPhase(pods []v1.Pod, phase v1.PodPhase) []v1.Pod {
 	return filteredList
 }
 
-// filterDeletedPods removes pod which have a non nil DeletionTimestamp
+// filterTerminatingPods removes pod which have a non nil DeletionTimestamp
 func filterTerminatingPods(pods []v1.Pod) []v1.Pod {
 	filteredList := []v1.Pod{}
 	for _, pod := range pods {

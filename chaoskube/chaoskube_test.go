@@ -10,7 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes/fake"
@@ -829,4 +829,18 @@ func (suite *Suite) TestMinimumAge() {
 
 		suite.Len(pods, tt.candidates)
 	}
+}
+
+func (suite *Suite) TestFilterDeletedPods() {
+	deletedPod := util.NewPod("default", "deleted", v1.PodRunning)
+	now := metav1.NewTime(time.Now())
+	deletedPod.SetDeletionTimestamp(&now)
+
+	runningPod := util.NewPod("default", "running", v1.PodRunning)
+
+	pods := []v1.Pod{runningPod, deletedPod}
+
+	filtered := filterTerminatingPods(pods)
+	suite.Equal(len(filtered), 1)
+	suite.Equal(pods[0].Name, "running")
 }

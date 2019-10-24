@@ -1,3 +1,5 @@
+  * [#153](https://github.com/linki/chaoskube/pull/153) Don't attempt to terminate `Terminating` pods @pims
+
 ## v0.14.0 - 2019-05-20
 
   Features:

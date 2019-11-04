@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -167,4 +167,12 @@ func NewNamespace(name string) v1.Namespace {
 			},
 		},
 	}
+}
+
+func PodSubSlice(pods []v1.Pod, count int) []v1.Pod {
+	maxCount := len(pods)
+	if count > maxCount {
+		count = maxCount
+	}
+	return pods[0:count]
 }

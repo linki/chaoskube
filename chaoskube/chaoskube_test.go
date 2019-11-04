@@ -51,6 +51,7 @@ func (suite *Suite) TestNew() {
 		minimumAge         = time.Duration(42)
 		dryRun             = true
 		terminator         = terminator.NewDeletePodTerminator(client, logger, 10*time.Second)
+		maxKill            = 1
 	)
 
 	chaoskube := New(
@@ -69,6 +70,7 @@ func (suite *Suite) TestNew() {
 		logger,
 		dryRun,
 		terminator,
+		maxKill,
 	)
 	suite.Require().NotNil(chaoskube)
 
@@ -105,6 +107,7 @@ func (suite *Suite) TestRunContextCanceled() {
 		time.Duration(0),
 		false,
 		10,
+		1,
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -306,6 +309,7 @@ func (suite *Suite) TestNoVictimReturnsError() {
 		time.Duration(0),
 		false,
 		10,
+		1,
 	)
 
 	_, err := chaoskube.Victim()
@@ -367,6 +371,7 @@ func (suite *Suite) TestDeletePodNotFound() {
 		time.Duration(0),
 		false,
 		10,
+		1,
 	)
 
 	victim := util.NewPod("default", "foo", v1.PodRunning)
@@ -600,7 +605,7 @@ func (suite *Suite) TestTerminateVictim() {
 		)
 		chaoskube.Now = tt.now
 
-		err := chaoskube.TerminateVictim()
+		err := chaoskube.TerminateVictims()
 		suite.Require().NoError(err)
 
 		pods, err := chaoskube.Candidates()
@@ -626,9 +631,10 @@ func (suite *Suite) TestTerminateNoVictimLogsInfo() {
 		time.Duration(0),
 		false,
 		10,
+		1,
 	)
 
-	err := chaoskube.TerminateVictim()
+	err := chaoskube.TerminateVictims()
 	suite.Require().NoError(err)
 
 	suite.AssertLog(logOutput, log.DebugLevel, msgVictimNotFound, log.Fields{})
@@ -665,6 +671,7 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 		minimumAge,
 		dryRun,
 		gracePeriod,
+		1,
 	)
 
 	for _, namespace := range []v1.Namespace{
@@ -689,7 +696,7 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 	return chaoskube
 }
 
-func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration) *Chaoskube {
+func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration, maxKill int) *Chaoskube {
 	logOutput.Reset()
 
 	client := fake.NewSimpleClientset()
@@ -711,6 +718,7 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 		logger,
 		dryRun,
 		terminator.NewDeletePodTerminator(client, nullLogger, gracePeriod),
+		maxKill,
 	)
 }
 
@@ -814,6 +822,7 @@ func (suite *Suite) TestMinimumAge() {
 			tt.minimumAge,
 			false,
 			10,
+			1,
 		)
 		chaoskube.Now = tt.now
 

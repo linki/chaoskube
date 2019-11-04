@@ -203,6 +203,7 @@ func main() {
 		log.StandardLogger(),
 		dryRun,
 		terminator.NewDeletePodTerminator(client, log.StandardLogger(), gracePeriod),
+		1,
 	)
 
 	if metricsAddress != "" {

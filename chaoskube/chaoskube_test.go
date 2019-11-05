@@ -312,7 +312,7 @@ func (suite *Suite) TestNoVictimReturnsError() {
 		1,
 	)
 
-	_, err := chaoskube.Victim()
+	_, err := chaoskube.Victims()
 	suite.Equal(err, errPodNotFound)
 	suite.EqualError(err, "pod not found")
 }
@@ -649,11 +649,17 @@ func (suite *Suite) assertCandidates(chaoskube *Chaoskube, expected []map[string
 	suite.AssertPods(pods, expected)
 }
 
-func (suite *Suite) assertVictim(chaoskube *Chaoskube, expected map[string]string) {
-	victim, err := chaoskube.Victim()
+func (suite *Suite) assertVictims(chaoskube *Chaoskube, expected []map[string]string) {
+	victims, err := chaoskube.Victims()
 	suite.Require().NoError(err)
 
-	suite.AssertPod(victim, expected)
+	for i, victim := range victims {
+		suite.AssertPod(victim, expected[i])
+	}
+}
+
+func (suite *Suite) assertVictim(chaoskube *Chaoskube, expected map[string]string) {
+	suite.assertVictims(chaoskube, []map[string]string{expected})
 }
 
 func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration) *Chaoskube {

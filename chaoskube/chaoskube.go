@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand"
 	"regexp"
 	"time"
 
@@ -180,25 +179,6 @@ func (c *Chaoskube) TerminateVictims() error {
 	}
 
 	return result.ErrorOrNil()
-}
-
-// Victim returns a random pod from the list of Candidates.
-// It returns an error if there are no candidates to choose from.
-func (c *Chaoskube) Victim() (v1.Pod, error) {
-	pods, err := c.Candidates()
-	if err != nil {
-		return v1.Pod{}, err
-	}
-
-	c.Logger.WithField("count", len(pods)).Debug("found candidates")
-
-	if len(pods) == 0 {
-		return v1.Pod{}, errPodNotFound
-	}
-
-	index := rand.Intn(len(pods))
-
-	return pods[index], nil
 }
 
 // Victims returns up to N pods as configured by MaxKill flag

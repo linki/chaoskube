@@ -931,3 +931,43 @@ func (suite *Suite) TestFilterDeletedPods() {
 	suite.Equal(len(filtered), 1)
 	suite.Equal(pods[0].Name, "running")
 }
+
+func (suite *Suite) TestFilterByOwnerReference() {
+	foo := util.NewPodWithOwner("default", "foo", v1.PodRunning, "parent")
+	foo1 := util.NewPodWithOwner("default", "foo-1", v1.PodRunning, "parent")
+	bar := util.NewPodWithOwner("default", "bar", v1.PodRunning, "other-parent")
+	baz := util.NewPod("default", "baz", v1.PodRunning)
+	baz1 := util.NewPod("default", "baz-1", v1.PodRunning)
+
+	for _, tt := range []struct {
+		name     string
+		pods     []v1.Pod
+		expected []v1.Pod
+	}{
+		{
+			name:     "2 pods, same parent",
+			pods:     []v1.Pod{foo, foo1},
+			expected: []v1.Pod{foo},
+		},
+		{
+			name:     "2 pods, different parents",
+			pods:     []v1.Pod{foo, bar},
+			expected: []v1.Pod{foo, bar},
+		},
+		{
+			name:     "2 pods, one with/without parent",
+			pods:     []v1.Pod{foo, baz},
+			expected: []v1.Pod{foo, baz},
+		},
+		{
+			name:     "2 pods, no parents",
+			pods:     []v1.Pod{baz, baz1},
+			expected: []v1.Pod{baz, baz1},
+		},
+	} {
+		results := filterByOwnerReference(tt.pods)
+		for i, result := range results {
+			suite.Assert().Equal(tt.expected[i], result, tt.name)
+		}
+	}
+}

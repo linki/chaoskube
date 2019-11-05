@@ -8,6 +8,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -136,7 +137,12 @@ func FormatDays(days []time.Time) []string {
 
 // NewPod returns a new pod instance for testing purposes.
 func NewPod(namespace, name string, phase v1.PodPhase) v1.Pod {
-	return v1.Pod{
+	return NewPodWithOwner(namespace, name, phase, "")
+}
+
+// NewPodWithOwner returns a new pod instance for testing purposes with a given owner UID
+func NewPodWithOwner(namespace, name string, phase v1.PodPhase, owner types.UID) v1.Pod {
+	pod := v1.Pod{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "Pod",
@@ -156,6 +162,14 @@ func NewPod(namespace, name string, phase v1.PodPhase) v1.Pod {
 			Phase: phase,
 		},
 	}
+
+	if owner != "" {
+		pod.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
+			{UID: owner},
+		}
+	}
+
+	return pod
 }
 
 // NewNamespace returns a new namespace instance for testing purposes.

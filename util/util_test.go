@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/suite"
+	v1 "k8s.io/api/core/v1"
 )
 
 type Suite struct {
@@ -405,6 +406,29 @@ func (suite *Suite) TestNewNamespace() {
 
 	suite.Equal("name", namespace.Name)
 	suite.Equal("name", namespace.Labels["env"])
+}
+
+func (suite *Suite) TestRandomPodSublice() {
+	pods := []v1.Pod{
+		NewPod("default", "foo", v1.PodRunning),
+		NewPod("testing", "bar", v1.PodRunning),
+		NewPod("test", "baz", v1.PodRunning),
+	}
+
+	for _, tt := range []struct {
+		name     string
+		in       []v1.Pod
+		count    int
+		expected int
+	}{
+		{"max kill = len(pods)", pods, 3, 3},
+		{"empyt pod list should return empty subslice", []v1.Pod{}, 3, 0},
+		{"maxKill > len(pods)", pods[0:1], 3, 1},
+		{"maxKill = 0 ", pods, 0, 0},
+	} {
+		results := RandomPodSubSlice(tt.in, tt.count)
+		suite.Assert().Equal(len(results), tt.expected, tt.name)
+	}
 }
 
 func TestSuite(t *testing.T) {

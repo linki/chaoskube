@@ -2,6 +2,7 @@ package util
 
 import (
 	"fmt"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -169,10 +170,14 @@ func NewNamespace(name string) v1.Namespace {
 	}
 }
 
-func PodSubSlice(pods []v1.Pod, count int) []v1.Pod {
+// RandomPodSubSlice creates a shuffled subslice of the give pods slice
+func RandomPodSubSlice(pods []v1.Pod, count int) []v1.Pod {
 	maxCount := len(pods)
 	if count > maxCount {
 		count = maxCount
 	}
-	return pods[0:count]
+
+	rand.Shuffle(len(pods), func(i, j int) { pods[i], pods[j] = pods[j], pods[i] })
+	res := pods[0:count]
+	return res
 }

@@ -136,7 +136,7 @@ func (c *Chaoskube) Run(ctx context.Context, next <-chan time.Time) {
 	}
 }
 
-// TerminateVictim picks and deletes a victim.
+// TerminateVictims picks and deletes a victim.
 // It respects the configured excluded weekdays, times of day and days of a year filters.
 func (c *Chaoskube) TerminateVictims() error {
 	now := c.Now().In(c.Timezone)
@@ -192,7 +192,7 @@ func (c *Chaoskube) Victims() ([]v1.Pod, error) {
 		return []v1.Pod{}, errPodNotFound
 	}
 
-	pods = util.PodSubSlice(pods, c.MaxKill)
+	pods = util.RandomPodSubSlice(pods, c.MaxKill)
 
 	c.Logger.WithField("count", len(pods)).Debug("found victims")
 	return pods, nil

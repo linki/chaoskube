@@ -13,6 +13,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/linki/chaoskube/internal/testutil"
@@ -24,6 +25,12 @@ import (
 
 type Suite struct {
 	testutil.TestSuite
+}
+
+// podInfo holds information used to create a v1.Pod
+type podInfo struct {
+	Namespace string
+	Name      string
 }
 
 var (
@@ -264,9 +271,9 @@ func (suite *Suite) TestVictim() {
 		labelSelector string
 		victim        map[string]string
 	}{
-		{2000, "", foo},
-		{4000, "", bar},
-		{4000, "app=foo", foo},
+		{1000, "", foo},
+		{2000, "", bar},
+		{2000, "app=foo", foo},
 	} {
 		rand.Seed(tt.seed)
 
@@ -290,6 +297,60 @@ func (suite *Suite) TestVictim() {
 		)
 
 		suite.assertVictim(chaoskube, tt.victim)
+	}
+}
+
+// TestVictims tests that a random subset of pods is chosen from selected candidates
+func (suite *Suite) TestVictims() {
+
+	podsInfo := []podInfo{
+		{"default", "foo"},
+		{"testing", "bar"},
+		{"test", "baz"},
+	}
+
+	t := func(p podInfo) map[string]string {
+		return map[string]string{"namespace": p.Namespace, "name": p.Name}
+	}
+
+	foo := t(podsInfo[0])
+	bar := t(podsInfo[1])
+	baz := t(podsInfo[2])
+
+	rand.Seed(2) // yields order of bar, baz, foo
+
+	for _, tt := range []struct {
+		labelSelector string
+		victims       []map[string]string
+		maxKill       int
+	}{
+		{"", []map[string]string{bar}, 1},
+		{"", []map[string]string{bar, baz}, 2},
+		{"app=foo", []map[string]string{foo}, 2},
+	} {
+
+		labelSelector, err := labels.Parse(tt.labelSelector)
+		suite.Require().NoError(err)
+
+		chaoskube := suite.setup(
+			labelSelector,
+			labels.Everything(),
+			labels.Everything(),
+			labels.Everything(),
+			&regexp.Regexp{},
+			&regexp.Regexp{},
+			[]time.Weekday{},
+			[]util.TimePeriod{},
+			[]time.Time{},
+			time.UTC,
+			time.Duration(0),
+			false,
+			10,
+			tt.maxKill,
+		)
+		suite.createPods(chaoskube.Client, podsInfo)
+
+		suite.assertVictims(chaoskube, tt.victims)
 	}
 }
 
@@ -700,6 +761,17 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 	}
 
 	return chaoskube
+}
+
+func (suite *Suite) createPods(client kubernetes.Interface, podsInfo []podInfo) {
+	for _, p := range podsInfo {
+		namespace := util.NewNamespace(p.Namespace)
+		_, err := client.CoreV1().Namespaces().Create(&namespace)
+		suite.Require().NoError(err)
+		pod := util.NewPod(p.Namespace, p.Name, v1.PodRunning)
+		_, err = client.CoreV1().Pods(p.Namespace).Create(&pod)
+		suite.Require().NoError(err)
+	}
 }
 
 func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration, maxKill int) *Chaoskube {

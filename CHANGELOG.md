@@ -1,3 +1,4 @@
+  * [#154](https://github.com/linki/chaoskube/pull/154) Add support for terminating multiple pods per iteration @pims
   * [#153](https://github.com/linki/chaoskube/pull/153) Don't attempt to terminate `Terminating` pods @pims
 
 ## v0.14.0 - 2019-05-20

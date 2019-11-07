@@ -13,6 +13,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/linki/chaoskube/internal/testutil"
@@ -24,6 +25,12 @@ import (
 
 type Suite struct {
 	testutil.TestSuite
+}
+
+// podInfo holds information used to create a v1.Pod
+type podInfo struct {
+	Namespace string
+	Name      string
 }
 
 var (
@@ -51,6 +58,7 @@ func (suite *Suite) TestNew() {
 		minimumAge         = time.Duration(42)
 		dryRun             = true
 		terminator         = terminator.NewDeletePodTerminator(client, logger, 10*time.Second)
+		maxKill            = 1
 	)
 
 	chaoskube := New(
@@ -69,6 +77,7 @@ func (suite *Suite) TestNew() {
 		logger,
 		dryRun,
 		terminator,
+		maxKill,
 	)
 	suite.Require().NotNil(chaoskube)
 
@@ -105,6 +114,7 @@ func (suite *Suite) TestRunContextCanceled() {
 		time.Duration(0),
 		false,
 		10,
+		1,
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -261,9 +271,9 @@ func (suite *Suite) TestVictim() {
 		labelSelector string
 		victim        map[string]string
 	}{
-		{2000, "", foo},
-		{4000, "", bar},
-		{4000, "app=foo", foo},
+		{1000, "", foo},
+		{2000, "", bar},
+		{2000, "app=foo", foo},
 	} {
 		rand.Seed(tt.seed)
 
@@ -290,6 +300,60 @@ func (suite *Suite) TestVictim() {
 	}
 }
 
+// TestVictims tests that a random subset of pods is chosen from selected candidates
+func (suite *Suite) TestVictims() {
+
+	podsInfo := []podInfo{
+		{"default", "foo"},
+		{"testing", "bar"},
+		{"test", "baz"},
+	}
+
+	t := func(p podInfo) map[string]string {
+		return map[string]string{"namespace": p.Namespace, "name": p.Name}
+	}
+
+	foo := t(podsInfo[0])
+	bar := t(podsInfo[1])
+	baz := t(podsInfo[2])
+
+	rand.Seed(2) // yields order of bar, baz, foo
+
+	for _, tt := range []struct {
+		labelSelector string
+		victims       []map[string]string
+		maxKill       int
+	}{
+		{"", []map[string]string{bar}, 1},
+		{"", []map[string]string{bar, baz}, 2},
+		{"app=foo", []map[string]string{foo}, 2},
+	} {
+
+		labelSelector, err := labels.Parse(tt.labelSelector)
+		suite.Require().NoError(err)
+
+		chaoskube := suite.setup(
+			labelSelector,
+			labels.Everything(),
+			labels.Everything(),
+			labels.Everything(),
+			&regexp.Regexp{},
+			&regexp.Regexp{},
+			[]time.Weekday{},
+			[]util.TimePeriod{},
+			[]time.Time{},
+			time.UTC,
+			time.Duration(0),
+			false,
+			10,
+			tt.maxKill,
+		)
+		suite.createPods(chaoskube.Client, podsInfo)
+
+		suite.assertVictims(chaoskube, tt.victims)
+	}
+}
+
 // TestNoVictimReturnsError tests that on missing victim it returns a known error
 func (suite *Suite) TestNoVictimReturnsError() {
 	chaoskube := suite.setup(
@@ -306,9 +370,10 @@ func (suite *Suite) TestNoVictimReturnsError() {
 		time.Duration(0),
 		false,
 		10,
+		1,
 	)
 
-	_, err := chaoskube.Victim()
+	_, err := chaoskube.Victims()
 	suite.Equal(err, errPodNotFound)
 	suite.EqualError(err, "pod not found")
 }
@@ -367,6 +432,7 @@ func (suite *Suite) TestDeletePodNotFound() {
 		time.Duration(0),
 		false,
 		10,
+		1,
 	)
 
 	victim := util.NewPod("default", "foo", v1.PodRunning)
@@ -600,7 +666,7 @@ func (suite *Suite) TestTerminateVictim() {
 		)
 		chaoskube.Now = tt.now
 
-		err := chaoskube.TerminateVictim()
+		err := chaoskube.TerminateVictims()
 		suite.Require().NoError(err)
 
 		pods, err := chaoskube.Candidates()
@@ -626,9 +692,10 @@ func (suite *Suite) TestTerminateNoVictimLogsInfo() {
 		time.Duration(0),
 		false,
 		10,
+		1,
 	)
 
-	err := chaoskube.TerminateVictim()
+	err := chaoskube.TerminateVictims()
 	suite.Require().NoError(err)
 
 	suite.AssertLog(logOutput, log.DebugLevel, msgVictimNotFound, log.Fields{})
@@ -643,11 +710,17 @@ func (suite *Suite) assertCandidates(chaoskube *Chaoskube, expected []map[string
 	suite.AssertPods(pods, expected)
 }
 
-func (suite *Suite) assertVictim(chaoskube *Chaoskube, expected map[string]string) {
-	victim, err := chaoskube.Victim()
+func (suite *Suite) assertVictims(chaoskube *Chaoskube, expected []map[string]string) {
+	victims, err := chaoskube.Victims()
 	suite.Require().NoError(err)
 
-	suite.AssertPod(victim, expected)
+	for i, victim := range victims {
+		suite.AssertPod(victim, expected[i])
+	}
+}
+
+func (suite *Suite) assertVictim(chaoskube *Chaoskube, expected map[string]string) {
+	suite.assertVictims(chaoskube, []map[string]string{expected})
 }
 
 func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration) *Chaoskube {
@@ -665,6 +738,7 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 		minimumAge,
 		dryRun,
 		gracePeriod,
+		1,
 	)
 
 	for _, namespace := range []v1.Namespace{
@@ -689,7 +763,18 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 	return chaoskube
 }
 
-func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration) *Chaoskube {
+func (suite *Suite) createPods(client kubernetes.Interface, podsInfo []podInfo) {
+	for _, p := range podsInfo {
+		namespace := util.NewNamespace(p.Namespace)
+		_, err := client.CoreV1().Namespaces().Create(&namespace)
+		suite.Require().NoError(err)
+		pod := util.NewPod(p.Namespace, p.Name, v1.PodRunning)
+		_, err = client.CoreV1().Pods(p.Namespace).Create(&pod)
+		suite.Require().NoError(err)
+	}
+}
+
+func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration, maxKill int) *Chaoskube {
 	logOutput.Reset()
 
 	client := fake.NewSimpleClientset()
@@ -711,6 +796,7 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 		logger,
 		dryRun,
 		terminator.NewDeletePodTerminator(client, nullLogger, gracePeriod),
+		maxKill,
 	)
 }
 
@@ -814,6 +900,7 @@ func (suite *Suite) TestMinimumAge() {
 			tt.minimumAge,
 			false,
 			10,
+			1,
 		)
 		chaoskube.Now = tt.now
 
@@ -843,4 +930,44 @@ func (suite *Suite) TestFilterDeletedPods() {
 	filtered := filterTerminatingPods(pods)
 	suite.Equal(len(filtered), 1)
 	suite.Equal(pods[0].Name, "running")
+}
+
+func (suite *Suite) TestFilterByOwnerReference() {
+	foo := util.NewPodWithOwner("default", "foo", v1.PodRunning, "parent")
+	foo1 := util.NewPodWithOwner("default", "foo-1", v1.PodRunning, "parent")
+	bar := util.NewPodWithOwner("default", "bar", v1.PodRunning, "other-parent")
+	baz := util.NewPod("default", "baz", v1.PodRunning)
+	baz1 := util.NewPod("default", "baz-1", v1.PodRunning)
+
+	for _, tt := range []struct {
+		name     string
+		pods     []v1.Pod
+		expected []v1.Pod
+	}{
+		{
+			name:     "2 pods, same parent",
+			pods:     []v1.Pod{foo, foo1},
+			expected: []v1.Pod{foo},
+		},
+		{
+			name:     "2 pods, different parents",
+			pods:     []v1.Pod{foo, bar},
+			expected: []v1.Pod{foo, bar},
+		},
+		{
+			name:     "2 pods, one with/without parent",
+			pods:     []v1.Pod{foo, baz},
+			expected: []v1.Pod{foo, baz},
+		},
+		{
+			name:     "2 pods, no parents",
+			pods:     []v1.Pod{baz, baz1},
+			expected: []v1.Pod{baz, baz1},
+		},
+	} {
+		results := filterByOwnerReference(tt.pods)
+		for i, result := range results {
+			suite.Assert().Equal(tt.expected[i], result, tt.name)
+		}
+	}
 }

@@ -46,6 +46,7 @@ var (
 	excludedDaysOfYear string
 	timezone           string
 	minimumAge         time.Duration
+	maxKill            int
 	master             string
 	kubeconfig         string
 	interval           time.Duration
@@ -72,6 +73,7 @@ func init() {
 	kingpin.Flag("excluded-days-of-year", "A list of days of a year when termination is suspended, e.g. Apr1,Dec24").StringVar(&excludedDaysOfYear)
 	kingpin.Flag("timezone", "The timezone by which to interpret the excluded weekdays and times of day, e.g. UTC, Local, Europe/Berlin. Defaults to UTC.").Default("UTC").StringVar(&timezone)
 	kingpin.Flag("minimum-age", "Minimum age of pods to consider for termination").Default("0s").DurationVar(&minimumAge)
+	kingpin.Flag("max-kill", "Specifies the maximum number of pods to be terminated per interval.").Default("1").IntVar(&maxKill)
 	kingpin.Flag("master", "The address of the Kubernetes cluster to target").StringVar(&master)
 	kingpin.Flag("kubeconfig", "Path to a kubeconfig file").StringVar(&kubeconfig)
 	kingpin.Flag("interval", "Interval between Pod terminations").Default("10m").DurationVar(&interval)
@@ -112,6 +114,7 @@ func main() {
 		"excludedDaysOfYear": excludedDaysOfYear,
 		"timezone":           timezone,
 		"minimumAge":         minimumAge,
+		"maxKill":            maxKill,
 		"master":             master,
 		"kubeconfig":         kubeconfig,
 		"interval":           interval,
@@ -148,6 +151,7 @@ func main() {
 		"includedPodNames": includedPodNames,
 		"excludedPodNames": excludedPodNames,
 		"minimumAge":       minimumAge,
+		"maxKill":          maxKill,
 	}).Info("setting pod filter")
 
 	parsedWeekdays := util.ParseWeekdays(excludedWeekdays)
@@ -203,7 +207,7 @@ func main() {
 		log.StandardLogger(),
 		dryRun,
 		terminator.NewDeletePodTerminator(client, log.StandardLogger(), gracePeriod),
-		1,
+		maxKill,
 	)
 
 	if metricsAddress != "" {

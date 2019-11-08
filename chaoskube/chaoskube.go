@@ -6,18 +6,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"regexp"
 	"time"
 
+	multierror "github.com/hashicorp/go-multierror"
+
 	log "github.com/sirupsen/logrus"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -67,6 +69,8 @@ type Chaoskube struct {
 	EventRecorder record.EventRecorder
 	// a function to retrieve the current time
 	Now func() time.Time
+
+	MaxKill int
 	// Webhook
 	Webhook url.URL
 }
@@ -92,7 +96,7 @@ var (
 // * a logger implementing logrus.FieldLogger to send log output to
 // * what specific terminator to use to imbue chaos on victim pods
 // * whether to enable/disable dry-run mode
-func New(client kubernetes.Interface, labels, annotations, namespaces, namespaceLabels labels.Selector, includedPodNames, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator, Webhook url.URL) *Chaoskube {
+func New(client kubernetes.Interface, labels, annotations, namespaces, namespaceLabels labels.Selector, includedPodNames, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator, maxKill int, Webhook url.URL) *Chaoskube {
 	broadcaster := record.NewBroadcaster()
 	broadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events(v1.NamespaceAll)})
 	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "chaoskube"})
@@ -115,6 +119,7 @@ func New(client kubernetes.Interface, labels, annotations, namespaces, namespace
 		Terminator:         terminator,
 		EventRecorder:      recorder,
 		Now:                time.Now,
+		MaxKill:            maxKill,
 		Webhook:            Webhook,
 	}
 }
@@ -123,7 +128,7 @@ func New(client kubernetes.Interface, labels, annotations, namespaces, namespace
 // described by channel next. It returns when the given context is canceled.
 func (c *Chaoskube) Run(ctx context.Context, next <-chan time.Time) {
 	for {
-		if err := c.TerminateVictim(); err != nil {
+		if err := c.TerminateVictims(); err != nil {
 			c.Logger.WithField("err", err).Error("failed to terminate victim")
 			metrics.ErrorsTotal.Inc()
 		}
@@ -138,9 +143,9 @@ func (c *Chaoskube) Run(ctx context.Context, next <-chan time.Time) {
 	}
 }
 
-// TerminateVictim picks and deletes a victim.
+// TerminateVictims picks and deletes a victim.
 // It respects the configured excluded weekdays, times of day and days of a year filters.
-func (c *Chaoskube) TerminateVictim() error {
+func (c *Chaoskube) TerminateVictims() error {
 	now := c.Now().In(c.Timezone)
 
 	for _, wd := range c.ExcludedWeekdays {
@@ -164,7 +169,7 @@ func (c *Chaoskube) TerminateVictim() error {
 		}
 	}
 
-	victim, err := c.Victim()
+	victims, err := c.Victims()
 	if err == errPodNotFound {
 		c.Logger.Debug(msgVictimNotFound)
 		return nil
@@ -173,26 +178,31 @@ func (c *Chaoskube) TerminateVictim() error {
 		return err
 	}
 
-	return c.DeletePod(victim)
+	var result *multierror.Error
+	for _, victim := range victims {
+		err = c.DeletePod(victim)
+		result = multierror.Append(result, err)
+
+	}
+
+	return result.ErrorOrNil()
 }
 
-// Victim returns a random pod from the list of Candidates.
-// It returns an error if there are no candidates to choose from.
-func (c *Chaoskube) Victim() (v1.Pod, error) {
+// Victims returns up to N pods as configured by MaxKill flag
+func (c *Chaoskube) Victims() ([]v1.Pod, error) {
 	pods, err := c.Candidates()
 	if err != nil {
-		return v1.Pod{}, err
+		return []v1.Pod{}, err
 	}
-
-	c.Logger.WithField("count", len(pods)).Debug("found candidates")
 
 	if len(pods) == 0 {
-		return v1.Pod{}, errPodNotFound
+		return []v1.Pod{}, errPodNotFound
 	}
 
-	index := rand.Intn(len(pods))
+	pods = util.RandomPodSubSlice(pods, c.MaxKill)
 
-	return pods[index], nil
+	c.Logger.WithField("count", len(pods)).Debug("found victims")
+	return pods, nil
 }
 
 // Candidates returns the list of pods that are available for termination.
@@ -217,8 +227,10 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 
 	pods = filterByAnnotations(pods, c.Annotations)
 	pods = filterByPhase(pods, v1.PodRunning)
+	pods = filterTerminatingPods(pods)
 	pods = filterByMinimumAge(pods, c.MinimumAge, c.Now())
 	pods = filterByPodName(pods, c.IncludedPodNames, c.ExcludedPodNames)
+	pods = filterByOwnerReference(pods)
 	pods = filterByWebhook(pods, c.Webhook)
 
 	return pods, nil
@@ -376,6 +388,18 @@ func filterByPhase(pods []v1.Pod, phase v1.PodPhase) []v1.Pod {
 	return filteredList
 }
 
+// filterTerminatingPods removes pod which have a non nil DeletionTimestamp
+func filterTerminatingPods(pods []v1.Pod) []v1.Pod {
+	filteredList := []v1.Pod{}
+	for _, pod := range pods {
+		if pod.DeletionTimestamp != nil {
+			continue
+		}
+		filteredList = append(filteredList, pod)
+	}
+	return filteredList
+}
+
 // filterByMinimumAge filters pods by creation time. Only pods
 // older than minimumAge are returned
 func filterByMinimumAge(pods []v1.Pod, minimumAge time.Duration, now time.Time) []v1.Pod {
@@ -412,6 +436,28 @@ func filterByPodName(pods []v1.Pod, includedPodNames, excludedPodNames *regexp.R
 
 		if include && !exclude {
 			filteredList = append(filteredList, pod)
+		}
+	}
+
+	return filteredList
+}
+
+func filterByOwnerReference(pods []v1.Pod) []v1.Pod {
+	owners := make(map[types.UID]struct{})
+	filteredList := []v1.Pod{}
+	for _, pod := range pods {
+		// Don't filter out pods with no owner reference
+		if len(pod.GetOwnerReferences()) == 0 {
+			filteredList = append(filteredList, pod)
+			continue
+		}
+
+		for _, ref := range pod.GetOwnerReferences() {
+			_, found := owners[ref.UID]
+			if !found {
+				filteredList = append(filteredList, pod)
+				owners[ref.UID] = struct{}{}
+			}
 		}
 	}
 

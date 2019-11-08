@@ -18,7 +18,7 @@ spec:
       serviceAccountName: chaoskube
       containers:
       - name: chaoskube
-        image: quay.io/linki/chaoskube:v0.13.0
+        image: quay.io/linki/chaoskube:v0.16.0
         args:
         # kill a pod every 10 minutes
         - --interval=10m
@@ -38,6 +38,8 @@ spec:
         - --timezone=UTC
         # exclude all pods that haven't been running for at least one hour
         - --minimum-age=1h
+        # check with a webhook before killing a pod
+        - --webhook=https://httpbin.org/post
         # terminate pods for real: this disables dry-run mode which is on by default
         - --no-dry-run
         securityContext:

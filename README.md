@@ -19,7 +19,7 @@ Running it will kill a pod in any namespace every 10 minutes by default.
 
 ```console
 $ chaoskube
-INFO[0000] starting up              dryRun=true interval=10m0s version=v0.13.0
+INFO[0000] starting up              dryRun=true interval=10m0s version=v0.16.0
 INFO[0000] connecting to cluster    master="https://kube.you.me" serverVersion=v1.10.5+coreos.0
 INFO[0000] setting pod filter       annotations= labels= minimumAge=0s namespaces=
 INFO[0000] setting quiet times      daysOfYear="[]" timesOfDay="[]" weekdays="[]"
@@ -40,6 +40,8 @@ INFO[4804] terminating pod          name=nginx-701339712-51nt8 namespace=chaosku
 
 ## How
 
+### Helm
+
 You can install `chaoskube` with [`Helm`](https://github.com/kubernetes/helm). Follow [Helm's Quickstart Guide](https://github.com/kubernetes/helm/blob/master/docs/quickstart.md) and then install the `chaoskube` chart.
 
 ```console
@@ -48,53 +50,12 @@ $ helm install stable/chaoskube
 
 Refer to [chaoskube on kubeapps.com](https://kubeapps.com/charts/stable/chaoskube) to learn how to configure it and to find other useful Helm charts.
 
-Otherwise use the following manifest as an inspiration.
+### Raw manifest
 
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: chaoskube
-  labels:
-    app: chaoskube
-spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        app: chaoskube
-    spec:
-      containers:
-      - name: chaoskube
-        image: quay.io/linki/chaoskube:v0.13.0
-        args:
-        # kill a pod every 10 minutes
-        - --interval=10m
-        # only target pods in the test environment
-        - --labels=environment=test
-        # only consider pods with this annotation
-        - --annotations=chaos.alpha.kubernetes.io/enabled=true
-        # exclude all pods in the kube-system namespace
-        - --namespaces=!kube-system
-        # include all pods whose names match a certain pattern
-        - --included-pod-names=foo|bar
-        # exclude all pods whose names match a certain pattern
-        - --excluded-pod-names=prod
-        # don't kill anything on weekends
-        - --excluded-weekdays=Sat,Sun
-        # don't kill anything during the night or at lunchtime
-        - --excluded-times-of-day=22:00-08:00,11:00-13:00
-        # don't kill anything as a joke or on christmas eve
-        - --excluded-days-of-year=Apr1,Dec24
-        # let's make sure we all agree on what the above times mean
-        - --timezone=Europe/Berlin
-        # exclude all pods that haven't been running for at least one hour
-        - --minimum-age=1h
-        # check with a webhook before killing a pod
-        - --webhook=https://httpbin.org/post
-        # terminate pods for real: this disables dry-run mode which is on by default
-        # - --no-dry-run
-```
+Refer to [example manifest](./examples/). Be sure to give chaoskube appropriate
+permissions using provided ClusterRole.
+
+### Configuration
 
 By default `chaoskube` will be friendly and not kill anything. When you validated your target cluster you may disable dry-run mode. You can also specify a more aggressive interval and other supported flags for your deployment.
 

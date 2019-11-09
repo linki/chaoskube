@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/linki/chaoskube/notifier"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
@@ -56,6 +57,7 @@ var (
 	gracePeriod        time.Duration
 	logFormat          string
 	logCaller          bool
+	slackWebhook       string
 )
 
 func init() {
@@ -83,6 +85,7 @@ func init() {
 	kingpin.Flag("grace-period", "Grace period to terminate Pods. Negative values will use the Pod's grace period.").Default("-1s").DurationVar(&gracePeriod)
 	kingpin.Flag("log-format", "Specify the format of the log messages. Options are text and json. Defaults to text.").Default("text").EnumVar(&logFormat, "text", "json")
 	kingpin.Flag("log-caller", "Include the calling function name and location in the log messages.").BoolVar(&logCaller)
+	kingpin.Flag("slack-webhook", "The address of the slack webhook for notifications").StringVar(&slackWebhook)
 }
 
 func main() {
@@ -123,6 +126,7 @@ func main() {
 		"metricsAddress":     metricsAddress,
 		"gracePeriod":        gracePeriod,
 		"logFormat":          logFormat,
+		"slackWebhook":       slackWebhook,
 	}).Debug("reading config")
 
 	log.WithFields(log.Fields{
@@ -191,6 +195,8 @@ func main() {
 		"offset":   offset / int(time.Hour/time.Second),
 	}).Info("setting timezone")
 
+	notifiers := createNotifier()
+
 	chaoskube := chaoskube.New(
 		client,
 		labelSelector,
@@ -208,6 +214,7 @@ func main() {
 		dryRun,
 		terminator.NewDeletePodTerminator(client, log.StandardLogger(), gracePeriod),
 		maxKill,
+		notifiers,
 	)
 
 	if metricsAddress != "" {
@@ -275,6 +282,15 @@ func parseSelector(str string) labels.Selector {
 		}).Fatal("failed to parse selector")
 	}
 	return selector
+}
+
+func createNotifier() notifier.Notifier {
+	notifiers := notifier.New()
+	if slackWebhook != "" {
+		notifiers.Add(notifier.NewSlackNotifier(slackWebhook))
+	}
+
+	return notifiers
 }
 
 func serveMetrics() {

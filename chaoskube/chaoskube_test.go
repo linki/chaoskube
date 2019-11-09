@@ -35,6 +35,7 @@ type podInfo struct {
 
 var (
 	logger, logOutput = test.NewNullLogger()
+	testNotifier      = testutil.NewTestNotifier()
 )
 
 func (suite *Suite) SetupTest() {
@@ -59,6 +60,7 @@ func (suite *Suite) TestNew() {
 		dryRun             = true
 		terminator         = terminator.NewDeletePodTerminator(client, logger, 10*time.Second)
 		maxKill            = 1
+		notifier           = testNotifier
 	)
 
 	chaoskube := New(
@@ -78,6 +80,7 @@ func (suite *Suite) TestNew() {
 		dryRun,
 		terminator,
 		maxKill,
+		notifier,
 	)
 	suite.Require().NotNil(chaoskube)
 
@@ -723,6 +726,10 @@ func (suite *Suite) assertVictim(chaoskube *Chaoskube, expected map[string]strin
 	suite.assertVictims(chaoskube, []map[string]string{expected})
 }
 
+func (suite *Suite) assertNotified(notifier *testutil.TestNotifier) {
+	suite.Assert().Greater(notifier.Calls,0 )
+}
+
 func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration) *Chaoskube {
 	chaoskube := suite.setup(
 		labelSelector,
@@ -797,6 +804,7 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 		dryRun,
 		terminator.NewDeletePodTerminator(client, nullLogger, gracePeriod),
 		maxKill,
+		testNotifier,
 	)
 }
 
@@ -970,4 +978,28 @@ func (suite *Suite) TestFilterByOwnerReference() {
 			suite.Assert().Equal(tt.expected[i], result, tt.name)
 		}
 	}
+}
+
+func (suite *Suite) TestNotifierCall() {
+	chaoskube := suite.setupWithPods(
+		labels.Everything(),
+		labels.Everything(),
+		labels.Everything(),
+		labels.Everything(),
+		&regexp.Regexp{},
+		&regexp.Regexp{},
+		[]time.Weekday{},
+		[]util.TimePeriod{},
+		[]time.Time{},
+		time.UTC,
+		time.Duration(0),
+		false,
+		10,
+	)
+
+	victim := util.NewPod("default", "foo", v1.PodRunning)
+	err := chaoskube.DeletePod(victim)
+
+	suite.Require().NoError(err)
+	suite.assertNotified(testNotifier)
 }

@@ -2,6 +2,7 @@ package chaoskube
 
 import (
 	"context"
+	"github.com/linki/chaoskube/notifier"
 	"math/rand"
 	"regexp"
 	"testing"
@@ -35,7 +36,7 @@ type podInfo struct {
 
 var (
 	logger, logOutput = test.NewNullLogger()
-	testNotifier      = testutil.NewTestNotifier()
+	testNotifier      = &notifier.Noop{}
 )
 
 func (suite *Suite) SetupTest() {
@@ -726,8 +727,8 @@ func (suite *Suite) assertVictim(chaoskube *Chaoskube, expected map[string]strin
 	suite.assertVictims(chaoskube, []map[string]string{expected})
 }
 
-func (suite *Suite) assertNotified(notifier *testutil.TestNotifier) {
-	suite.Assert().Greater(notifier.Calls,0 )
+func (suite *Suite) assertNotified(notifier *notifier.Noop) {
+	suite.Assert().Greater(notifier.Calls, 0)
 }
 
 func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration) *Chaoskube {

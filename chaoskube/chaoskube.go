@@ -261,7 +261,11 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 
 	c.EventRecorder.Event(ref, v1.EventTypeNormal, "Killing", "Pod was terminated by chaoskube to introduce chaos.")
 
-	err = c.Notifier.NotifyTermination(victim)
+	err = c.Notifier.NotifyTermination(notifier.Termination{
+		Pod:       victim.Name,
+		Namespace: victim.Namespace,
+	})
+
 	if err != nil {
 		c.Logger.Warn("unable to notify pod termination", err)
 	}

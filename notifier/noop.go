@@ -1,11 +1,12 @@
 package notifier
 
-import "k8s.io/api/core/v1"
-
 const NotifierNoop = "noop"
 
-type NoopNotifier struct{}
+type Noop struct {
+	Calls int
+}
 
-func (n NoopNotifier) NotifyTermination(victim v1.Pod) error {
+func (t *Noop) NotifyTermination(termination Termination) error {
+	t.Calls++
 	return nil
 }

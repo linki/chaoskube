@@ -57,8 +57,7 @@ var (
 	gracePeriod        time.Duration
 	logFormat          string
 	logCaller          bool
-	notifierType       string
-	notifierWebhook    string
+	slackWebhook       string
 )
 
 func init() {
@@ -86,8 +85,7 @@ func init() {
 	kingpin.Flag("grace-period", "Grace period to terminate Pods. Negative values will use the Pod's grace period.").Default("-1s").DurationVar(&gracePeriod)
 	kingpin.Flag("log-format", "Specify the format of the log messages. Options are text and json. Defaults to text.").Default("text").EnumVar(&logFormat, "text", "json")
 	kingpin.Flag("log-caller", "Include the calling function name and location in the log messages.").BoolVar(&logCaller)
-	kingpin.Flag("notifier", "Notifier sink for pod termination supported [noop, slack]").Default(notifier.NotifierNoop).StringVar(&notifierType)
-	kingpin.Flag("notifier-webhook", "The address of the webhook for notifications").StringVar(&notifierWebhook)
+	kingpin.Flag("slack-webhook", "The address of the slack webhook for notifications").StringVar(&slackWebhook)
 }
 
 func main() {
@@ -128,8 +126,7 @@ func main() {
 		"metricsAddress":     metricsAddress,
 		"gracePeriod":        gracePeriod,
 		"logFormat":          logFormat,
-		"notifier":           notifierType,
-		"notifierWebhook":     notifierWebhook,
+		"slackWebhook":       slackWebhook,
 	}).Debug("reading config")
 
 	log.WithFields(log.Fields{
@@ -198,7 +195,7 @@ func main() {
 		"offset":   offset / int(time.Hour/time.Second),
 	}).Info("setting timezone")
 
-	terminationNotifier := createNotifier(notifierType, notifierWebhook)
+	notifiers := createNotifier()
 
 	chaoskube := chaoskube.New(
 		client,
@@ -217,7 +214,7 @@ func main() {
 		dryRun,
 		terminator.NewDeletePodTerminator(client, log.StandardLogger(), gracePeriod),
 		maxKill,
-		terminationNotifier,
+		notifiers,
 	)
 
 	if metricsAddress != "" {
@@ -287,21 +284,13 @@ func parseSelector(str string) labels.Selector {
 	return selector
 }
 
-func createNotifier(notifierType string, webhook string) notifier.Notifier {
-	if notifierType == "" || notifierType == notifier.NotifierNoop {
-		return notifier.NoopNotifier{}
+func createNotifier() notifier.Notifier {
+	notifiers := notifier.New()
+	if slackWebhook != "" {
+		notifiers.Add(notifier.NewSlackNotifier(slackWebhook))
 	}
 
-	if notifierType == notifier.NotifierSlack {
-		return notifier.NewSlackNotifier(webhook)
-	}
-
-	log.WithFields(log.Fields{
-		"notifier": notifierType,
-		"webhook":  webhook,
-	}).Warn("failed to parse notifier type, falling back to default (noop)")
-
-	return notifier.NoopNotifier{}
+	return notifiers
 }
 
 func serveMetrics() {

@@ -67,6 +67,8 @@ type Chaoskube struct {
 	Now func() time.Time
 
 	MaxKill int
+
+	Leader bool
 }
 
 var (
@@ -235,6 +237,17 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 		"namespace": victim.Namespace,
 		"name":      victim.Name,
 	}).Info("terminating pod")
+
+	c.Logger.WithFields(log.Fields{
+		"leader": c.Leader,
+	}).Info("am i the leader?")
+
+	if !c.Leader {
+		c.Logger.WithFields(log.Fields{
+			"leader": c.Leader,
+		}).Info("skipping terminate")
+		return nil
+	}
 
 	// return early if we're running in dryRun mode.
 	if c.DryRun {

@@ -226,9 +226,16 @@ func main() {
 		cancel()
 	}()
 
-	if err := leader.Become(ctx, "chaoskube-lock"); err != nil {
-		log.WithField("err", err).Fatal("failed to aquire leader lock")
-	}
+	go func() {
+		for {
+			time.Sleep(10 * time.Second)
+			chaoskube.Leader = false
+			if err := leader.Become(ctx, "chaoskube-lock"); err != nil {
+				log.WithField("err", err).Fatal("failed to aquire leader lock")
+			}
+			chaoskube.Leader = true
+		}
+	}()
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()

@@ -13,7 +13,9 @@ func TestSlackNotificationForTerminationStatusOk(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		assert.Equal(t, req.URL.Path, webhookPath)
 		res.WriteHeader(200)
-		res.Write([]byte("ok"))
+		if _, err := res.Write([]byte("ok")); err != nil {
+			t.Fatal(err)
+		}
 	}))
 
 	defer testServer.Close()

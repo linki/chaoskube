@@ -1,3 +1,28 @@
+## v0.16.0 - 2019-11-08
+
+  Features:
+  * [#154](https://github.com/linki/chaoskube/pull/154) Add support for terminating multiple pods per iteration @pims
+
+  Updates:
+  * [#156](https://github.com/linki/chaoskube/pull/156) Remove incomplete snippet from the readme and point to examples @jan-warchol
+  * [#153](https://github.com/linki/chaoskube/pull/153) Don't attempt to terminate `Terminating` pods @pims
+  * [#148](https://github.com/linki/chaoskube/pull/148) Update builds to use Go `v1.13` @linki
+  * [#140](https://github.com/linki/chaoskube/pull/140) Update Docker images to use alpine `3.10` @linki
+
+## v0.15.1 - 2019-08-09
+
+  Updates:
+  * [#137](https://github.com/linki/chaoskube/pull/137) [#138](https://github.com/linki/chaoskube/pull/138) Avoid writing logs to the container filesystem @linki
+
+## v0.15.0 - 2019-07-30
+
+  Features:
+  * [#130](https://github.com/linki/chaoskube/pull/130) Add `--log-caller` flag that adds file name and line to the log output @linki
+
+  Updates:
+  * [#129](https://github.com/linki/chaoskube/pull/129) Update client-go to `v12` for Kubernetes `v1.14` @linki
+  * [#126](https://github.com/linki/chaoskube/pull/126) Update builds to use Go `v1.12` and Go Modules @linki
+
 ## v0.14.0 - 2019-05-20
 
   Features:

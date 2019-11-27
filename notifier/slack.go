@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	v1 "k8s.io/api/core/v1"
 )
 
 const NotifierSlack = "slack"
@@ -51,20 +53,20 @@ func NewSlackNotifier(webhook string) *Slack {
 	}
 }
 
-func (s Slack) NotifyTermination(term Termination) error {
+func (s Slack) NotifyTermination(pod v1.Pod) error {
 	title := "Chaos event - Pod termination"
-	text := fmt.Sprintf("pod %s has been selected by chaos-kube for termination", term.Pod)
+	text := fmt.Sprintf("pod %s has been selected by chaos-kube for termination", pod.Name)
 
-	short := len(term.Namespace) < 20 && len(term.Pod) < 20
+	short := len(pod.Namespace) < 20 && len(pod.Name) < 20
 	fields := []slackField{
 		{
 			Title: "namespace",
-			Value: term.Namespace,
+			Value: pod.Namespace,
 			Short: &short,
 		},
 		{
 			Title: "pod",
-			Value: term.Pod,
+			Value: pod.Name,
 			Short: &short,
 		},
 	}

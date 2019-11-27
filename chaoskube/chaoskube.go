@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/linki/chaoskube/notifier"
 	"regexp"
 	"time"
 
@@ -24,6 +23,7 @@ import (
 	"k8s.io/client-go/tools/reference"
 
 	"github.com/linki/chaoskube/metrics"
+	"github.com/linki/chaoskube/notifier"
 	"github.com/linki/chaoskube/terminator"
 	"github.com/linki/chaoskube/util"
 )
@@ -68,7 +68,6 @@ type Chaoskube struct {
 	Now func() time.Time
 
 	MaxKill int
-
 	// chaos events notifier
 	Notifier notifier.Notifier
 }
@@ -261,13 +260,8 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 
 	c.EventRecorder.Event(ref, v1.EventTypeNormal, "Killing", "Pod was terminated by chaoskube to introduce chaos.")
 
-	err = c.Notifier.NotifyTermination(notifier.Termination{
-		Pod:       victim.Name,
-		Namespace: victim.Namespace,
-	})
-
-	if err != nil {
-		c.Logger.Warn("unable to notify pod termination", err)
+	if err := c.Notifier.NotifyTermination(victim); err != nil {
+		c.Logger.WithField("err", err).Warn("failed to notify pod termination")
 	}
 
 	return nil

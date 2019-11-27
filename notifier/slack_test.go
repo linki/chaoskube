@@ -1,55 +1,60 @@
 package notifier
 
 import (
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	v1 "k8s.io/api/core/v1"
+
+	"github.com/linki/chaoskube/internal/testutil"
+	"github.com/linki/chaoskube/util"
+
+	"github.com/stretchr/testify/suite"
 )
 
-func TestSlackNotificationForTerminationStatusOk(t *testing.T) {
-	webhookPath := "/services/T07M5HUDA/BQ1U5VDGA/yhpIczRK0cZ3jDLK1U8qD634"
-
-	testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		assert.Equal(t, req.URL.Path, webhookPath)
-		res.WriteHeader(200)
-		if _, err := res.Write([]byte("ok")); err != nil {
-			t.Fatal(err)
-		}
-	}))
-
-	defer testServer.Close()
-
-	slack := NewSlackNotifier(testServer.URL + webhookPath)
-	err := slack.NotifyTermination(Termination{
-		Pod:       "chaos-57df4db6b-h9ktj",
-		Namespace: "chaos",
-	})
-
-	if err != nil {
-		t.Fatal(err)
-	}
+type SlackSuite struct {
+	testutil.TestSuite
 }
 
-func TestSlackNotificationForTerminationStatus500(t *testing.T) {
+func (suite *SlackSuite) TestSlackNotificationForTerminationStatusOk() {
 	webhookPath := "/services/T07M5HUDA/BQ1U5VDGA/yhpIczRK0cZ3jDLK1U8qD634"
 
 	testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		assert.Equal(t, req.URL.Path, webhookPath)
-		res.WriteHeader(500)
-		if _, err := res.Write([]byte("ok")); err != nil {
-			t.Fatal(err)
-		}
+		suite.Require().Equal(webhookPath, req.URL.Path)
+		res.WriteHeader(200)
+		_, err := res.Write([]byte("ok"))
+		suite.Require().NoError(err)
 	}))
 	defer testServer.Close()
 
-	slack := NewSlackNotifier(testServer.URL + webhookPath)
-	err := slack.NotifyTermination(Termination{
-		Pod:       "chaos-57df4db6b-h9ktj",
-		Namespace: "chaos",
-	})
+	testPod := util.NewPod("chaos", "chaos-57df4db6b-h9ktj", v1.PodRunning)
 
-	if err == nil {
-		t.Fatal("expected error on status code 500")
-	}
+	slack := NewSlackNotifier(testServer.URL + webhookPath)
+	err := slack.NotifyTermination(testPod)
+
+	suite.NoError(err)
+}
+
+func (suite *SlackSuite) TestSlackNotificationForTerminationStatus500() {
+	webhookPath := "/services/T07M5HUDA/BQ1U5VDGA/yhpIczRK0cZ3jDLK1U8qD634"
+
+	testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		suite.Require().Equal(webhookPath, req.URL.Path)
+		res.WriteHeader(500)
+		_, err := res.Write([]byte("ok"))
+		suite.Require().NoError(err)
+	}))
+	defer testServer.Close()
+
+	testPod := util.NewPod("chaos", "chaos-57df4db6b-h9ktj", v1.PodRunning)
+
+	slack := NewSlackNotifier(testServer.URL + webhookPath)
+	err := slack.NotifyTermination(testPod)
+
+	suite.Error(err)
+}
+
+func TestSlackSuite(t *testing.T) {
+	suite.Run(t, new(SlackSuite))
 }

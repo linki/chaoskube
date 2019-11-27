@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/linki/chaoskube/notifier"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
@@ -27,6 +26,7 @@ import (
 	"k8s.io/klog"
 
 	"github.com/linki/chaoskube/chaoskube"
+	"github.com/linki/chaoskube/notifier"
 	"github.com/linki/chaoskube/terminator"
 	"github.com/linki/chaoskube/util"
 )

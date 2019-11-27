@@ -2,7 +2,6 @@ package chaoskube
 
 import (
 	"context"
-	"github.com/linki/chaoskube/notifier"
 	"math/rand"
 	"regexp"
 	"testing"
@@ -18,6 +17,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/linki/chaoskube/internal/testutil"
+	"github.com/linki/chaoskube/notifier"
 	"github.com/linki/chaoskube/terminator"
 	"github.com/linki/chaoskube/util"
 

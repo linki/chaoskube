@@ -57,7 +57,7 @@ permissions using provided ClusterRole.
 
 ### Configuration
 
-By default `chaoskube` will be friendly and not kill anything. When you validated your target cluster you may disable dry-run mode. You can also specify a more aggressive interval and other supported flags for your deployment.
+By default `chaoskube` will be friendly and not kill anything. When you validated your target cluster you may disable dry-run mode by passing the flag `--no-dry-run`. You can also specify a more aggressive interval and other supported flags for your deployment.
 
 If you're running in a Kubernetes cluster and want to target the same cluster then this is all you need to do.
 

@@ -10,7 +10,7 @@ type Noop struct {
 	Calls int
 }
 
-func (t *Noop) NotifyTermination(pod v1.Pod) error {
+func (t *Noop) NotifyPodTermination(pod v1.Pod) error {
 	t.Calls++
 	return nil
 }

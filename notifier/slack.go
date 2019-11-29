@@ -53,7 +53,7 @@ func NewSlackNotifier(webhook string) *Slack {
 	}
 }
 
-func (s Slack) NotifyTermination(pod v1.Pod) error {
+func (s Slack) NotifyPodTermination(pod v1.Pod) error {
 	title := "Chaos event - Pod termination"
 	text := fmt.Sprintf("pod %s has been selected by chaos-kube for termination", pod.Name)
 

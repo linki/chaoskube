@@ -5,7 +5,7 @@ import (
 )
 
 type Notifier interface {
-	NotifyTermination(pod v1.Pod) error
+	NotifyPodTermination(pod v1.Pod) error
 }
 
 type Notifiers struct {
@@ -16,9 +16,9 @@ func New() *Notifiers {
 	return &Notifiers{notifiers: make([]Notifier, 0)}
 }
 
-func (m *Notifiers) NotifyTermination(pod v1.Pod) error {
+func (m *Notifiers) NotifyPodTermination(pod v1.Pod) error {
 	for _, n := range m.notifiers {
-		if err := n.NotifyTermination(pod); err != nil {
+		if err := n.NotifyPodTermination(pod); err != nil {
 			return err
 		}
 	}

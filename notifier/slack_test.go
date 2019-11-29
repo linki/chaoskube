@@ -31,7 +31,7 @@ func (suite *SlackSuite) TestSlackNotificationForTerminationStatusOk() {
 	testPod := util.NewPod("chaos", "chaos-57df4db6b-h9ktj", v1.PodRunning)
 
 	slack := NewSlackNotifier(testServer.URL + webhookPath)
-	err := slack.NotifyTermination(testPod)
+	err := slack.NotifyPodTermination(testPod)
 
 	suite.NoError(err)
 }
@@ -50,7 +50,7 @@ func (suite *SlackSuite) TestSlackNotificationForTerminationStatus500() {
 	testPod := util.NewPod("chaos", "chaos-57df4db6b-h9ktj", v1.PodRunning)
 
 	slack := NewSlackNotifier(testServer.URL + webhookPath)
-	err := slack.NotifyTermination(testPod)
+	err := slack.NotifyPodTermination(testPod)
 
 	suite.Error(err)
 }

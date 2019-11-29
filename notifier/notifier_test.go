@@ -16,7 +16,7 @@ type NotifierSuite struct {
 
 func (suite *NotifierSuite) TestMultiNotifierWithoutNotifiers() {
 	manager := New()
-	err := manager.NotifyTermination(v1.Pod{})
+	err := manager.NotifyPodTermination(v1.Pod{})
 	suite.NoError(err)
 }
 
@@ -24,7 +24,7 @@ func (suite *NotifierSuite) TestMultiNotifierWithNotifier() {
 	manager := New()
 	n := Noop{}
 	manager.Add(&n)
-	err := manager.NotifyTermination(v1.Pod{})
+	err := manager.NotifyPodTermination(v1.Pod{})
 	suite.Require().NoError(err)
 
 	suite.Equal(1, n.Calls)
@@ -37,7 +37,7 @@ func (suite *NotifierSuite) TestMultiNotifierWithMultipleNotifier() {
 	manager.Add(&n1)
 	manager.Add(&n2)
 
-	err := manager.NotifyTermination(v1.Pod{})
+	err := manager.NotifyPodTermination(v1.Pod{})
 	suite.Require().NoError(err)
 
 	suite.Equal(1, n1.Calls)

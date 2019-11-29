@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
+	"net/url"
 	"os"
 	"os/signal"
 	"path"
@@ -53,6 +54,7 @@ var (
 	dryRun             bool
 	debug              bool
 	metricsAddress     string
+	webhook            string
 	gracePeriod        time.Duration
 	logFormat          string
 	logCaller          bool
@@ -68,6 +70,7 @@ func init() {
 	kingpin.Flag("namespace-labels", "A set of labels to restrict the list of affected namespaces. Defaults to everything.").StringVar(&nsLabelString)
 	kingpin.Flag("included-pod-names", "Regular expression that defines which pods to include. All included by default.").RegexpVar(&includedPodNames)
 	kingpin.Flag("excluded-pod-names", "Regular expression that defines which pods to exclude. None excluded by default.").RegexpVar(&excludedPodNames)
+	kingpin.Flag("webhook", "An HTTP webhook to execute before killing a pod").StringVar(&webhook)
 	kingpin.Flag("excluded-weekdays", "A list of weekdays when termination is suspended, e.g. Sat,Sun").StringVar(&excludedWeekdays)
 	kingpin.Flag("excluded-times-of-day", "A list of time periods of a day when termination is suspended, e.g. 22:00-08:00").StringVar(&excludedTimesOfDay)
 	kingpin.Flag("excluded-days-of-year", "A list of days of a year when termination is suspended, e.g. Apr1,Dec24").StringVar(&excludedDaysOfYear)
@@ -123,6 +126,7 @@ func main() {
 		"metricsAddress":     metricsAddress,
 		"gracePeriod":        gracePeriod,
 		"logFormat":          logFormat,
+		"webhook":            webhook,
 	}).Debug("reading config")
 
 	log.WithFields(log.Fields{
@@ -185,6 +189,14 @@ func main() {
 	}
 	timezoneName, offset := time.Now().In(parsedTimezone).Zone()
 
+	parsedWebhook, err := url.Parse(webhook)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"webhook": webhook,
+			"err":     err,
+		}).Fatal("failed to parse webhook")
+	}
+
 	log.WithFields(log.Fields{
 		"name":     timezoneName,
 		"location": parsedTimezone,
@@ -208,6 +220,7 @@ func main() {
 		dryRun,
 		terminator.NewDeletePodTerminator(client, log.StandardLogger(), gracePeriod),
 		maxKill,
+		*parsedWebhook,
 	)
 
 	if metricsAddress != "" {

@@ -3,6 +3,7 @@ package chaoskube
 import (
 	"context"
 	"math/rand"
+	"net/url"
 	"regexp"
 	"testing"
 	"time"
@@ -53,7 +54,7 @@ func (suite *Suite) TestNew() {
 		includedPodNames   = regexp.MustCompile("foo")
 		excludedPodNames   = regexp.MustCompile("bar")
 		excludedWeekdays   = []time.Weekday{time.Friday}
-		excludedTimesOfDay = []util.TimePeriod{util.TimePeriod{}}
+		excludedTimesOfDay = []util.TimePeriod{{}}
 		excludedDaysOfYear = []time.Time{time.Now()}
 		minimumAge         = time.Duration(42)
 		dryRun             = true
@@ -61,6 +62,7 @@ func (suite *Suite) TestNew() {
 		maxKill            = 1
 	)
 
+	webhook, _ := url.Parse("")
 	chaoskube := New(
 		client,
 		labelSelector,
@@ -78,6 +80,7 @@ func (suite *Suite) TestNew() {
 		dryRun,
 		terminator,
 		maxKill,
+		*webhook,
 	)
 	suite.Require().NotNil(chaoskube)
 
@@ -115,6 +118,7 @@ func (suite *Suite) TestRunContextCanceled() {
 		false,
 		10,
 		1,
+		url.URL{},
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -132,19 +136,24 @@ func (suite *Suite) TestCandidates() {
 		labelSelector      string
 		annotationSelector string
 		namespaceSelector  string
+		webhook            string
 		pods               []map[string]string
 	}{
-		{"", "", "", []map[string]string{foo, bar}},
-		{"app=foo", "", "", []map[string]string{foo}},
-		{"app!=foo", "", "", []map[string]string{bar}},
-		{"", "chaos=foo", "", []map[string]string{foo}},
-		{"", "chaos!=foo", "", []map[string]string{bar}},
-		{"", "", "default", []map[string]string{foo}},
-		{"", "", "default,testing", []map[string]string{foo, bar}},
-		{"", "", "!testing", []map[string]string{foo}},
-		{"", "", "!default,!testing", []map[string]string{}},
-		{"", "", "default,!testing", []map[string]string{foo}},
-		{"", "", "default,!default", []map[string]string{}},
+		{"", "", "", "", []map[string]string{foo, bar}},
+		{"app=foo", "", "", "", []map[string]string{foo}},
+		{"app!=foo", "", "", "", []map[string]string{bar}},
+		{"", "chaos=foo", "", "", []map[string]string{foo}},
+		{"", "chaos!=foo", "", "", []map[string]string{bar}},
+		{"", "", "default", "", []map[string]string{foo}},
+		{"", "", "default,testing", "", []map[string]string{foo, bar}},
+		{"", "", "!testing", "", []map[string]string{foo}},
+		{"", "", "!default,!testing", "", []map[string]string{}},
+		{"", "", "default,!testing", "", []map[string]string{foo}},
+		{"", "", "default,!default", "", []map[string]string{}},
+		{"", "", "", "https://httpbin.org/status/404", []map[string]string{}},
+		{"", "", "", "https://httpbin.org/get", []map[string]string{}},
+		{"", "", "", "https://httpbin.org/status/200", []map[string]string{foo, bar}},
+		{"", "", "", "https://httpbin.org/post", []map[string]string{foo, bar}},
 	} {
 		labelSelector, err := labels.Parse(tt.labelSelector)
 		suite.Require().NoError(err)
@@ -153,6 +162,9 @@ func (suite *Suite) TestCandidates() {
 		suite.Require().NoError(err)
 
 		namespaceSelector, err := labels.Parse(tt.namespaceSelector)
+		suite.Require().NoError(err)
+
+		webhook, err := url.Parse(tt.webhook)
 		suite.Require().NoError(err)
 
 		chaoskube := suite.setupWithPods(
@@ -169,6 +181,7 @@ func (suite *Suite) TestCandidates() {
 			time.Duration(0),
 			false,
 			10,
+			*webhook,
 		)
 
 		suite.assertCandidates(chaoskube, tt.pods)
@@ -213,6 +226,7 @@ func (suite *Suite) TestCandidatesNamespaceLabels() {
 			time.Duration(0),
 			false,
 			10,
+			url.URL{},
 		)
 
 		suite.assertCandidates(chaoskube, tt.pods)
@@ -255,6 +269,7 @@ func (suite *Suite) TestCandidatesPodNameRegexp() {
 			time.Duration(0),
 			false,
 			10,
+			url.URL{},
 		)
 
 		suite.assertCandidates(chaoskube, tt.pods)
@@ -294,6 +309,7 @@ func (suite *Suite) TestVictim() {
 			time.Duration(0),
 			false,
 			10,
+			url.URL{},
 		)
 
 		suite.assertVictim(chaoskube, tt.victim)
@@ -347,6 +363,7 @@ func (suite *Suite) TestVictims() {
 			false,
 			10,
 			tt.maxKill,
+			url.URL{},
 		)
 		suite.createPods(chaoskube.Client, podsInfo)
 
@@ -371,6 +388,7 @@ func (suite *Suite) TestNoVictimReturnsError() {
 		false,
 		10,
 		1,
+		url.URL{},
 	)
 
 	_, err := chaoskube.Victims()
@@ -404,6 +422,7 @@ func (suite *Suite) TestDeletePod() {
 			time.Duration(0),
 			tt.dryRun,
 			10,
+			url.URL{},
 		)
 
 		victim := util.NewPod("default", "foo", v1.PodRunning)
@@ -433,6 +452,7 @@ func (suite *Suite) TestDeletePodNotFound() {
 		false,
 		10,
 		1,
+		url.URL{},
 	)
 
 	victim := util.NewPod("default", "foo", v1.PodRunning)
@@ -663,6 +683,7 @@ func (suite *Suite) TestTerminateVictim() {
 			time.Duration(0),
 			false,
 			10,
+			url.URL{},
 		)
 		chaoskube.Now = tt.now
 
@@ -693,6 +714,7 @@ func (suite *Suite) TestTerminateNoVictimLogsInfo() {
 		false,
 		10,
 		1,
+		url.URL{},
 	)
 
 	err := chaoskube.TerminateVictims()
@@ -723,7 +745,7 @@ func (suite *Suite) assertVictim(chaoskube *Chaoskube, expected map[string]strin
 	suite.assertVictims(chaoskube, []map[string]string{expected})
 }
 
-func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration) *Chaoskube {
+func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration, webhook url.URL) *Chaoskube {
 	chaoskube := suite.setup(
 		labelSelector,
 		annotations,
@@ -739,6 +761,7 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 		dryRun,
 		gracePeriod,
 		1,
+		webhook,
 	)
 
 	for _, namespace := range []v1.Namespace{
@@ -774,7 +797,7 @@ func (suite *Suite) createPods(client kubernetes.Interface, podsInfo []podInfo) 
 	}
 }
 
-func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration, maxKill int) *Chaoskube {
+func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration, maxKill int, webhook url.URL) *Chaoskube {
 	logOutput.Reset()
 
 	client := fake.NewSimpleClientset()
@@ -797,6 +820,7 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 		dryRun,
 		terminator.NewDeletePodTerminator(client, nullLogger, gracePeriod),
 		maxKill,
+		webhook,
 	)
 }
 
@@ -901,6 +925,7 @@ func (suite *Suite) TestMinimumAge() {
 			false,
 			10,
 			1,
+			url.URL{},
 		)
 		chaoskube.Now = tt.now
 

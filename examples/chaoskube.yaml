@@ -38,6 +38,8 @@ spec:
         - --timezone=UTC
         # exclude all pods that haven't been running for at least one hour
         - --minimum-age=1h
+        # check with a webhook before killing a pod
+        - --webhook=https://httpbin.org/post
         # terminate pods for real: this disables dry-run mode which is on by default
         - --no-dry-run
         securityContext:

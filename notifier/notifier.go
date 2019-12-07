@@ -1,6 +1,7 @@
 package notifier
 
 import (
+	multierror "github.com/hashicorp/go-multierror"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -17,12 +18,13 @@ func New() *Notifiers {
 }
 
 func (m *Notifiers) NotifyPodTermination(pod v1.Pod) error {
+	var result error
 	for _, n := range m.notifiers {
 		if err := n.NotifyPodTermination(pod); err != nil {
-			return err
+			result = multierror.Append(result, err)
 		}
 	}
-	return nil
+	return result
 }
 
 func (m *Notifiers) Add(notifier Notifier) {

@@ -23,6 +23,7 @@ import (
 	"k8s.io/client-go/tools/reference"
 
 	"github.com/linki/chaoskube/metrics"
+	"github.com/linki/chaoskube/notifier"
 	"github.com/linki/chaoskube/terminator"
 	"github.com/linki/chaoskube/util"
 )
@@ -67,6 +68,8 @@ type Chaoskube struct {
 	Now func() time.Time
 
 	MaxKill int
+	// chaos events notifier
+	Notifier notifier.Notifier
 }
 
 var (
@@ -90,7 +93,7 @@ var (
 // * a logger implementing logrus.FieldLogger to send log output to
 // * what specific terminator to use to imbue chaos on victim pods
 // * whether to enable/disable dry-run mode
-func New(client kubernetes.Interface, labels, annotations, namespaces, namespaceLabels labels.Selector, includedPodNames, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator, maxKill int) *Chaoskube {
+func New(client kubernetes.Interface, labels, annotations, namespaces, namespaceLabels labels.Selector, includedPodNames, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator, maxKill int, notifier notifier.Notifier) *Chaoskube {
 	broadcaster := record.NewBroadcaster()
 	broadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events(v1.NamespaceAll)})
 	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "chaoskube"})
@@ -114,6 +117,7 @@ func New(client kubernetes.Interface, labels, annotations, namespaces, namespace
 		EventRecorder:      recorder,
 		Now:                time.Now,
 		MaxKill:            maxKill,
+		Notifier:           notifier,
 	}
 }
 
@@ -175,7 +179,6 @@ func (c *Chaoskube) TerminateVictims() error {
 	for _, victim := range victims {
 		err = c.DeletePod(victim)
 		result = multierror.Append(result, err)
-
 	}
 
 	return result.ErrorOrNil()
@@ -256,6 +259,10 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 	}
 
 	c.EventRecorder.Event(ref, v1.EventTypeNormal, "Killing", "Pod was terminated by chaoskube to introduce chaos.")
+
+	if err := c.Notifier.NotifyPodTermination(victim); err != nil {
+		c.Logger.WithField("err", err).Warn("failed to notify pod termination")
+	}
 
 	return nil
 }

@@ -1,3 +1,5 @@
+## v0.17.0 - 2019-12-09
+
   * [#158](https://github.com/linki/chaoskube/pull/158) Support for sending Slack notifications @GaruGaru
 
 ## v0.16.0 - 2019-11-08

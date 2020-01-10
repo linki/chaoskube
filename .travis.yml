@@ -13,9 +13,10 @@ env:
 - GO111MODULE=on
 
 install:
+- go get github.com/mfridman/tparse
 - go get github.com/mattn/goveralls
 - go get github.com/lawrencewoodman/roveralls
 
 script:
-- roveralls
-- goveralls -coverprofile=roveralls.coverprofile -service=travis-ci
+- make check
+- make coveralls

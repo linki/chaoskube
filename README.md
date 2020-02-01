@@ -197,6 +197,7 @@ Use `UTC`, `Local` or pick a timezone name from the [(IANA) tz database](https:/
 | `--dry-run`               | don't kill pods, only log what would have been done                  | true                       |
 | `--log-format`            | specify the format of the log messages. Options are text and json    | text                       |
 | `--log-caller`            | include the calling function name and location in the log messages   | false                      |
+| `--slack-webhook`         | The address of the slack webhook for notifications                   | disabled                   |
 
 ## Related work
 

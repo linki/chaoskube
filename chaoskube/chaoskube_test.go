@@ -124,7 +124,7 @@ func (suite *Suite) TestRunContextCanceled() {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	chaoskube.Run(ctx, nil)
+	chaoskube.Run(ctx, time.Duration(0), nil)
 }
 
 // TestCandidates tests that the various pod filters are applied correctly.

@@ -15,9 +15,9 @@ import (
 	"syscall"
 	"time"
 
-	"gopkg.in/alecthomas/kingpin.v2"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
+	"gopkg.in/alecthomas/kingpin.v2"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -51,6 +51,7 @@ var (
 	master             string
 	kubeconfig         string
 	interval           time.Duration
+	jitter             time.Duration
 	dryRun             bool
 	debug              bool
 	metricsAddress     string
@@ -79,6 +80,7 @@ func init() {
 	kingpin.Flag("master", "The address of the Kubernetes cluster to target").StringVar(&master)
 	kingpin.Flag("kubeconfig", "Path to a kubeconfig file").StringVar(&kubeconfig)
 	kingpin.Flag("interval", "Interval between Pod terminations").Default("10m").DurationVar(&interval)
+	kingpin.Flag("jitter", "The max duration of jitter to add or substract from the interval").Default("0s").DurationVar(&jitter)
 	kingpin.Flag("dry-run", "Don't actually kill any pod. Turned on by default. Turn off with `--no-dry-run`.").Default("true").BoolVar(&dryRun)
 	kingpin.Flag("debug", "Enable debug logging.").BoolVar(&debug)
 	kingpin.Flag("metrics-address", "Listening address for metrics handler").Default(":8080").StringVar(&metricsAddress)
@@ -121,6 +123,7 @@ func main() {
 		"master":             master,
 		"kubeconfig":         kubeconfig,
 		"interval":           interval,
+		"jitter":             jitter,
 		"dryRun":             dryRun,
 		"debug":              debug,
 		"metricsAddress":     metricsAddress,
@@ -133,6 +136,7 @@ func main() {
 		"version":  version,
 		"dryRun":   dryRun,
 		"interval": interval,
+		"jitter":   jitter,
 	}).Info("starting up")
 
 	client, err := newClient()
@@ -235,7 +239,7 @@ func main() {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	chaoskube.Run(ctx, ticker.C)
+	chaoskube.Run(ctx, jitter, ticker.C)
 }
 
 func newClient() (*kubernetes.Clientset, error) {

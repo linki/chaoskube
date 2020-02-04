@@ -123,8 +123,9 @@ func New(client kubernetes.Interface, labels, annotations, namespaces, namespace
 
 // Run continuously picks and terminates a victim pod at a given interval
 // described by channel next. It returns when the given context is canceled.
-func (c *Chaoskube) Run(ctx context.Context, next <-chan time.Time) {
+func (c *Chaoskube) Run(ctx context.Context, jitter time.Duration, next <-chan time.Time) {
 	for {
+		time.Sleep(jitter)
 		if err := c.TerminateVictims(); err != nil {
 			c.Logger.WithField("err", err).Error("failed to terminate victim")
 			metrics.ErrorsTotal.Inc()

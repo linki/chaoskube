@@ -1,5 +1,15 @@
+## v0.18.0 - 2020-02-03
+
+  Updates:
+  * [#170](https://github.com/linki/chaoskube/pull/170) Add slack webhook flag to documentation @Clivern
+  * [#169](https://github.com/linki/chaoskube/pull/169) Update client-go to v0.17.0 @linki
+  * [#167](https://github.com/linki/chaoskube/pull/167) Add Makefile and prettify test output @linki
+  * [#166](https://github.com/linki/chaoskube/pull/166) Update klog to v1.0.0 @linki
+  * [#164](https://github.com/linki/chaoskube/pull/164) Update Helm's Quickstart Guide link in README @SergioSV96
+
 ## v0.17.0 - 2019-12-09
 
+  Features:
   * [#158](https://github.com/linki/chaoskube/pull/158) Support for sending Slack notifications @GaruGaru
 
 ## v0.16.0 - 2019-11-08

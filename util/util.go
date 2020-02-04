@@ -196,7 +196,7 @@ func RandomPodSubSlice(pods []v1.Pod, count int) []v1.Pod {
 	return res
 }
 
-// RandomJitter returns a random jitter based off maxJitter
+// RandomJitter returns a random jitter based of maxJitter
 func RandomJitter(maxJitter time.Duration) time.Duration {
 	if maxJitter.Nanoseconds() == 0 {
 		return time.Duration(0)

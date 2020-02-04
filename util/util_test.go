@@ -431,6 +431,12 @@ func (suite *Suite) TestRandomPodSublice() {
 	}
 }
 
+func (suite *Suite) TestRandomJitter() {
+	zeroJitter := time.Duration(0)
+	randomJitter := RandomJitter(zeroJitter)
+	suite.Equal(int64(0), randomJitter.Nanoseconds())
+}
+
 func TestSuite(t *testing.T) {
 	suite.Run(t, new(Suite))
 }

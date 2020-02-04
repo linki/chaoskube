@@ -183,6 +183,7 @@ Use `UTC`, `Local` or pick a timezone name from the [(IANA) tz database](https:/
 | Option                    | Description                                                          | Default                    |
 |---------------------------|----------------------------------------------------------------------|----------------------------|
 | `--interval`              | interval between pod terminations                                    | 10m                        |
+| `--max-jitter`            | max jitter to add to the interval                                    | 0s                         |
 | `--labels`                | label selector to filter pods by                                     | (matches everything)       |
 | `--annotations`           | annotation selector to filter pods by                                | (matches everything)       |
 | `--namespaces`            | namespace selector to filter pods by                                 | (all namespaces)           |

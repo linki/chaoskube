@@ -195,3 +195,13 @@ func RandomPodSubSlice(pods []v1.Pod, count int) []v1.Pod {
 	res := pods[0:count]
 	return res
 }
+
+// RandomJitter returns a random jitter based off maxJitter
+func RandomJitter(maxJitter time.Duration) time.Duration {
+	if maxJitter.Nanoseconds() == 0 {
+		return time.Duration(0)
+	}
+	seed := rand.NewSource(time.Now().UnixNano())
+	rng := rand.New(seed)
+	return time.Duration(rng.Int63n(maxJitter.Nanoseconds()))
+}

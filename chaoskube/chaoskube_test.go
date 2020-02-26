@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	log "github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 
@@ -85,7 +86,7 @@ func (suite *Suite) TestNew() {
 	)
 	suite.Require().NotNil(chaoskube)
 
-	suite.Equal(client, chaoskube.Client)
+	suite.Equal(client, chaoskube._Client)
 	suite.Equal("foo=bar", chaoskube.Labels.String())
 	suite.Equal("baz=waldo", chaoskube.Annotations.String())
 	suite.Equal("qux", chaoskube.Namespaces.String())
@@ -131,6 +132,9 @@ func (suite *Suite) TestRunContextCanceled() {
 func (suite *Suite) TestCandidates() {
 	foo := map[string]string{"namespace": "default", "name": "foo"}
 	bar := map[string]string{"namespace": "testing", "name": "bar"}
+
+	_ = foo
+	_ = bar
 
 	for _, tt := range []struct {
 		labelSelector      string
@@ -352,8 +356,21 @@ func (suite *Suite) TestVictims() {
 			10,
 			tt.maxKill,
 		)
-		suite.createPods(chaoskube.Client, podsInfo)
+		suite.createPods(chaoskube._Client, podsInfo)
 
+		inf := chaoskube._Informer.InformerFor(&v1.Pod{}, nil)
+
+		stopChan := make(chan struct{})
+		chaoskube._Informer.WaitForCacheSync(stopChan)
+
+		spew.Dump(inf.HasSynced())
+
+		time.Sleep(time.Second)
+
+		vic, err := chaoskube.Victims()
+
+		suite.Require().Equal(len(vic), len(tt.victims))
+		// it's just the order
 		suite.assertVictims(chaoskube, tt.victims)
 	}
 }
@@ -670,8 +687,12 @@ func (suite *Suite) TestTerminateVictim() {
 		)
 		chaoskube.Now = tt.now
 
+		// time.Sleep(time.Second * 2)
+
 		err := chaoskube.TerminateVictims()
 		suite.Require().NoError(err)
+
+		// time.Sleep(time.Second * 2)
 
 		pods, err := chaoskube.Candidates()
 		suite.Require().NoError(err)
@@ -753,7 +774,7 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 		util.NewNamespace("default"),
 		util.NewNamespace("testing"),
 	} {
-		_, err := chaoskube.Client.CoreV1().Namespaces().Create(&namespace)
+		_, err := chaoskube._Client.CoreV1().Namespaces().Create(&namespace)
 		suite.Require().NoError(err)
 	}
 
@@ -764,9 +785,16 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 	}
 
 	for _, pod := range pods {
-		_, err := chaoskube.Client.CoreV1().Pods(pod.Namespace).Create(&pod)
+		_, err := chaoskube._Client.CoreV1().Pods(pod.Namespace).Create(&pod)
 		suite.Require().NoError(err)
 	}
+
+	inf := chaoskube._Informer.InformerFor(&v1.Pod{}, nil)
+
+	stopChan := make(chan struct{})
+	chaoskube._Informer.WaitForCacheSync(stopChan)
+
+	spew.Dump(inf.HasSynced())
 
 	return chaoskube
 }
@@ -916,9 +944,16 @@ func (suite *Suite) TestMinimumAge() {
 		for _, p := range tt.pods {
 			pod := util.NewPod(p.namespace, p.name, v1.PodRunning)
 			pod.ObjectMeta.CreationTimestamp = metav1.Time{Time: p.creationTime}
-			_, err := chaoskube.Client.CoreV1().Pods(pod.Namespace).Create(&pod)
+			_, err := chaoskube._Client.CoreV1().Pods(pod.Namespace).Create(&pod)
 			suite.Require().NoError(err)
 		}
+
+		inf := chaoskube._Informer.InformerFor(&v1.Pod{}, nil)
+
+		stopChan := make(chan struct{})
+		chaoskube._Informer.WaitForCacheSync(stopChan)
+
+		spew.Dump(inf.HasSynced())
 
 		pods, err := chaoskube.Candidates()
 		suite.Require().NoError(err)

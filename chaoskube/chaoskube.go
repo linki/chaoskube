@@ -14,6 +14,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -26,12 +27,19 @@ import (
 	"github.com/linki/chaoskube/notifier"
 	"github.com/linki/chaoskube/terminator"
 	"github.com/linki/chaoskube/util"
+
+	"k8s.io/client-go/informers"
+	listersv1 "k8s.io/client-go/listers/core/v1"
 )
 
 // Chaoskube represents an instance of chaoskube
 type Chaoskube struct {
 	// a kubernetes client object
-	Client kubernetes.Interface
+	_Client kubernetes.Interface
+
+	_Informer informers.SharedInformerFactory
+	PodLister listersv1.PodLister
+
 	// a label selector which restricts the pods to choose from
 	Labels labels.Selector
 	// an annotation selector which restricts the pods to choose from
@@ -98,8 +106,23 @@ func New(client kubernetes.Interface, labels, annotations, namespaces, namespace
 	broadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events(v1.NamespaceAll)})
 	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "chaoskube"})
 
+	informer := informers.NewSharedInformerFactory(client, 0)
+	podLister := informer.Core().V1().Pods().Lister()
+
+	informer.ForResource(schema.GroupVersionResource{
+		Version:  "v1",
+		Resource: "Pod",
+	})
+
+	stopChan := make(chan struct{})
+	informer.Start(stopChan)
+
+	// informer.WaitForCacheSync(stopChan)
+
 	return &Chaoskube{
-		Client:             client,
+		_Client:            client,
+		_Informer:          informer,
+		PodLister:          podLister,
 		Labels:             labels,
 		Annotations:        annotations,
 		Namespaces:         namespaces,
@@ -191,6 +214,8 @@ func (c *Chaoskube) Victims() ([]v1.Pod, error) {
 		return []v1.Pod{}, err
 	}
 
+	c.Logger.WithField("count", len(pods)).Debug("found candidates")
+
 	if len(pods) == 0 {
 		return []v1.Pod{}, errPodNotFound
 	}
@@ -204,19 +229,25 @@ func (c *Chaoskube) Victims() ([]v1.Pod, error) {
 // Candidates returns the list of pods that are available for termination.
 // It returns all pods that match the configured label, annotation and namespace selectors.
 func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
-	listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
+	// listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
 
-	podList, err := c.Client.CoreV1().Pods(v1.NamespaceAll).List(listOptions)
+	// Client.CoreV1().Pods(v1.NamespaceAll).List(listOptions)
+	podList, err := c.PodLister.List(c.Labels)
 	if err != nil {
 		return nil, err
 	}
 
-	pods, err := filterByNamespaces(podList.Items, c.Namespaces)
+	pods := []v1.Pod{}
+	for _, p := range podList {
+		pods = append(pods, *p)
+	}
+
+	pods, err = filterByNamespaces(pods, c.Namespaces)
 	if err != nil {
 		return nil, err
 	}
 
-	pods, err = filterPodsByNamespaceLabels(pods, c.NamespaceLabels, c.Client)
+	pods, err = filterPodsByNamespaceLabels(pods, c.NamespaceLabels, c._Client)
 	if err != nil {
 		return nil, err
 	}

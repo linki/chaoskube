@@ -4,7 +4,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 
 	"github.com/stretchr/testify/suite"
 )
@@ -16,8 +16,16 @@ type TestSuite struct {
 func (suite *TestSuite) AssertPods(pods []v1.Pod, expected []map[string]string) {
 	suite.Require().Len(pods, len(expected))
 
-	for i, pod := range pods {
-		suite.AssertPod(pod, expected[i])
+	for _, exp := range expected {
+		found := false
+
+		for _, pod := range pods {
+			if pod.Namespace == exp["namespace"] && pod.Name == exp["name"] {
+				found = true
+			}
+		}
+
+		suite.True(found)
 	}
 }
 

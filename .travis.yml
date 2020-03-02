@@ -6,7 +6,7 @@ os:
 language: go
 
 go:
-- "1.13"
+- "1.14"
 - tip
 
 env:

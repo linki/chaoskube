@@ -1,5 +1,5 @@
 # builder image
-FROM golang:1.13-alpine3.11 as builder
+FROM golang:1.14.0-alpine3.11 as builder
 
 ENV CGO_ENABLED 0
 ENV GO111MODULE on

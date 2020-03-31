@@ -1,11 +1,12 @@
 package terminator
 
 import (
+	"context"
 	"time"
 
 	log "github.com/sirupsen/logrus"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -33,13 +34,13 @@ func (t *DeletePodTerminator) Terminate(victim v1.Pod) error {
 		"name":      victim.Name,
 	}).Debug("calling deletePod endpoint")
 
-	return t.client.CoreV1().Pods(victim.Namespace).Delete(victim.Name, deleteOptions(t.gracePeriod))
+	return t.client.CoreV1().Pods(victim.Namespace).Delete(context.TODO(), victim.Name, deleteOptions(t.gracePeriod))
 }
 
-func deleteOptions(gracePeriod time.Duration) *metav1.DeleteOptions {
+func deleteOptions(gracePeriod time.Duration) metav1.DeleteOptions {
 	if gracePeriod < 0 {
-		return nil
+		return metav1.DeleteOptions{}
 	}
 
-	return &metav1.DeleteOptions{GracePeriodSeconds: (*int64)(&gracePeriod)}
+	return metav1.DeleteOptions{GracePeriodSeconds: (*int64)(&gracePeriod)}
 }

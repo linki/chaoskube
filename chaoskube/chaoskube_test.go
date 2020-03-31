@@ -753,7 +753,7 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 		util.NewNamespace("default"),
 		util.NewNamespace("testing"),
 	} {
-		_, err := chaoskube.Client.CoreV1().Namespaces().Create(&namespace)
+		_, err := chaoskube.Client.CoreV1().Namespaces().Create(context.TODO(), &namespace, metav1.CreateOptions{})
 		suite.Require().NoError(err)
 	}
 
@@ -764,7 +764,7 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 	}
 
 	for _, pod := range pods {
-		_, err := chaoskube.Client.CoreV1().Pods(pod.Namespace).Create(&pod)
+		_, err := chaoskube.Client.CoreV1().Pods(pod.Namespace).Create(context.TODO(), &pod, metav1.CreateOptions{})
 		suite.Require().NoError(err)
 	}
 
@@ -774,10 +774,10 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 func (suite *Suite) createPods(client kubernetes.Interface, podsInfo []podInfo) {
 	for _, p := range podsInfo {
 		namespace := util.NewNamespace(p.Namespace)
-		_, err := client.CoreV1().Namespaces().Create(&namespace)
+		_, err := client.CoreV1().Namespaces().Create(context.TODO(), &namespace, metav1.CreateOptions{})
 		suite.Require().NoError(err)
 		pod := util.NewPod(p.Namespace, p.Name, v1.PodRunning)
-		_, err = client.CoreV1().Pods(p.Namespace).Create(&pod)
+		_, err = client.CoreV1().Pods(p.Namespace).Create(context.TODO(), &pod, metav1.CreateOptions{})
 		suite.Require().NoError(err)
 	}
 }
@@ -916,7 +916,7 @@ func (suite *Suite) TestMinimumAge() {
 		for _, p := range tt.pods {
 			pod := util.NewPod(p.namespace, p.name, v1.PodRunning)
 			pod.ObjectMeta.CreationTimestamp = metav1.Time{Time: p.creationTime}
-			_, err := chaoskube.Client.CoreV1().Pods(pod.Namespace).Create(&pod)
+			_, err := chaoskube.Client.CoreV1().Pods(pod.Namespace).Create(context.TODO(), &pod, metav1.CreateOptions{})
 			suite.Require().NoError(err)
 		}
 

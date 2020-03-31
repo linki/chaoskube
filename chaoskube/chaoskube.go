@@ -206,7 +206,7 @@ func (c *Chaoskube) Victims() ([]v1.Pod, error) {
 func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 	listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
 
-	podList, err := c.Client.CoreV1().Pods(v1.NamespaceAll).List(listOptions)
+	podList, err := c.Client.CoreV1().Pods(v1.NamespaceAll).List(context.TODO(), listOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -333,7 +333,7 @@ func filterPodsByNamespaceLabels(pods []v1.Pod, labels labels.Selector, client k
 	// find all namespaces matching the label selector
 	listOptions := metav1.ListOptions{LabelSelector: labels.String()}
 
-	namespaces, err := client.CoreV1().Namespaces().List(listOptions)
+	namespaces, err := client.CoreV1().Namespaces().List(context.TODO(), listOptions)
 	if err != nil {
 		return nil, err
 	}

@@ -28,13 +28,13 @@ func NewDeletePodTerminator(client kubernetes.Interface, logger log.FieldLogger,
 }
 
 // Terminate sends a request to Kubernetes to delete the pod.
-func (t *DeletePodTerminator) Terminate(victim v1.Pod) error {
+func (t *DeletePodTerminator) Terminate(ctx context.Context, victim v1.Pod) error {
 	t.logger.WithFields(log.Fields{
 		"namespace": victim.Namespace,
 		"name":      victim.Name,
 	}).Debug("calling deletePod endpoint")
 
-	return t.client.CoreV1().Pods(victim.Namespace).Delete(context.TODO(), victim.Name, deleteOptions(t.gracePeriod))
+	return t.client.CoreV1().Pods(victim.Namespace).Delete(ctx, victim.Name, deleteOptions(t.gracePeriod))
 }
 
 func deleteOptions(gracePeriod time.Duration) metav1.DeleteOptions {

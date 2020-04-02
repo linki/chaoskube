@@ -46,18 +46,18 @@ func (suite *DeletePodTerminatorSuite) TestTerminate() {
 	}
 
 	for _, pod := range pods {
-		_, err := client.CoreV1().Pods(pod.Namespace).Create(context.TODO(), &pod, metav1.CreateOptions{})
+		_, err := client.CoreV1().Pods(pod.Namespace).Create(context.Background(), &pod, metav1.CreateOptions{})
 		suite.Require().NoError(err)
 	}
 
 	victim := util.NewPod("default", "foo", v1.PodRunning)
 
-	err := terminator.Terminate(victim)
+	err := terminator.Terminate(context.Background(), victim)
 	suite.Require().NoError(err)
 
 	suite.AssertLog(logOutput, log.DebugLevel, "calling deletePod endpoint", log.Fields{"namespace": "default", "name": "foo"})
 
-	remainingPods, err := client.CoreV1().Pods(v1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
+	remainingPods, err := client.CoreV1().Pods(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	suite.Require().NoError(err)
 
 	suite.AssertPods(remainingPods.Items, []map[string]string{

@@ -15,9 +15,9 @@ import (
 	"syscall"
 	"time"
 
-	"gopkg.in/alecthomas/kingpin.v2"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
+	"gopkg.in/alecthomas/kingpin.v2"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -199,22 +199,22 @@ func main() {
 
 	chaoskube := chaoskube.New(
 		client,
-		labelSelector,
-		annotations,
-		namespaces,
-		namespaceLabels,
-		includedPodNames,
-		excludedPodNames,
-		parsedWeekdays,
-		parsedTimesOfDay,
-		parsedDaysOfYear,
-		parsedTimezone,
-		minimumAge,
-		log.StandardLogger(),
-		dryRun,
-		terminator.NewDeletePodTerminator(client, log.StandardLogger(), gracePeriod),
-		maxKill,
-		notifiers,
+		chaoskube.WithLabels(labelSelector),
+		chaoskube.WithAnnotations(annotations),
+		chaoskube.WithNamespaces(namespaces),
+		chaoskube.WithNamespaceLabels(namespaceLabels),
+		chaoskube.WithIncludedPodNames(includedPodNames),
+		chaoskube.WithExcludedPodNames(excludedPodNames),
+		chaoskube.WithExcludedWeekdays(parsedWeekdays),
+		chaoskube.WithExcludedTimesOfDay(parsedTimesOfDay),
+		chaoskube.WithExcludedDaysOfYear(parsedDaysOfYear),
+		chaoskube.WithTimezone(parsedTimezone),
+		chaoskube.WithMinimumAge(minimumAge),
+		chaoskube.WithLogger(log.StandardLogger()),
+		chaoskube.WithDryRun(dryRun),
+		chaoskube.WithTerminator(terminator.NewDeletePodTerminator(client, log.StandardLogger(), gracePeriod)),
+		chaoskube.WithMaxKill(maxKill),
+		chaoskube.WithNotifier(notifiers),
 	)
 
 	if metricsAddress != "" {

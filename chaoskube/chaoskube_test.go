@@ -44,6 +44,36 @@ func (suite *Suite) SetupTest() {
 	logOutput.Reset()
 }
 
+func (suite *Suite) TestNewDefault() {
+	var (
+		client = fake.NewSimpleClientset()
+	)
+
+	chaoskube := New(
+		client,
+	)
+	suite.Require().NotNil(chaoskube)
+
+	// tweak these
+	suite.Equal(client, chaoskube.Client)
+	suite.Nil(chaoskube.Labels)
+	suite.Nil(chaoskube.Annotations)
+	suite.Nil(chaoskube.Namespaces)
+	suite.Nil(chaoskube.NamespaceLabels)
+	suite.Nil(chaoskube.IncludedPodNames)
+	suite.Nil(chaoskube.ExcludedPodNames)
+	suite.Nil(chaoskube.ExcludedWeekdays)
+	suite.Nil(chaoskube.ExcludedTimesOfDay)
+	suite.Nil(chaoskube.ExcludedDaysOfYear)
+	suite.Nil(chaoskube.Timezone)
+	suite.Equal(time.Duration(0), chaoskube.MinimumAge)
+	suite.Nil(chaoskube.Logger)
+	suite.False(chaoskube.DryRun)
+	suite.Nil(chaoskube.Terminator)
+	suite.Equal(0, chaoskube.MaxKill)
+	suite.Nil(chaoskube.Notifier)
+}
+
 // TestNew tests that arguments are passed to the new instance correctly
 func (suite *Suite) TestNew() {
 	var (
@@ -60,28 +90,28 @@ func (suite *Suite) TestNew() {
 		minimumAge         = time.Duration(42)
 		dryRun             = true
 		terminator         = terminator.NewDeletePodTerminator(client, logger, 10*time.Second)
-		maxKill            = 1
+		maxKill            = 3
 		notifier           = testNotifier
 	)
 
 	chaoskube := New(
 		client,
-		labelSelector,
-		annotations,
-		namespaces,
-		namespaceLabels,
-		includedPodNames,
-		excludedPodNames,
-		excludedWeekdays,
-		excludedTimesOfDay,
-		excludedDaysOfYear,
-		time.UTC,
-		minimumAge,
-		logger,
-		dryRun,
-		terminator,
-		maxKill,
-		notifier,
+		WithLabels(labelSelector),
+		WithAnnotations(annotations),
+		WithNamespaces(namespaces),
+		WithNamespaceLabels(namespaceLabels),
+		WithIncludedPodNames(includedPodNames),
+		WithExcludedPodNames(excludedPodNames),
+		WithExcludedWeekdays(excludedWeekdays),
+		WithExcludedTimesOfDay(excludedTimesOfDay),
+		WithExcludedDaysOfYear(excludedDaysOfYear),
+		WithTimezone(time.UTC),
+		WithMinimumAge(minimumAge),
+		WithLogger(logger),
+		WithDryRun(dryRun),
+		WithTerminator(terminator),
+		WithMaxKill(maxKill),
+		WithNotifier(notifier),
 	)
 	suite.Require().NotNil(chaoskube)
 
@@ -100,6 +130,8 @@ func (suite *Suite) TestNew() {
 	suite.Equal(logger, chaoskube.Logger)
 	suite.Equal(dryRun, chaoskube.DryRun)
 	suite.Equal(terminator, chaoskube.Terminator)
+	suite.Equal(maxKill, chaoskube.MaxKill)
+	suite.Equal(notifier, chaoskube.Notifier)
 }
 
 // TestRunContextCanceled tests that a canceled context will exit the Run function.
@@ -790,22 +822,22 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 
 	return New(
 		client,
-		labelSelector,
-		annotations,
-		namespaces,
-		namespaceLabels,
-		includedPodNames,
-		excludedPodNames,
-		excludedWeekdays,
-		excludedTimesOfDay,
-		excludedDaysOfYear,
-		timezone,
-		minimumAge,
-		logger,
-		dryRun,
-		terminator.NewDeletePodTerminator(client, nullLogger, gracePeriod),
-		maxKill,
-		testNotifier,
+		WithLabels(labelSelector),
+		WithAnnotations(annotations),
+		WithNamespaces(namespaces),
+		WithNamespaceLabels(namespaceLabels),
+		WithIncludedPodNames(includedPodNames),
+		WithExcludedPodNames(excludedPodNames),
+		WithExcludedWeekdays(excludedWeekdays),
+		WithExcludedTimesOfDay(excludedTimesOfDay),
+		WithExcludedDaysOfYear(excludedDaysOfYear),
+		WithTimezone(timezone),
+		WithMinimumAge(minimumAge),
+		WithLogger(logger),
+		WithDryRun(dryRun),
+		WithTerminator(terminator.NewDeletePodTerminator(client, nullLogger, gracePeriod)),
+		WithMaxKill(maxKill),
+		WithNotifier(testNotifier),
 	)
 }
 

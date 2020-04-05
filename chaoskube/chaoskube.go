@@ -93,32 +93,22 @@ var (
 // * a logger implementing logrus.FieldLogger to send log output to
 // * what specific terminator to use to imbue chaos on victim pods
 // * whether to enable/disable dry-run mode
-func New(client kubernetes.Interface, labels, annotations, namespaces, namespaceLabels labels.Selector, includedPodNames, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator, maxKill int, notifier notifier.Notifier) *Chaoskube {
+func New(client kubernetes.Interface, options ...Option) *Chaoskube {
 	broadcaster := record.NewBroadcaster()
 	broadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events(v1.NamespaceAll)})
 	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "chaoskube"})
 
-	return &Chaoskube{
-		Client:             client,
-		Labels:             labels,
-		Annotations:        annotations,
-		Namespaces:         namespaces,
-		NamespaceLabels:    namespaceLabels,
-		IncludedPodNames:   includedPodNames,
-		ExcludedPodNames:   excludedPodNames,
-		ExcludedWeekdays:   excludedWeekdays,
-		ExcludedTimesOfDay: excludedTimesOfDay,
-		ExcludedDaysOfYear: excludedDaysOfYear,
-		Timezone:           timezone,
-		MinimumAge:         minimumAge,
-		Logger:             logger,
-		DryRun:             dryRun,
-		Terminator:         terminator,
-		EventRecorder:      recorder,
-		Now:                time.Now,
-		MaxKill:            maxKill,
-		Notifier:           notifier,
+	chaoskube := &Chaoskube{
+		Client:        client,
+		EventRecorder: recorder,
+		Now:           time.Now,
 	}
+
+	for _, option := range options {
+		option(chaoskube)
+	}
+
+	return chaoskube
 }
 
 // Run continuously picks and terminates a victim pod at a given interval

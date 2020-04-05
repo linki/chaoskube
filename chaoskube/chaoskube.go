@@ -148,7 +148,7 @@ func New(client kubernetes.Interface, labels, annotations, namespaces, namespace
 // described by channel next. It returns when the given context is canceled.
 func (c *Chaoskube) Run(ctx context.Context, next <-chan time.Time) {
 	for {
-		if err := c.TerminateVictims(); err != nil {
+		if err := c.TerminateVictims(ctx); err != nil {
 			c.Logger.WithField("err", err).Error("failed to terminate victim")
 			metrics.ErrorsTotal.Inc()
 		}
@@ -165,7 +165,7 @@ func (c *Chaoskube) Run(ctx context.Context, next <-chan time.Time) {
 
 // TerminateVictims picks and deletes a victim.
 // It respects the configured excluded weekdays, times of day and days of a year filters.
-func (c *Chaoskube) TerminateVictims() error {
+func (c *Chaoskube) TerminateVictims(ctx context.Context) error {
 	now := c.Now().In(c.Timezone)
 
 	for _, wd := range c.ExcludedWeekdays {
@@ -189,7 +189,7 @@ func (c *Chaoskube) TerminateVictims() error {
 		}
 	}
 
-	victims, err := c.Victims()
+	victims, err := c.Victims(ctx)
 	if err == errPodNotFound {
 		c.Logger.Debug(msgVictimNotFound)
 		return nil
@@ -200,7 +200,7 @@ func (c *Chaoskube) TerminateVictims() error {
 
 	var result *multierror.Error
 	for _, victim := range victims {
-		err = c.DeletePod(victim)
+		err = c.DeletePod(ctx, victim)
 		result = multierror.Append(result, err)
 	}
 
@@ -208,8 +208,8 @@ func (c *Chaoskube) TerminateVictims() error {
 }
 
 // Victims returns up to N pods as configured by MaxKill flag
-func (c *Chaoskube) Victims() ([]v1.Pod, error) {
-	pods, err := c.Candidates()
+func (c *Chaoskube) Victims(ctx context.Context) ([]v1.Pod, error) {
+	pods, err := c.Candidates(ctx)
 	if err != nil {
 		return []v1.Pod{}, err
 	}
@@ -228,7 +228,7 @@ func (c *Chaoskube) Victims() ([]v1.Pod, error) {
 
 // Candidates returns the list of pods that are available for termination.
 // It returns all pods that match the configured label, annotation and namespace selectors.
-func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
+func (c *Chaoskube) Candidates(ctx context.Context) ([]v1.Pod, error) {
 	// listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
 
 	// Client.CoreV1().Pods(v1.NamespaceAll).List(listOptions)
@@ -247,7 +247,7 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 		return nil, err
 	}
 
-	pods, err = filterPodsByNamespaceLabels(pods, c.NamespaceLabels, c._Client)
+	pods, err = filterPodsByNamespaceLabels(ctx, pods, c.NamespaceLabels, c._Client)
 	if err != nil {
 		return nil, err
 	}
@@ -264,7 +264,7 @@ func (c *Chaoskube) Candidates() ([]v1.Pod, error) {
 
 // DeletePod deletes the given pod with the selected terminator.
 // It will not delete the pod if dry-run mode is enabled.
-func (c *Chaoskube) DeletePod(victim v1.Pod) error {
+func (c *Chaoskube) DeletePod(ctx context.Context, victim v1.Pod) error {
 	c.Logger.WithFields(log.Fields{
 		"namespace": victim.Namespace,
 		"name":      victim.Name,
@@ -276,7 +276,7 @@ func (c *Chaoskube) DeletePod(victim v1.Pod) error {
 	}
 
 	start := time.Now()
-	err := c.Terminator.Terminate(victim)
+	err := c.Terminator.Terminate(ctx, victim)
 	metrics.TerminationDurationSeconds.Observe(time.Since(start).Seconds())
 	if err != nil {
 		return err
@@ -355,7 +355,7 @@ func filterByNamespaces(pods []v1.Pod, namespaces labels.Selector) ([]v1.Pod, er
 }
 
 // filterPodsByNamespaceLabels filters a list of pods by a given label selector on their namespace.
-func filterPodsByNamespaceLabels(pods []v1.Pod, labels labels.Selector, client kubernetes.Interface) ([]v1.Pod, error) {
+func filterPodsByNamespaceLabels(ctx context.Context, pods []v1.Pod, labels labels.Selector, client kubernetes.Interface) ([]v1.Pod, error) {
 	// empty filter returns original list
 	if labels.Empty() {
 		return pods, nil
@@ -364,7 +364,7 @@ func filterPodsByNamespaceLabels(pods []v1.Pod, labels labels.Selector, client k
 	// find all namespaces matching the label selector
 	listOptions := metav1.ListOptions{LabelSelector: labels.String()}
 
-	namespaces, err := client.CoreV1().Namespaces().List(listOptions)
+	namespaces, err := client.CoreV1().Namespaces().List(ctx, listOptions)
 	if err != nil {
 		return nil, err
 	}

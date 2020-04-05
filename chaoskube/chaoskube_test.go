@@ -378,7 +378,7 @@ func (suite *Suite) TestNoVictimReturnsError() {
 		1,
 	)
 
-	_, err := chaoskube.Victims()
+	_, err := chaoskube.Victims(context.Background())
 	suite.Equal(err, errPodNotFound)
 	suite.EqualError(err, "pod not found")
 }
@@ -413,7 +413,7 @@ func (suite *Suite) TestDeletePod() {
 
 		victim := util.NewPod("default", "foo", v1.PodRunning)
 
-		err := chaoskube.DeletePod(victim)
+		err := chaoskube.DeletePod(context.Background(), victim)
 		suite.Require().NoError(err)
 
 		time.Sleep(time.Second)
@@ -444,7 +444,7 @@ func (suite *Suite) TestDeletePodNotFound() {
 
 	victim := util.NewPod("default", "foo", v1.PodRunning)
 
-	err := chaoskube.DeletePod(victim)
+	err := chaoskube.DeletePod(context.Background(), victim)
 	suite.EqualError(err, `pods "foo" not found`)
 }
 
@@ -675,12 +675,12 @@ func (suite *Suite) TestTerminateVictim() {
 
 		time.Sleep(time.Second * 2)
 
-		err := chaoskube.TerminateVictims()
+		err := chaoskube.TerminateVictims(context.Background())
 		suite.Require().NoError(err)
 
 		time.Sleep(time.Second * 2)
 
-		pods, err := chaoskube.Candidates()
+		pods, err := chaoskube.Candidates(context.Background())
 		suite.Require().NoError(err)
 
 		suite.Len(pods, tt.remainingPodCount)
@@ -706,7 +706,7 @@ func (suite *Suite) TestTerminateNoVictimLogsInfo() {
 		1,
 	)
 
-	err := chaoskube.TerminateVictims()
+	err := chaoskube.TerminateVictims(context.Background())
 	suite.Require().NoError(err)
 
 	suite.AssertLog(logOutput, log.DebugLevel, msgVictimNotFound, log.Fields{})
@@ -715,14 +715,14 @@ func (suite *Suite) TestTerminateNoVictimLogsInfo() {
 // helper functions
 
 func (suite *Suite) assertCandidates(chaoskube *Chaoskube, expected []map[string]string) {
-	pods, err := chaoskube.Candidates()
+	pods, err := chaoskube.Candidates(context.Background())
 	suite.Require().NoError(err)
 
 	suite.AssertPods(pods, expected)
 }
 
 func (suite *Suite) assertVictims(chaoskube *Chaoskube, count int, expected []map[string]string) {
-	victims, err := chaoskube.Victims()
+	victims, err := chaoskube.Victims(context.Background())
 	suite.Require().NoError(err)
 
 	suite.Require().Len(victims, count)
@@ -770,7 +770,7 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 		util.NewNamespace("default"),
 		util.NewNamespace("testing"),
 	} {
-		_, err := chaoskube._Client.CoreV1().Namespaces().Create(&namespace)
+		_, err := chaoskube._Client.CoreV1().Namespaces().Create(context.Background(), &namespace, metav1.CreateOptions{})
 		suite.Require().NoError(err)
 	}
 
@@ -781,7 +781,7 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 	}
 
 	for _, pod := range pods {
-		_, err := chaoskube._Client.CoreV1().Pods(pod.Namespace).Create(&pod)
+		_, err := chaoskube._Client.CoreV1().Pods(pod.Namespace).Create(context.Background(), &pod, metav1.CreateOptions{})
 		suite.Require().NoError(err)
 	}
 
@@ -798,10 +798,10 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 func (suite *Suite) createPods(client kubernetes.Interface, podsInfo []map[string]string) {
 	for _, p := range podsInfo {
 		namespace := util.NewNamespace(p["namespace"])
-		_, err := client.CoreV1().Namespaces().Create(&namespace)
+		_, err := client.CoreV1().Namespaces().Create(context.Background(), &namespace, metav1.CreateOptions{})
 		suite.Require().NoError(err)
 		pod := util.NewPod(p["namespace"], p["name"], v1.PodRunning)
-		_, err = client.CoreV1().Pods(p["namespace"]).Create(&pod)
+		_, err = client.CoreV1().Pods(p["namespace"]).Create(context.Background(), &pod, metav1.CreateOptions{})
 		suite.Require().NoError(err)
 	}
 }
@@ -940,7 +940,7 @@ func (suite *Suite) TestMinimumAge() {
 		for _, p := range tt.pods {
 			pod := util.NewPod(p.namespace, p.name, v1.PodRunning)
 			pod.ObjectMeta.CreationTimestamp = metav1.Time{Time: p.creationTime}
-			_, err := chaoskube._Client.CoreV1().Pods(pod.Namespace).Create(&pod)
+			_, err := chaoskube._Client.CoreV1().Pods(pod.Namespace).Create(context.Background(), &pod, metav1.CreateOptions{})
 			suite.Require().NoError(err)
 		}
 
@@ -951,7 +951,7 @@ func (suite *Suite) TestMinimumAge() {
 
 		spew.Dump(inf.HasSynced())
 
-		pods, err := chaoskube.Candidates()
+		pods, err := chaoskube.Candidates(context.Background())
 		suite.Require().NoError(err)
 
 		suite.Len(pods, tt.candidates)
@@ -1030,7 +1030,7 @@ func (suite *Suite) TestNotifierCall() {
 	)
 
 	victim := util.NewPod("default", "foo", v1.PodRunning)
-	err := chaoskube.DeletePod(victim)
+	err := chaoskube.DeletePod(context.Background(), victim)
 
 	suite.Require().NoError(err)
 	suite.assertNotified(testNotifier)

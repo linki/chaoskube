@@ -1,3 +1,10 @@
+## v0.19.0 - 2020-04-02
+
+  Updates:
+  * [#192](https://github.com/linki/chaoskube/pull/192) Use `context.Context` to cancel in-flight requests @linki
+  * [#191](https://github.com/linki/chaoskube/pull/191) Update client-go to `v0.18.0` @linki
+  * [#180](https://github.com/linki/chaoskube/pull/180) Update builds to use Go `v1.14` @linki
+
 ## v0.18.0 - 2020-02-03
 
   Updates:

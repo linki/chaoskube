@@ -191,6 +191,8 @@ func (c *Chaoskube) Victims(ctx context.Context) ([]v1.Pod, error) {
 		return []v1.Pod{}, err
 	}
 
+	c.Logger.WithField("count", len(pods)).Debug("found candidates")
+
 	if len(pods) == 0 {
 		return []v1.Pod{}, errPodNotFound
 	}

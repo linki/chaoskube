@@ -949,32 +949,47 @@ func (suite *Suite) TestFilterByOwnerReference() {
 	baz1 := util.NewPod("default", "baz-1", v1.PodRunning)
 
 	for _, tt := range []struct {
+		seed     int64
 		name     string
 		pods     []v1.Pod
 		expected []v1.Pod
 	}{
 		{
-			name:     "2 pods, same parent",
+			seed:     1000,
+			name:     "2 pods, same parent, pick first",
 			pods:     []v1.Pod{foo, foo1},
 			expected: []v1.Pod{foo},
 		},
 		{
-			name:     "2 pods, different parents",
+			seed:     2000,
+			name:     "2 pods, same parent, pick second",
+			pods:     []v1.Pod{foo, foo1},
+			expected: []v1.Pod{foo1},
+		},
+		{
+			seed:     1000,
+			name:     "2 pods, different parents, pick both",
 			pods:     []v1.Pod{foo, bar},
 			expected: []v1.Pod{foo, bar},
 		},
 		{
-			name:     "2 pods, one with/without parent",
-			pods:     []v1.Pod{foo, baz},
-			expected: []v1.Pod{foo, baz},
+			seed:     1000,
+			name:     "2 pods, one without and one with parent, pick both",
+			pods:     []v1.Pod{baz, foo},
+			expected: []v1.Pod{baz, foo},
 		},
 		{
-			name:     "2 pods, no parents",
+			seed:     1000,
+			name:     "2 pods, no parents, pick both",
 			pods:     []v1.Pod{baz, baz1},
 			expected: []v1.Pod{baz, baz1},
 		},
 	} {
+		rand.Seed(tt.seed)
+
 		results := filterByOwnerReference(tt.pods)
+		suite.Require().Len(results, len(tt.expected))
+
 		for i, result := range results {
 			suite.Assert().Equal(tt.expected[i], result, tt.name)
 		}

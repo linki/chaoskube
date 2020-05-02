@@ -444,7 +444,7 @@ func filterByPodName(pods []v1.Pod, includedPodNames, excludedPodNames *regexp.R
 }
 
 func filterByOwnerReference(pods []v1.Pod) []v1.Pod {
-	owners := make(map[types.UID]struct{})
+	owners := make(map[types.UID][]v1.Pod)
 	filteredList := []v1.Pod{}
 	for _, pod := range pods {
 		// Don't filter out pods with no owner reference
@@ -453,13 +453,15 @@ func filterByOwnerReference(pods []v1.Pod) []v1.Pod {
 			continue
 		}
 
+		// Group remaining pods by their owner reference
 		for _, ref := range pod.GetOwnerReferences() {
-			_, found := owners[ref.UID]
-			if !found {
-				filteredList = append(filteredList, pod)
-				owners[ref.UID] = struct{}{}
-			}
+			owners[ref.UID] = append(owners[ref.UID], pod)
 		}
+	}
+
+	// For each owner reference select a random pod from its group
+	for _, pods := range owners {
+		filteredList = append(filteredList, util.RandomPodSubSlice(pods, 1)...)
 	}
 
 	return filteredList

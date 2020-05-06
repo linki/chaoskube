@@ -9,4 +9,4 @@ endif
 
 coveralls:
 	roveralls
-	goveralls -coverprofile=roveralls.coverprofile -service=travis-ci
+	goveralls -coverprofile=roveralls.coverprofile -service=travis-ci -repotoken ${COVERALLS_TOKEN}

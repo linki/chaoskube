@@ -165,7 +165,7 @@ func NewPodWithOwner(namespace, name string, phase v1.PodPhase, owner types.UID)
 
 	if owner != "" {
 		pod.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
-			{UID: owner},
+			{UID: owner, Kind: "testkind"},
 		}
 	}
 

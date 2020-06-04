@@ -51,6 +51,7 @@ func (suite *Suite) TestNew() {
 		client             = fake.NewSimpleClientset()
 		labelSelector, _   = labels.Parse("foo=bar")
 		annotations, _     = labels.Parse("baz=waldo")
+		kinds, _           = labels.Parse("job")
 		namespaces, _      = labels.Parse("qux")
 		namespaceLabels, _ = labels.Parse("taz=wubble")
 		includedPodNames   = regexp.MustCompile("foo")
@@ -69,6 +70,7 @@ func (suite *Suite) TestNew() {
 		client,
 		labelSelector,
 		annotations,
+		kinds,
 		namespaces,
 		namespaceLabels,
 		includedPodNames,
@@ -89,6 +91,7 @@ func (suite *Suite) TestNew() {
 	suite.Equal(client, chaoskube.Client)
 	suite.Equal("foo=bar", chaoskube.Labels.String())
 	suite.Equal("baz=waldo", chaoskube.Annotations.String())
+	suite.Equal("job", chaoskube.Kinds.String())
 	suite.Equal("qux", chaoskube.Namespaces.String())
 	suite.Equal("taz=wubble", chaoskube.NamespaceLabels.String())
 	suite.Equal("foo", chaoskube.IncludedPodNames.String())
@@ -106,6 +109,7 @@ func (suite *Suite) TestNew() {
 // TestRunContextCanceled tests that a canceled context will exit the Run function.
 func (suite *Suite) TestRunContextCanceled() {
 	chaoskube := suite.setup(
+		labels.Everything(),
 		labels.Everything(),
 		labels.Everything(),
 		labels.Everything(),
@@ -136,25 +140,29 @@ func (suite *Suite) TestCandidates() {
 	for _, tt := range []struct {
 		labelSelector      string
 		annotationSelector string
+		kindSelector       string
 		namespaceSelector  string
 		pods               []map[string]string
 	}{
-		{"", "", "", []map[string]string{foo, bar}},
-		{"app=foo", "", "", []map[string]string{foo}},
-		{"app!=foo", "", "", []map[string]string{bar}},
-		{"", "chaos=foo", "", []map[string]string{foo}},
-		{"", "chaos!=foo", "", []map[string]string{bar}},
-		{"", "", "default", []map[string]string{foo}},
-		{"", "", "default,testing", []map[string]string{foo, bar}},
-		{"", "", "!testing", []map[string]string{foo}},
-		{"", "", "!default,!testing", []map[string]string{}},
-		{"", "", "default,!testing", []map[string]string{foo}},
-		{"", "", "default,!default", []map[string]string{}},
+		{"", "", "", "", []map[string]string{foo, bar}},
+		{"app=foo", "", "", "", []map[string]string{foo}},
+		{"app!=foo", "", "", "", []map[string]string{bar}},
+		{"", "chaos=foo", "", "", []map[string]string{foo}},
+		{"", "chaos!=foo", "", "", []map[string]string{bar}},
+		{"", "", "", "default", []map[string]string{foo}},
+		{"", "", "", "default,testing", []map[string]string{foo, bar}},
+		{"", "", "", "!testing", []map[string]string{foo}},
+		{"", "", "", "!default,!testing", []map[string]string{}},
+		{"", "", "", "default,!testing", []map[string]string{foo}},
+		{"", "", "", "default,!default", []map[string]string{}},
 	} {
 		labelSelector, err := labels.Parse(tt.labelSelector)
 		suite.Require().NoError(err)
 
 		annotationSelector, err := labels.Parse(tt.annotationSelector)
+		suite.Require().NoError(err)
+
+		kindSelector, err := labels.Parse(tt.kindSelector)
 		suite.Require().NoError(err)
 
 		namespaceSelector, err := labels.Parse(tt.namespaceSelector)
@@ -163,6 +171,7 @@ func (suite *Suite) TestCandidates() {
 		chaoskube := suite.setupWithPods(
 			labelSelector,
 			annotationSelector,
+			kindSelector,
 			namespaceSelector,
 			labels.Everything(),
 			nil,
@@ -205,6 +214,7 @@ func (suite *Suite) TestCandidatesNamespaceLabels() {
 		suite.Require().NoError(err)
 
 		chaoskube := suite.setupWithPods(
+			labels.Everything(),
 			labels.Everything(),
 			labels.Everything(),
 			labels.Everything(),
@@ -251,6 +261,7 @@ func (suite *Suite) TestCandidatesPodNameRegexp() {
 			labels.Everything(),
 			labels.Everything(),
 			labels.Everything(),
+			labels.Everything(),
 			tt.includedPodNames,
 			tt.excludedPodNames,
 			[]time.Weekday{},
@@ -287,6 +298,7 @@ func (suite *Suite) TestVictim() {
 
 		chaoskube := suite.setupWithPods(
 			labelSelector,
+			labels.Everything(),
 			labels.Everything(),
 			labels.Everything(),
 			labels.Everything(),
@@ -342,6 +354,7 @@ func (suite *Suite) TestVictims() {
 			labels.Everything(),
 			labels.Everything(),
 			labels.Everything(),
+			labels.Everything(),
 			&regexp.Regexp{},
 			&regexp.Regexp{},
 			[]time.Weekday{},
@@ -362,6 +375,7 @@ func (suite *Suite) TestVictims() {
 // TestNoVictimReturnsError tests that on missing victim it returns a known error
 func (suite *Suite) TestNoVictimReturnsError() {
 	chaoskube := suite.setup(
+		labels.Everything(),
 		labels.Everything(),
 		labels.Everything(),
 		labels.Everything(),
@@ -400,6 +414,7 @@ func (suite *Suite) TestDeletePod() {
 			labels.Everything(),
 			labels.Everything(),
 			labels.Everything(),
+			labels.Everything(),
 			&regexp.Regexp{},
 			&regexp.Regexp{},
 			[]time.Weekday{},
@@ -424,6 +439,7 @@ func (suite *Suite) TestDeletePod() {
 // TestDeletePodNotFound tests missing target pod will return an error.
 func (suite *Suite) TestDeletePodNotFound() {
 	chaoskube := suite.setup(
+		labels.Everything(),
 		labels.Everything(),
 		labels.Everything(),
 		labels.Everything(),
@@ -659,6 +675,7 @@ func (suite *Suite) TestTerminateVictim() {
 			labels.Everything(),
 			labels.Everything(),
 			labels.Everything(),
+			labels.Everything(),
 			&regexp.Regexp{},
 			&regexp.Regexp{},
 			tt.excludedWeekdays,
@@ -684,6 +701,7 @@ func (suite *Suite) TestTerminateVictim() {
 // TestTerminateNoVictimLogsInfo tests that missing victim prints a log message
 func (suite *Suite) TestTerminateNoVictimLogsInfo() {
 	chaoskube := suite.setup(
+		labels.Everything(),
 		labels.Everything(),
 		labels.Everything(),
 		labels.Everything(),
@@ -732,10 +750,11 @@ func (suite *Suite) assertNotified(notifier *notifier.Noop) {
 	suite.Assert().Greater(notifier.Calls, 0)
 }
 
-func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration) *Chaoskube {
+func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, kinds labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration) *Chaoskube {
 	chaoskube := suite.setup(
 		labelSelector,
 		annotations,
+		kinds,
 		namespaces,
 		namespaceLabels,
 		includedPodNames,
@@ -783,7 +802,7 @@ func (suite *Suite) createPods(client kubernetes.Interface, podsInfo []podInfo) 
 	}
 }
 
-func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration, maxKill int) *Chaoskube {
+func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, kinds labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration, maxKill int) *Chaoskube {
 	logOutput.Reset()
 
 	client := fake.NewSimpleClientset()
@@ -793,6 +812,7 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 		client,
 		labelSelector,
 		annotations,
+		kinds,
 		namespaces,
 		namespaceLabels,
 		includedPodNames,
@@ -901,6 +921,7 @@ func (suite *Suite) TestMinimumAge() {
 			labels.Everything(),
 			labels.Everything(),
 			labels.Everything(),
+			labels.Everything(),
 			&regexp.Regexp{},
 			&regexp.Regexp{},
 			[]time.Weekday{},
@@ -940,6 +961,81 @@ func (suite *Suite) TestFilterDeletedPods() {
 	filtered := filterTerminatingPods(pods)
 	suite.Equal(len(filtered), 1)
 	suite.Equal(pods[0].Name, "running")
+}
+
+func (suite *Suite) TestFilterByKinds() {
+	foo := util.NewPodWithOwner("default", "foo", v1.PodRunning, "parent-1")
+	foo1 := util.NewPodWithOwner("default", "foo-1", v1.PodRunning, "parent-2")
+	bar := util.NewPodWithOwner("default", "bar", v1.PodRunning, "other-parent")
+	baz := util.NewPod("default", "baz", v1.PodRunning)
+	baz1 := util.NewPod("default", "baz-1", v1.PodRunning)
+
+	for _, tt := range []struct {
+		name     string
+		kinds    string
+		pods     []v1.Pod
+		expected []v1.Pod
+	}{
+		{
+			name:     "2 pods, one with owner ref",
+			kinds:    "testkind",
+			pods:     []v1.Pod{foo, baz},
+			expected: []v1.Pod{foo},
+		},
+		{
+			name:     "5 pods, 3 with owner ref",
+			kinds:    "!testkind",
+			pods:     []v1.Pod{foo, foo1, baz, bar, baz1},
+			expected: []v1.Pod{baz, baz1},
+		},
+		{
+			name:     "3 pods with owner ref, different kind",
+			kinds:    "!testkind",
+			pods:     []v1.Pod{foo, foo1, bar},
+			expected: []v1.Pod{},
+		},
+		{
+			name:     "3 pods with owner ref, different kind",
+			kinds:    "!testkind,!job",
+			pods:     []v1.Pod{foo, baz},
+			expected: []v1.Pod{baz},
+		},
+		{
+			name:     "3 pods with owner ref, different kind",
+			kinds:    "testkind,job",
+			pods:     []v1.Pod{foo, foo1, bar, baz},
+			expected: []v1.Pod{foo, foo1, bar},
+		},
+		{
+			name:     "3 pods with owner ref, different kind",
+			kinds:    "!testkind,job",
+			pods:     []v1.Pod{foo, foo1, bar, baz},
+			expected: []v1.Pod{},
+		},
+		{
+			name:     "3 pods with owner ref, different kind",
+			kinds:    "testkind,!job",
+			pods:     []v1.Pod{foo, foo1, bar, baz},
+			expected: []v1.Pod{foo, foo1, bar},
+		},
+		{
+			name:     "3 pods with owner ref, different kind",
+			kinds:    "job",
+			pods:     []v1.Pod{foo, foo1, bar, baz},
+			expected: []v1.Pod{},
+		},
+	} {
+		kindsSelector, err := labels.Parse(tt.kinds)
+		suite.Require().NoError(err)
+
+		results, err := filterByKinds(tt.pods, kindsSelector)
+		suite.Require().Len(results, len(tt.expected))
+		suite.Require().NoError(err)
+
+		for i, result := range results {
+			suite.Assert().Equal(tt.expected[i], result, tt.name)
+		}
+	}
 }
 
 func (suite *Suite) TestFilterByOwnerReference() {
@@ -1004,6 +1100,7 @@ func (suite *Suite) TestFilterByOwnerReference() {
 
 func (suite *Suite) TestNotifierCall() {
 	chaoskube := suite.setupWithPods(
+		labels.Everything(),
 		labels.Everything(),
 		labels.Everything(),
 		labels.Everything(),

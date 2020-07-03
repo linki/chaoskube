@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/rand"
 	"regexp"
+	"sort"
 	"testing"
 	"time"
 
@@ -969,8 +970,8 @@ func (suite *Suite) TestFilterByOwnerReference() {
 		{
 			seed:     1000,
 			name:     "2 pods, different parents, pick both",
-			pods:     []v1.Pod{foo, bar},
-			expected: []v1.Pod{foo, bar},
+			pods:     []v1.Pod{bar, foo},
+			expected: []v1.Pod{bar, foo},
 		},
 		{
 			seed:     1000,
@@ -990,6 +991,11 @@ func (suite *Suite) TestFilterByOwnerReference() {
 		results := filterByOwnerReference(tt.pods)
 		suite.Require().Len(results, len(tt.expected))
 
+		// ensure returned pods are ordered by name
+		// to make the following assertion work correctly
+		sort.Slice(results, func(i, j int) bool {
+			return results[i].Name < results[j].Name
+		})
 		for i, result := range results {
 			suite.Assert().Equal(tt.expected[i], result, tt.name)
 		}

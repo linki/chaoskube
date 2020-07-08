@@ -1,4 +1,7 @@
 {
+  "gomod": {
+    "enabled": false
+  },
   "kubernetes": {
     "fileMatch": ["examples/.+\\.yaml$"]
   }

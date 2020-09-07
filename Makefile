@@ -10,3 +10,7 @@ endif
 coveralls:
 	roveralls
 	goveralls -coverprofile=roveralls.coverprofile -service=travis-ci
+
+test: check
+
+build: go build -o /bin/chaoskube -v

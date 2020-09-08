@@ -13,4 +13,5 @@ coveralls:
 
 test: check
 
-build: go build -o /bin/chaoskube -v
+build: 
+	go build -o bin/chaoskube -v

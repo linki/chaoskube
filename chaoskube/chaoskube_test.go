@@ -140,29 +140,25 @@ func (suite *Suite) TestCandidates() {
 	for _, tt := range []struct {
 		labelSelector      string
 		annotationSelector string
-		kindSelector       string
 		namespaceSelector  string
 		pods               []map[string]string
 	}{
-		{"", "", "", "", []map[string]string{foo, bar}},
-		{"app=foo", "", "", "", []map[string]string{foo}},
-		{"app!=foo", "", "", "", []map[string]string{bar}},
-		{"", "chaos=foo", "", "", []map[string]string{foo}},
-		{"", "chaos!=foo", "", "", []map[string]string{bar}},
-		{"", "", "", "default", []map[string]string{foo}},
-		{"", "", "", "default,testing", []map[string]string{foo, bar}},
-		{"", "", "", "!testing", []map[string]string{foo}},
-		{"", "", "", "!default,!testing", []map[string]string{}},
-		{"", "", "", "default,!testing", []map[string]string{foo}},
-		{"", "", "", "default,!default", []map[string]string{}},
+		{"", "", "", []map[string]string{foo, bar}},
+		{"app=foo", "", "", []map[string]string{foo}},
+		{"app!=foo", "", "", []map[string]string{bar}},
+		{"", "chaos=foo", "", []map[string]string{foo}},
+		{"", "chaos!=foo", "", []map[string]string{bar}},
+		{"", "", "default", []map[string]string{foo}},
+		{"", "", "default,testing", []map[string]string{foo, bar}},
+		{"", "", "!testing", []map[string]string{foo}},
+		{"", "", "!default,!testing", []map[string]string{}},
+		{"", "", "default,!testing", []map[string]string{foo}},
+		{"", "", "default,!default", []map[string]string{}},
 	} {
 		labelSelector, err := labels.Parse(tt.labelSelector)
 		suite.Require().NoError(err)
 
 		annotationSelector, err := labels.Parse(tt.annotationSelector)
-		suite.Require().NoError(err)
-
-		kindSelector, err := labels.Parse(tt.kindSelector)
 		suite.Require().NoError(err)
 
 		namespaceSelector, err := labels.Parse(tt.namespaceSelector)
@@ -171,7 +167,7 @@ func (suite *Suite) TestCandidates() {
 		chaoskube := suite.setupWithPods(
 			labelSelector,
 			annotationSelector,
-			kindSelector,
+			labels.Everything(),
 			namespaceSelector,
 			labels.Everything(),
 			nil,

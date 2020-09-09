@@ -303,16 +303,6 @@ func filterByKinds(pods []v1.Pod, kinds labels.Selector) ([]v1.Pod, error) {
 	filteredList := []v1.Pod{}
 
 	for _, pod := range pods {
-		// Don't filter out pods with no owner reference
-		if len(pod.GetOwnerReferences()) == 0 && len(reqIncl) == 0 {
-			filteredList = append(filteredList, pod)
-			continue
-		}
-
-		if len(pod.GetOwnerReferences()) == 0 {
-			continue
-		}
-
 		// if there aren't any including requirements, we're in by default
 		included := len(reqIncl) == 0
 

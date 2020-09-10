@@ -38,6 +38,7 @@ var (
 var (
 	labelString        string
 	annString          string
+	kindsString        string
 	nsString           string
 	nsLabelString      string
 	includedPodNames   *regexp.Regexp
@@ -66,6 +67,7 @@ func init() {
 
 	kingpin.Flag("labels", "A set of labels to restrict the list of affected pods. Defaults to everything.").StringVar(&labelString)
 	kingpin.Flag("annotations", "A set of annotations to restrict the list of affected pods. Defaults to everything.").StringVar(&annString)
+	kingpin.Flag("kinds", "A set of kinds to restrict the list of affected pods. Defaults to everything.").StringVar(&kindsString)
 	kingpin.Flag("namespaces", "A set of namespaces to restrict the list of affected pods. Defaults to everything.").StringVar(&nsString)
 	kingpin.Flag("namespace-labels", "A set of labels to restrict the list of affected namespaces. Defaults to everything.").StringVar(&nsLabelString)
 	kingpin.Flag("included-pod-names", "Regular expression that defines which pods to include. All included by default.").RegexpVar(&includedPodNames)
@@ -108,6 +110,7 @@ func main() {
 	log.WithFields(log.Fields{
 		"labels":             labelString,
 		"annotations":        annString,
+		"kinds":              kindsString,
 		"namespaces":         nsString,
 		"namespaceLabels":    nsLabelString,
 		"includedPodNames":   includedPodNames,
@@ -143,6 +146,7 @@ func main() {
 	var (
 		labelSelector   = parseSelector(labelString)
 		annotations     = parseSelector(annString)
+		kinds           = parseSelector(kindsString)
 		namespaces      = parseSelector(nsString)
 		namespaceLabels = parseSelector(nsLabelString)
 	)
@@ -150,6 +154,7 @@ func main() {
 	log.WithFields(log.Fields{
 		"labels":           labelSelector,
 		"annotations":      annotations,
+		"kinds":            kinds,
 		"namespaces":       namespaces,
 		"namespaceLabels":  namespaceLabels,
 		"includedPodNames": includedPodNames,
@@ -201,6 +206,7 @@ func main() {
 		client,
 		labelSelector,
 		annotations,
+		kinds,
 		namespaces,
 		namespaceLabels,
 		includedPodNames,

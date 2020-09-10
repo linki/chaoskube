@@ -101,6 +101,26 @@ INFO[0000] setting pod filter       namespaceLabels="!integration"
 
 This will exclude all pods from namespaces with the label `integration`.
 
+You can filter target pods by [OwnerReference's](https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#OwnerReference) kind selector.
+
+```console
+$ chaoskube --kinds '!DaemonSet,!StatefulSet'
+...
+INFO[0000] setting pod filter       kinds="!DaemonSet,!StatefulSet"
+```
+
+This will exclude any `DaemonSet` and `StatefulSet` pods.
+
+```console
+$ chaoskube --kinds 'DaemonSet'
+...
+INFO[0000] setting pod filter       kinds="DaemonSet"
+```
+
+This will only include any `DaemonSet` pods. 
+
+Please note: any `include` filter will automatically exclude all the pods with no OwnerReference defined.
+
 You can filter pods by name:
 
 ```console
@@ -185,6 +205,7 @@ Use `UTC`, `Local` or pick a timezone name from the [(IANA) tz database](https:/
 | `--interval`              | interval between pod terminations                                    | 10m                        |
 | `--labels`                | label selector to filter pods by                                     | (matches everything)       |
 | `--annotations`           | annotation selector to filter pods by                                | (matches everything)       |
+| `--kinds`                 | owner's kind selector to filter pods by                              | (all kinds)                |
 | `--namespaces`            | namespace selector to filter pods by                                 | (all namespaces)           |
 | `--namespace-labels`      | label selector to filter namespaces and its pods by                  | (all namespaces)           |
 | `--included-pod-names`    | regular expression pattern for pod names to include                  | (all included)             |

@@ -36,6 +36,8 @@ type Chaoskube struct {
 	Labels labels.Selector
 	// an annotation selector which restricts the pods to choose from
 	Annotations labels.Selector
+	// a kind label selector which restricts the kinds to choose from
+	Kinds labels.Selector
 	// a namespace selector which restricts the pods to choose from
 	Namespaces labels.Selector
 	// a namespace label selector which restricts the namespaces to choose from
@@ -56,7 +58,7 @@ type Chaoskube struct {
 	MinimumAge time.Duration
 	// an instance of logrus.StdLogger to write log messages to
 	Logger log.FieldLogger
-	// a terminator that termiantes victim pods
+	// a terminator that terminates victim pods
 	Terminator terminator.Terminator
 	// dry run will not allow any pod terminations
 	DryRun bool
@@ -93,7 +95,7 @@ var (
 // * a logger implementing logrus.FieldLogger to send log output to
 // * what specific terminator to use to imbue chaos on victim pods
 // * whether to enable/disable dry-run mode
-func New(client kubernetes.Interface, labels, annotations, namespaces, namespaceLabels labels.Selector, includedPodNames, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator, maxKill int, notifier notifier.Notifier) *Chaoskube {
+func New(client kubernetes.Interface, labels, annotations, kinds, namespaces, namespaceLabels labels.Selector, includedPodNames, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator, maxKill int, notifier notifier.Notifier) *Chaoskube {
 	broadcaster := record.NewBroadcaster()
 	broadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events(v1.NamespaceAll)})
 	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "chaoskube"})
@@ -102,6 +104,7 @@ func New(client kubernetes.Interface, labels, annotations, namespaces, namespace
 		Client:             client,
 		Labels:             labels,
 		Annotations:        annotations,
+		Kinds:              kinds,
 		Namespaces:         namespaces,
 		NamespaceLabels:    namespaceLabels,
 		IncludedPodNames:   includedPodNames,
@@ -223,6 +226,11 @@ func (c *Chaoskube) Candidates(ctx context.Context) ([]v1.Pod, error) {
 		return nil, err
 	}
 
+	pods, err = filterByKinds(pods, c.Kinds)
+	if err != nil {
+		return nil, err
+	}
+
 	pods = filterByAnnotations(pods, c.Annotations)
 	pods = filterByPhase(pods, v1.PodRunning)
 	pods = filterTerminatingPods(pods)
@@ -267,6 +275,65 @@ func (c *Chaoskube) DeletePod(ctx context.Context, victim v1.Pod) error {
 	}
 
 	return nil
+}
+
+// filterByKinds filters a list of pods by a given kind selector.
+func filterByKinds(pods []v1.Pod, kinds labels.Selector) ([]v1.Pod, error) {
+	// empty filter returns original list
+	if kinds.Empty() {
+		return pods, nil
+	}
+
+	// split requirements into including and excluding groups
+	reqs, _ := kinds.Requirements()
+	reqIncl := []labels.Requirement{}
+	reqExcl := []labels.Requirement{}
+
+	for _, req := range reqs {
+		switch req.Operator() {
+		case selection.Exists:
+			reqIncl = append(reqIncl, req)
+		case selection.DoesNotExist:
+			reqExcl = append(reqExcl, req)
+		default:
+			return nil, fmt.Errorf("unsupported operator: %s", req.Operator())
+		}
+	}
+
+	filteredList := []v1.Pod{}
+
+	for _, pod := range pods {
+		// if there aren't any including requirements, we're in by default
+		included := len(reqIncl) == 0
+
+		// Check owner reference
+		for _, ref := range pod.GetOwnerReferences() {
+			// convert the pod's owner kind to an equivalent label selector
+			selector := labels.Set{ref.Kind: ""}
+
+			// include pod if one including requirement matches
+			for _, req := range reqIncl {
+				if req.Matches(selector) {
+					included = true
+					break
+				}
+			}
+
+			// exclude pod if it is filtered out by at least one excluding requirement
+			for _, req := range reqExcl {
+				if !req.Matches(selector) {
+					included = false
+					break
+				}
+			}
+		}
+
+		if included {
+			filteredList = append(filteredList, pod)
+		}
+	}
+
+	return filteredList, nil
 }
 
 // filterByNamespaces filters a list of pods by a given namespace selector.

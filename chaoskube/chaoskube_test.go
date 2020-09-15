@@ -337,8 +337,8 @@ func (suite *Suite) TestVictims() {
 		victims       []map[string]string
 		maxKill       int
 	}{
-		{"", []map[string]string{bar}, 1},
-		{"", []map[string]string{bar, baz}, 2},
+		{"", []map[string]string{baz}, 1},
+		{"", []map[string]string{baz, bar}, 2},
 		{"app=foo", []map[string]string{foo}, 2},
 	} {
 

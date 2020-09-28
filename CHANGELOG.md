@@ -1,3 +1,16 @@
+## v0.21.0 - 2020-09-28
+
+  Features:
+  * [#224](https://github.com/linki/chaoskube/pull/224) Allow to filter by OwnerReference's Kind @qlikcoe
+
+  Updates:
+  * [#248](https://github.com/linki/chaoskube/pull/248) Added test & build to Makefile @el10savio
+
+## v0.20.0 - 2020-07-03
+
+  Updates:
+  * [#197](https://github.com/linki/chaoskube/pull/197) [#203](https://github.com/linki/chaoskube/pull/203) Fix a bug that caused chaoskube to always kill the same pod of a replicated group of pods @HaveFun83 @linki
+
 ## v0.19.0 - 2020-04-02
 
   Updates:

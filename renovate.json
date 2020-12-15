@@ -1,4 +1,5 @@
 {
+  "extends": ["config:base", "docker:disable"],
   "gomod": {
     "enabled": false
   },

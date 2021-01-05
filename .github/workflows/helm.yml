@@ -1,0 +1,46 @@
+---
+name: helm
+on:
+  push:
+    branches:
+      - master
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      chart: ${{ steps.filter.outputs.chart }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          filters: |
+            chart:
+              - 'chart/chaoskube/Chart.yaml'
+              - 'chart/chaoskube/**/*'
+  chart:
+    name: release chart
+    runs-on: ubuntu-latest
+    needs:
+      - changes
+    if: |
+      needs.changes.outputs.chart == 'true'
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@v2
+        with:
+          # Fetch entire history. Required for chart-releaser; see https://github.com/helm/chart-releaser-action/issues/13#issuecomment-602063896
+          fetch-depth: 0
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+      - name: Run chart-releaser
+        uses: helm/chart-releaser-action@v1.1.0
+        env:
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          CR_RELEASE_NAME_TEMPLATE: "helm-chart-{{ .Version }}"
+        with:
+          charts_dir: chart

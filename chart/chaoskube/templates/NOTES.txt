@@ -1,0 +1,2 @@
+Chaoskube successfully installed in namespace {{ .Release.Namespace }}.
+Please visit https://github.com/linki/chaoskube for further information.

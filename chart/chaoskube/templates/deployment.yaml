@@ -1,0 +1,45 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "chaoskube.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "chaoskube.labels" . | nindent 4 }}
+spec:
+  strategy:
+    type: Recreate
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "chaoskube.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "chaoskube.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "chaoskube.serviceAccountName" . }}
+      containers:
+      - name: {{ .Chart.Name }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- if .Values.chaoskube.env }}
+        env:
+          {{ toYaml .Values.chaoskube.env | indent 8 }}
+        {{- end }}
+        args:
+        {{- range $key, $value := .Values.chaoskube.args }}
+        {{- if $value }}
+        - --{{ $key }}={{ $value }}
+        {{- else }}
+        - --{{ $key }}
+        {{- end }}
+        {{- end }}
+        securityContext:
+          {{- toYaml .Values.podSecurityContext | nindent 10 }}
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}

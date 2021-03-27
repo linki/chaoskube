@@ -48,6 +48,7 @@ var (
 	excludedDaysOfYear string
 	timezone           string
 	minimumAge         time.Duration
+	maxRuntime         time.Duration
 	maxKill            int
 	master             string
 	kubeconfig         string
@@ -77,6 +78,7 @@ func init() {
 	kingpin.Flag("excluded-days-of-year", "A list of days of a year when termination is suspended, e.g. Apr1,Dec24").StringVar(&excludedDaysOfYear)
 	kingpin.Flag("timezone", "The timezone by which to interpret the excluded weekdays and times of day, e.g. UTC, Local, Europe/Berlin. Defaults to UTC.").Default("UTC").StringVar(&timezone)
 	kingpin.Flag("minimum-age", "Minimum age of pods to consider for termination").Default("0s").DurationVar(&minimumAge)
+	kingpin.Flag("max-runtime", "Maximum runtime before chaoskube exits").Default("-1s").DurationVar(&maxRuntime)
 	kingpin.Flag("max-kill", "Specifies the maximum number of pods to be terminated per interval.").Default("1").IntVar(&maxKill)
 	kingpin.Flag("master", "The address of the Kubernetes cluster to target").StringVar(&master)
 	kingpin.Flag("kubeconfig", "Path to a kubeconfig file").StringVar(&kubeconfig)
@@ -120,6 +122,7 @@ func main() {
 		"excludedDaysOfYear": excludedDaysOfYear,
 		"timezone":           timezone,
 		"minimumAge":         minimumAge,
+		"maxRuntime":         maxRuntime,
 		"maxKill":            maxKill,
 		"master":             master,
 		"kubeconfig":         kubeconfig,
@@ -133,9 +136,10 @@ func main() {
 	}).Debug("reading config")
 
 	log.WithFields(log.Fields{
-		"version":  version,
-		"dryRun":   dryRun,
-		"interval": interval,
+		"version":    version,
+		"dryRun":     dryRun,
+		"interval":   interval,
+		"maxRuntime": maxRuntime,
 	}).Info("starting up")
 
 	client, err := newClient()
@@ -230,7 +234,17 @@ func main() {
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, syscall.SIGINT, syscall.SIGTERM)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+
+	if maxRuntime <= 0 {
+		ctx, cancel = context.WithCancel(context.Background())
+	} else {
+		ctx, cancel = context.WithTimeout(context.Background(), time.Duration(maxRuntime))
+	}
+
 	defer cancel()
 
 	go func() {

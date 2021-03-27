@@ -214,6 +214,7 @@ Use `UTC`, `Local` or pick a timezone name from the [(IANA) tz database](https:/
 | `--excluded-times-of-day` | times of day when chaos is to be suspended, e.g. "22:00-08:00"       | (no times of day excluded) |
 | `--excluded-days-of-year` | days of a year when chaos is to be suspended, e.g. "Apr1,Dec24"      | (no days of year excluded) |
 | `--timezone`              | timezone from tz database, e.g. "America/New_York", "UTC" or "Local" | (UTC)                      |
+| `--max-runtime`           | Maximum runtime before chaoskube exits                               | -1s (infinite time)        |
 | `--max-kill`              | Specifies the maximum number of pods to be terminated per interval   | 1                          |
 | `--minimum-age`           | Minimum age to filter pods by                                        | 0s (matches every pod)     |
 | `--dry-run`               | don't kill pods, only log what would have been done                  | true                       |

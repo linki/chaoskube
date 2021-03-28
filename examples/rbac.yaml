@@ -22,3 +22,10 @@ subjects:
 - kind: ServiceAccount
   name: chaoskube
   namespace: default
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: chaoskube
+  labels:
+    app: chaoskube

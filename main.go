@@ -235,12 +235,12 @@ func main() {
 	signal.Notify(done, syscall.SIGINT, syscall.SIGTERM)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	if maxRuntime > -1 {
 		ctx, cancel = context.WithTimeout(ctx, maxRuntime)
-		defer cancel()
 	}
+
+	defer cancel()
 
 	go func() {
 		<-done

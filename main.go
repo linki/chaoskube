@@ -234,18 +234,13 @@ func main() {
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, syscall.SIGINT, syscall.SIGTERM)
 
-	var (
-		ctx    context.Context
-		cancel context.CancelFunc
-	)
-
-	if maxRuntime <= 0 {
-		ctx, cancel = context.WithCancel(context.Background())
-	} else {
-		ctx, cancel = context.WithTimeout(context.Background(), time.Duration(maxRuntime))
-	}
-
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	if maxRuntime > -1 {
+		ctx, cancel = context.WithTimeout(ctx, maxRuntime)
+		defer cancel()
+	}
 
 	go func() {
 		<-done

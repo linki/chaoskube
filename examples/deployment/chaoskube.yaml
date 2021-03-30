@@ -48,12 +48,3 @@ spec:
           readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
-
----
-
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: chaoskube
-  labels:
-    app: chaoskube

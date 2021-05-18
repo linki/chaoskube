@@ -7,11 +7,11 @@ import (
 
 var (
 	// PodsDeletedTotal is the total number of deleted pods.
-	PodsDeletedTotal = promauto.NewCounter(prometheus.CounterOpts{
+	PodsDeletedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "chaoskube",
 		Name:      "pods_deleted_total",
 		Help:      "The total number of pods deleted",
-	})
+	}, []string{"namespace"})
 	// IntervalsTotal is the total number of intervals, i.e. call to Run().
 	IntervalsTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: "chaoskube",

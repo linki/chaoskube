@@ -261,7 +261,7 @@ func (c *Chaoskube) DeletePod(ctx context.Context, victim v1.Pod) error {
 		return err
 	}
 
-	metrics.PodsDeletedTotal.Inc()
+	metrics.PodsDeletedTotal.WithLabelValues(victim.Namespace).Inc()
 
 	ref, err := reference.GetReference(scheme.Scheme, &victim)
 	if err != nil {

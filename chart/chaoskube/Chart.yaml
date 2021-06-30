@@ -13,5 +13,5 @@ maintainers:
     url: https://github.com/linki
   - name: Thomas Gosteli
     url: https://github.com/ghouscht
-version: 0.1.0
-appVersion: 0.21.0
+version: 4.0.0
+appVersion: v0.21.0

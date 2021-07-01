@@ -3,6 +3,7 @@ package util
 import (
 	"fmt"
 	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 
@@ -120,6 +121,35 @@ func ParseDays(days string) ([]time.Time, error) {
 	return parsedDays, nil
 }
 
+// Parses a "frequency" annotation in the form "[number] / [period]" (eg. 1/day)
+// and converts it into a chance of occurrence in any given interval (eg. ~0.007)
+func ParseFrequency(text string, interval time.Duration) (float64, error) {
+	parseablePeriods := map[string]time.Duration{
+		"minute": 1 * time.Minute,
+		"hour":   1 * time.Hour,
+		"day":    24 * time.Hour,
+		"week":   24 * 7 * time.Hour,
+	}
+
+	parts := strings.SplitN(text, "/", 2)
+	for i, p := range parts {
+		parts[i] = strings.TrimSpace(p)
+	}
+
+	frequency, err := strconv.ParseFloat(parts[0], 64)
+	if err != nil {
+		return 0, err
+	}
+
+	period, ok := parseablePeriods[parts[1]]
+	if !ok {
+		return 0, fmt.Errorf("unknown time period, %v", parts[1])
+	}
+
+	chance := (float64(interval) / float64(period)) * frequency
+	return chance, nil
+}
+
 // TimeOfDay normalizes the given point in time by returning a time object that represents the same
 // time of day of the given time but on the very first day (day 0).
 func TimeOfDay(pointInTime time.Time) time.Time {
@@ -133,43 +163,6 @@ func FormatDays(days []time.Time) []string {
 		formattedDays = append(formattedDays, d.Format(YearDay))
 	}
 	return formattedDays
-}
-
-// NewPod returns a new pod instance for testing purposes.
-func NewPod(namespace, name string, phase v1.PodPhase) v1.Pod {
-	return NewPodWithOwner(namespace, name, phase, "")
-}
-
-// NewPodWithOwner returns a new pod instance for testing purposes with a given owner UID
-func NewPodWithOwner(namespace, name string, phase v1.PodPhase, owner types.UID) v1.Pod {
-	pod := v1.Pod{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "Pod",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
-			Labels: map[string]string{
-				"app": name,
-			},
-			Annotations: map[string]string{
-				"chaos": name,
-			},
-			SelfLink: fmt.Sprintf("/api/v1/namespaces/%s/pods/%s", namespace, name),
-		},
-		Status: v1.PodStatus{
-			Phase: phase,
-		},
-	}
-
-	if owner != "" {
-		pod.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
-			{UID: owner, Kind: "testkind"},
-		}
-	}
-
-	return pod
 }
 
 // NewNamespace returns a new namespace instance for testing purposes.
@@ -194,4 +187,78 @@ func RandomPodSubSlice(pods []v1.Pod, count int) []v1.Pod {
 	rand.Shuffle(len(pods), func(i, j int) { pods[i], pods[j] = pods[j], pods[i] })
 	res := pods[0:count]
 	return res
+}
+
+type PodBuilder struct {
+	Name           string
+	Namespace      string
+	Phase          v1.PodPhase
+	OwnerReference *metav1.OwnerReference
+	Labels         map[string]string
+	Annotations    map[string]string
+}
+
+func NewPodBuilder(namespace string, name string) PodBuilder {
+	return PodBuilder{
+		Name:           name,
+		Namespace:      namespace,
+		Phase:          v1.PodRunning,
+		OwnerReference: nil,
+		Annotations:    make(map[string]string),
+		Labels:         make(map[string]string),
+	}
+}
+
+func (b PodBuilder) Build() v1.Pod {
+	pod := v1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Pod",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:   b.Namespace,
+			Name:        b.Name,
+			Labels:      b.Labels,
+			Annotations: b.Annotations,
+			SelfLink: fmt.Sprintf(
+				"/api/v1/namespaces/%s/pods/%s",
+				b.Namespace,
+				b.Name,
+			),
+		},
+		Status: v1.PodStatus{
+			Phase: b.Phase,
+		},
+	}
+
+	if b.OwnerReference != nil {
+		pod.ObjectMeta.OwnerReferences = []metav1.OwnerReference{*b.OwnerReference}
+	}
+
+	return pod
+}
+
+func (b PodBuilder) WithPhase(phase v1.PodPhase) PodBuilder {
+	b.Phase = phase
+	return b
+}
+func (b PodBuilder) WithOwnerReference(ownerReference metav1.OwnerReference) PodBuilder {
+	b.OwnerReference = &ownerReference
+	return b
+}
+func (b PodBuilder) WithOwnerUID(owner types.UID) PodBuilder {
+	b.OwnerReference = &metav1.OwnerReference{UID: owner, Kind: "testkind"}
+	return b
+}
+func (b PodBuilder) WithAnnotations(annotations map[string]string) PodBuilder {
+	b.Annotations = annotations
+	return b
+}
+func (b PodBuilder) WithLabels(labels map[string]string) PodBuilder {
+	b.Labels = labels
+	return b
+}
+func (b PodBuilder) WithFrequency(text string) PodBuilder {
+	b.Annotations["chaos.alpha.kubernetes.io/frequency"] = text
+	return b
 }

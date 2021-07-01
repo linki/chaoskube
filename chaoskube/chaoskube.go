@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"regexp"
 	"time"
 
@@ -32,6 +33,8 @@ import (
 type Chaoskube struct {
 	// a kubernetes client object
 	Client kubernetes.Interface
+	// the interval Chaoskube is configured to run at
+	Interval time.Duration
 	// a label selector which restricts the pods to choose from
 	Labels labels.Selector
 	// an annotation selector which restricts the pods to choose from
@@ -56,6 +59,8 @@ type Chaoskube struct {
 	Timezone *time.Location
 	// minimum age of pods to consider
 	MinimumAge time.Duration
+	// an annotation containing the frequency to kill a pod at
+	FrequencyAnnotation string
 	// an instance of logrus.StdLogger to write log messages to
 	Logger log.FieldLogger
 	// a terminator that terminates victim pods
@@ -68,7 +73,7 @@ type Chaoskube struct {
 	EventRecorder record.EventRecorder
 	// a function to retrieve the current time
 	Now func() time.Time
-
+	// the maximum number of pods to terminate per interval
 	MaxKill int
 	// chaos events notifier
 	Notifier notifier.Notifier
@@ -95,32 +100,34 @@ var (
 // * a logger implementing logrus.FieldLogger to send log output to
 // * what specific terminator to use to imbue chaos on victim pods
 // * whether to enable/disable dry-run mode
-func New(client kubernetes.Interface, labels, annotations, kinds, namespaces, namespaceLabels labels.Selector, includedPodNames, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator, maxKill int, notifier notifier.Notifier) *Chaoskube {
+func New(client kubernetes.Interface, interval time.Duration, labels, annotations, kinds, namespaces, namespaceLabels labels.Selector, includedPodNames, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, frequencyAnnotation string, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator, maxKill int, notifier notifier.Notifier) *Chaoskube {
 	broadcaster := record.NewBroadcaster()
 	broadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events(v1.NamespaceAll)})
 	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "chaoskube"})
 
 	return &Chaoskube{
-		Client:             client,
-		Labels:             labels,
-		Annotations:        annotations,
-		Kinds:              kinds,
-		Namespaces:         namespaces,
-		NamespaceLabels:    namespaceLabels,
-		IncludedPodNames:   includedPodNames,
-		ExcludedPodNames:   excludedPodNames,
-		ExcludedWeekdays:   excludedWeekdays,
-		ExcludedTimesOfDay: excludedTimesOfDay,
-		ExcludedDaysOfYear: excludedDaysOfYear,
-		Timezone:           timezone,
-		MinimumAge:         minimumAge,
-		Logger:             logger,
-		DryRun:             dryRun,
-		Terminator:         terminator,
-		EventRecorder:      recorder,
-		Now:                time.Now,
-		MaxKill:            maxKill,
-		Notifier:           notifier,
+		Client:              client,
+		Interval:            interval,
+		Labels:              labels,
+		Annotations:         annotations,
+		Kinds:               kinds,
+		Namespaces:          namespaces,
+		NamespaceLabels:     namespaceLabels,
+		IncludedPodNames:    includedPodNames,
+		ExcludedPodNames:    excludedPodNames,
+		ExcludedWeekdays:    excludedWeekdays,
+		ExcludedTimesOfDay:  excludedTimesOfDay,
+		ExcludedDaysOfYear:  excludedDaysOfYear,
+		Timezone:            timezone,
+		MinimumAge:          minimumAge,
+		FrequencyAnnotation: frequencyAnnotation,
+		Logger:              logger,
+		DryRun:              dryRun,
+		Terminator:          terminator,
+		EventRecorder:       recorder,
+		Now:                 time.Now,
+		MaxKill:             maxKill,
+		Notifier:            notifier,
 	}
 }
 
@@ -237,6 +244,8 @@ func (c *Chaoskube) Candidates(ctx context.Context) ([]v1.Pod, error) {
 	pods = filterByMinimumAge(pods, c.MinimumAge, c.Now())
 	pods = filterByPodName(pods, c.IncludedPodNames, c.ExcludedPodNames)
 	pods = filterByOwnerReference(pods)
+
+	pods = filterByFrequency(pods, c.FrequencyAnnotation, c.Interval, c.Logger)
 
 	return pods, nil
 }
@@ -529,6 +538,33 @@ func filterByOwnerReference(pods []v1.Pod) []v1.Pod {
 	// For each owner reference select a random pod from its group
 	for _, pods := range owners {
 		filteredList = append(filteredList, util.RandomPodSubSlice(pods, 1)...)
+	}
+
+	return filteredList
+}
+
+func filterByFrequency(pods []v1.Pod, annotation string, interval time.Duration, logger log.FieldLogger) []v1.Pod {
+	if annotation == "" {
+		return pods
+	}
+
+	filteredList := []v1.Pod{}
+	for _, pod := range pods {
+		text, ok := pod.Annotations[annotation]
+
+		// Don't filter out pods missing frequency annotation
+		if !ok {
+			filteredList = append(filteredList, pod)
+		}
+
+		chance, err := util.ParseFrequency(text, interval)
+		if err != nil {
+			logger.WithField("err", err).Warn("failed to parse frequency annotation")
+		}
+
+		if chance > rand.Float64() {
+			filteredList = append(filteredList, pod)
+		}
 	}
 
 	return filteredList

@@ -21,6 +21,9 @@ spec:
       {{- end }}
       labels:
         {{- include "chaoskube.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
     spec:
       serviceAccountName: {{ include "chaoskube.serviceAccountName" . }}
       containers:
@@ -38,6 +41,14 @@ spec:
         {{- else }}
         - --{{ $key }}
         {{- end }}
+        {{- end }}
+        {{- if .Values.chaoskube.metrics.enabled }}
+        - --metrics-address={{ .Values.chaoskube.metrics.port }}
+        {{- end }}
+        {{- if .Values.chaoskube.metrics.enabled }}
+        ports:
+          - name: metrics
+            containerPort: {{ .Values.chaoskube.metrics.port }}
         {{- end }}
         securityContext:
           {{- toYaml .Values.podSecurityContext | nindent 10 }}

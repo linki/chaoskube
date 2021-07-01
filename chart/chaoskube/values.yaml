@@ -12,6 +12,7 @@ image:
 # chaoskube is used to configure chaoskube
 chaoskube:
   env: {}
+
   args:
     # kill a pod every 10 minutes
     interval: "10m"
@@ -36,14 +37,29 @@ chaoskube:
     # terminate pods for real: this disables dry-run mode which is on by default
     no-dry-run: ""
 
+  metrics:
+    enabled: true
+    port: 8080
+
+    service:
+      create: true
+      type: ClusterIP
+
 # serviceAccount can be used to customize the service account which will be crated and used by chaoskube
 serviceAccount:
   create: true
   name: ""
   annotations: {}
 
+# rbac allows configuring the permissions for chaoskube
+rbac:
+  create: true
+
 # podAnnotations can be used to add additional annotations to the pod
 podAnnotations: {}
+
+# podAnnotations can be used to add additional labels to the pod
+podLabels: {}
 
 # podSecurityContext is used to customize the security context of the pod
 podSecurityContext:

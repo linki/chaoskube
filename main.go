@@ -49,6 +49,7 @@ var (
 	timezone            string
 	minimumAge          time.Duration
 	frequencyAnnotation string
+	defaultFrequency    string
 	maxRuntime          time.Duration
 	maxKill             int
 	master              string
@@ -80,6 +81,7 @@ func init() {
 	kingpin.Flag("timezone", "The timezone by which to interpret the excluded weekdays and times of day, e.g. UTC, Local, Europe/Berlin. Defaults to UTC.").Default("UTC").StringVar(&timezone)
 	kingpin.Flag("minimum-age", "Minimum age of pods to consider for termination").Default("0s").DurationVar(&minimumAge)
 	kingpin.Flag("termination-frequency-annotation", "Annotation to look for on pods describing how frequently a pod should be terminated.").StringVar(&frequencyAnnotation)
+	kingpin.Flag("default-termination-frequency", "Default termination frequency to apply to pods without the annotation.").StringVar(&defaultFrequency)
 	kingpin.Flag("max-runtime", "Maximum runtime before chaoskube exits").Default("-1s").DurationVar(&maxRuntime)
 	kingpin.Flag("max-kill", "Specifies the maximum number of pods to be terminated per interval.").Default("1").IntVar(&maxKill)
 	kingpin.Flag("master", "The address of the Kubernetes cluster to target").StringVar(&master)
@@ -125,6 +127,7 @@ func main() {
 		"timezone":            timezone,
 		"minimumAge":          minimumAge,
 		"frequencyAnnotation": frequencyAnnotation,
+		"defaultFrequency":    defaultFrequency,
 		"maxRuntime":          maxRuntime,
 		"maxKill":             maxKill,
 		"master":              master,
@@ -226,6 +229,7 @@ func main() {
 		parsedTimezone,
 		minimumAge,
 		frequencyAnnotation,
+		defaultFrequency,
 		log.StandardLogger(),
 		dryRun,
 		terminator.NewDeletePodTerminator(client, log.StandardLogger(), gracePeriod),

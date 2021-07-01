@@ -62,6 +62,7 @@ func (suite *Suite) TestNew() {
 		excludedDaysOfYear  = []time.Time{time.Now()}
 		minimumAge          = time.Duration(42)
 		frequencyAnnotation = "chaos.alpha.kubernetes.io/frequency"
+		defaultFrequency    = "1 / hour"
 		dryRun              = true
 		terminator          = terminator.NewDeletePodTerminator(client, logger, 10*time.Second)
 		maxKill             = 1
@@ -84,6 +85,7 @@ func (suite *Suite) TestNew() {
 		time.UTC,
 		minimumAge,
 		frequencyAnnotation,
+		defaultFrequency,
 		logger,
 		dryRun,
 		terminator,
@@ -107,6 +109,7 @@ func (suite *Suite) TestNew() {
 	suite.Equal(time.UTC, chaoskube.Timezone)
 	suite.Equal(minimumAge, chaoskube.MinimumAge)
 	suite.Equal("chaos.alpha.kubernetes.io/frequency", chaoskube.FrequencyAnnotation)
+	suite.Equal("1 / hour", chaoskube.DefaultFrequency)
 	suite.Equal(logger, chaoskube.Logger)
 	suite.Equal(dryRun, chaoskube.DryRun)
 	suite.Equal(terminator, chaoskube.Terminator)
@@ -128,6 +131,7 @@ func (suite *Suite) TestRunContextCanceled() {
 		[]time.Time{},
 		time.UTC,
 		time.Duration(0),
+		"",
 		"",
 		false,
 		10,
@@ -187,6 +191,7 @@ func (suite *Suite) TestCandidates() {
 			time.UTC,
 			time.Duration(0),
 			"",
+			"",
 			false,
 			10,
 		)
@@ -234,6 +239,7 @@ func (suite *Suite) TestCandidatesNamespaceLabels() {
 			time.UTC,
 			time.Duration(0),
 			"",
+			"",
 			false,
 			10,
 		)
@@ -279,6 +285,7 @@ func (suite *Suite) TestCandidatesPodNameRegexp() {
 			time.UTC,
 			time.Duration(0),
 			"",
+			"",
 			false,
 			10,
 		)
@@ -320,6 +327,7 @@ func (suite *Suite) TestVictim() {
 			[]time.Time{},
 			time.UTC,
 			time.Duration(0),
+			"",
 			"",
 			false,
 			10,
@@ -376,6 +384,7 @@ func (suite *Suite) TestVictims() {
 			time.UTC,
 			time.Duration(0),
 			"",
+			"",
 			false,
 			10,
 			tt.maxKill,
@@ -402,6 +411,7 @@ func (suite *Suite) TestNoVictimReturnsError() {
 		[]time.Time{},
 		time.UTC,
 		time.Duration(0),
+		"",
 		"",
 		false,
 		10,
@@ -440,6 +450,7 @@ func (suite *Suite) TestDeletePod() {
 			time.UTC,
 			time.Duration(0),
 			"",
+			"",
 			tt.dryRun,
 			10,
 		)
@@ -470,6 +481,7 @@ func (suite *Suite) TestDeletePodNotFound() {
 		[]time.Time{},
 		time.UTC,
 		time.Duration(0),
+		"",
 		"",
 		false,
 		10,
@@ -705,6 +717,7 @@ func (suite *Suite) TestTerminateVictim() {
 			tt.timezone,
 			time.Duration(0),
 			"",
+			"",
 			false,
 			10,
 		)
@@ -736,6 +749,7 @@ func (suite *Suite) TestTerminateNoVictimLogsInfo() {
 		[]time.Time{},
 		time.UTC,
 		time.Duration(0),
+		"",
 		"",
 		false,
 		10,
@@ -774,7 +788,7 @@ func (suite *Suite) assertNotified(notifier *notifier.Noop) {
 	suite.Assert().Greater(notifier.Calls, 0)
 }
 
-func (suite *Suite) setupWithPods(interval time.Duration, labelSelector labels.Selector, annotations labels.Selector, kinds labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, frequencyAnnotation string, dryRun bool, gracePeriod time.Duration) *Chaoskube {
+func (suite *Suite) setupWithPods(interval time.Duration, labelSelector labels.Selector, annotations labels.Selector, kinds labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, frequencyAnnotation string, defaultFrequency string, dryRun bool, gracePeriod time.Duration) *Chaoskube {
 	chaoskube := suite.setup(
 		10*time.Minute,
 		labelSelector,
@@ -790,6 +804,7 @@ func (suite *Suite) setupWithPods(interval time.Duration, labelSelector labels.S
 		timezone,
 		minimumAge,
 		frequencyAnnotation,
+		defaultFrequency,
 		dryRun,
 		gracePeriod,
 		1,
@@ -828,7 +843,7 @@ func (suite *Suite) createPods(client kubernetes.Interface, podsInfo []podInfo) 
 	}
 }
 
-func (suite *Suite) setup(interval time.Duration, labelSelector labels.Selector, annotations labels.Selector, kinds labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, frequencyAnnotation string, dryRun bool, gracePeriod time.Duration, maxKill int) *Chaoskube {
+func (suite *Suite) setup(interval time.Duration, labelSelector labels.Selector, annotations labels.Selector, kinds labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, frequencyAnnotation string, defaultFrequency string, dryRun bool, gracePeriod time.Duration, maxKill int) *Chaoskube {
 	logOutput.Reset()
 
 	client := fake.NewSimpleClientset()
@@ -850,6 +865,7 @@ func (suite *Suite) setup(interval time.Duration, labelSelector labels.Selector,
 		timezone,
 		minimumAge,
 		frequencyAnnotation,
+		defaultFrequency,
 		logger,
 		dryRun,
 		terminator.NewDeletePodTerminator(client, nullLogger, gracePeriod),
@@ -958,6 +974,7 @@ func (suite *Suite) TestMinimumAge() {
 			[]time.Time{},
 			time.UTC,
 			tt.minimumAge,
+			"",
 			"",
 			false,
 			10,
@@ -1138,31 +1155,38 @@ func (suite *Suite) TestFilterByFrequency() {
 	baz := util.NewPodBuilder("default", "baz").Build()
 
 	pods := []v1.Pod{foo, foo1, bar, baz}
-	alwaysExpected := []v1.Pod{foo1, baz}
 
 	for _, tt := range []struct {
-		seed     int64
-		expected []v1.Pod
+		seed             int64
+		expected         []v1.Pod
+		defaultFrequency string
 	}{
 		{
-			seed:     1000,
-			expected: []v1.Pod{},
+			seed:             1000,
+			expected:         []v1.Pod{foo1, baz},
+			defaultFrequency: "",
 		},
 		{
-			seed:     3000,
-			expected: []v1.Pod{foo},
+			seed:             3000,
+			expected:         []v1.Pod{foo, foo1, baz},
+			defaultFrequency: "",
 		},
 		{
-			seed:     4000,
-			expected: []v1.Pod{bar},
+			seed:             4000,
+			expected:         []v1.Pod{foo1, bar, baz},
+			defaultFrequency: "",
+		},
+		{
+			seed:             1000,
+			expected:         []v1.Pod{foo1},
+			defaultFrequency: "0.1 / hour", // Should force pod to be terminated every interval
 		},
 	} {
-		expected := append(tt.expected, alwaysExpected...)
-
 		rand.Seed(tt.seed)
-		results := filterByFrequency(pods, "chaos.alpha.kubernetes.io/frequency", interval, logger)
+		results := filterByFrequency(pods, "chaos.alpha.kubernetes.io/frequency",
+			tt.defaultFrequency, interval, logger)
 
-		suite.Assert().ElementsMatch(results, expected)
+		suite.Assert().ElementsMatch(tt.expected, results)
 	}
 }
 
@@ -1181,6 +1205,7 @@ func (suite *Suite) TestNotifierCall() {
 		[]time.Time{},
 		time.UTC,
 		time.Duration(0),
+		"",
 		"",
 		false,
 		10,

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/rand"
 	"regexp"
-	"strings"
 	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
@@ -94,6 +93,8 @@ var (
 	msgTimeOfDayExcluded = "time of day excluded"
 	// msgDayOfYearExcluded is the log message when termination is suspended due to the day of year filter
 	msgDayOfYearExcluded = "day of year excluded"
+	// msgFailedToParseAnnotation is the log message when a filter fails to parse a pod annotation
+	msgFailedToParseAnnotation = "failed to parse annotation, '%v', excluding from candidates"
 )
 
 // New returns a new instance of Chaoskube. It expects:
@@ -181,7 +182,7 @@ func (c *Chaoskube) TerminateVictims(ctx context.Context) error {
 		}
 	}
 
-	victims, err := c.Victims(ctx)
+	victims, err := c.Victims(ctx, now)
 	if err == errPodNotFound {
 		c.Logger.Debug(msgVictimNotFound)
 		return nil
@@ -200,8 +201,8 @@ func (c *Chaoskube) TerminateVictims(ctx context.Context) error {
 }
 
 // Victims returns up to N pods as configured by MaxKill flag
-func (c *Chaoskube) Victims(ctx context.Context) ([]v1.Pod, error) {
-	pods, err := c.Candidates(ctx)
+func (c *Chaoskube) Victims(ctx context.Context, now time.Time) ([]v1.Pod, error) {
+	pods, err := c.Candidates(ctx, now)
 	if err != nil {
 		return []v1.Pod{}, err
 	}
@@ -220,7 +221,7 @@ func (c *Chaoskube) Victims(ctx context.Context) ([]v1.Pod, error) {
 
 // Candidates returns the list of pods that are available for termination.
 // It returns all pods that match the configured label, annotation and namespace selectors.
-func (c *Chaoskube) Candidates(ctx context.Context) ([]v1.Pod, error) {
+func (c *Chaoskube) Candidates(ctx context.Context, now time.Time) ([]v1.Pod, error) {
 	listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
 
 	podList, err := c.Client.CoreV1().Pods(v1.NamespaceAll).List(ctx, listOptions)
@@ -248,24 +249,11 @@ func (c *Chaoskube) Candidates(ctx context.Context) ([]v1.Pod, error) {
 	pods = filterTerminatingPods(pods)
 	pods = filterByPodName(pods, c.IncludedPodNames, c.ExcludedPodNames)
 
-	pods = filterByMinimumAge(
-		pods,
-		strings.Join([]string{c.ConfigAnnotationPrefix, "minimum-age"}, "/"),
-		c.MinimumAge,
-		c.Now(),
-		c.Logger,
-	)
-
-	pods = filterByFrequency(
-		pods,
-		strings.Join([]string{c.ConfigAnnotationPrefix, "frequency"}, "/"),
-		c.DefaultFrequency,
-		c.Interval,
-		c.Logger,
-	)
+	pods = filterByMinimumAge(pods, c.ConfigAnnotationPrefix, c.MinimumAge, c.Now(), c.Logger)
+	pods = filterByFrequency(pods, c.ConfigAnnotationPrefix, c.DefaultFrequency, c.Interval, c.Logger)
+	pods = filterByTime(pods, c.ConfigAnnotationPrefix, now, c.Logger)
 
 	pods = filterByOwnerReference(pods)
-
 	return pods, nil
 }
 
@@ -498,10 +486,12 @@ func filterTerminatingPods(pods []v1.Pod) []v1.Pod {
 
 // filterByMinimumAge filters pods by creation time. Only pods
 // older than minimumAge are returned
-func filterByMinimumAge(pods []v1.Pod, annotation string, minimumAge time.Duration, now time.Time, logger log.FieldLogger) []v1.Pod {
-	if annotation == "" && minimumAge <= time.Duration(0) {
+func filterByMinimumAge(pods []v1.Pod, annotationPrefix string, minimumAge time.Duration, now time.Time, logger log.FieldLogger) []v1.Pod {
+	if annotationPrefix == "" && minimumAge <= time.Duration(0) {
 		return pods
 	}
+
+	annotation := util.FormatAnnotation(annotationPrefix, "minimum-age")
 
 	defaultCreationTime := now.Add(-minimumAge)
 	filteredList := []v1.Pod{}
@@ -514,7 +504,7 @@ func filterByMinimumAge(pods []v1.Pod, annotation string, minimumAge time.Durati
 		if ok {
 			minimumAgeOverride, err := time.ParseDuration(text)
 			if err != nil {
-				logger.WithField("err", err).Warn("failed to parse frequency annotation, excluding from candidates")
+				logger.WithField("err", err).Warnf(msgFailedToParseAnnotation, annotation)
 				continue
 			}
 
@@ -575,10 +565,12 @@ func filterByOwnerReference(pods []v1.Pod) []v1.Pod {
 	return filteredList
 }
 
-func filterByFrequency(pods []v1.Pod, annotation string, defaultFrequency string, interval time.Duration, logger log.FieldLogger) []v1.Pod {
-	if annotation == "" && defaultFrequency == "" {
+func filterByFrequency(pods []v1.Pod, annotationPrefix string, defaultFrequency string, interval time.Duration, logger log.FieldLogger) []v1.Pod {
+	if annotationPrefix == "" && defaultFrequency == "" {
 		return pods
 	}
+
+	annotation := util.FormatAnnotation(annotationPrefix, "frequency")
 
 	filteredList := []v1.Pod{}
 	for _, pod := range pods {
@@ -596,13 +588,91 @@ func filterByFrequency(pods []v1.Pod, annotation string, defaultFrequency string
 
 		chance, err := util.ParseFrequency(text, interval)
 		if err != nil {
-			logger.WithField("err", err).Warn("failed to parse frequency annotation, excluding from candidates")
+			logger.WithField("err", err).Warnf(msgFailedToParseAnnotation, annotation)
 			continue
 		}
 
 		if chance > rand.Float64() {
 			filteredList = append(filteredList, pod)
 		}
+	}
+
+	return filteredList
+}
+
+func filterByTime(pods []v1.Pod, annotationPrefix string, now time.Time, logger log.FieldLogger) []v1.Pod {
+	if annotationPrefix == "" {
+		return pods
+	}
+
+	timezoneAnnotation := util.FormatAnnotation(annotationPrefix, "timezone")
+	weekdaysAnnotation := util.FormatAnnotation(annotationPrefix, "excluded-weekdays")
+	timesOfDayAnnotation := util.FormatAnnotation(annotationPrefix, "excluded-times-of-day")
+	daysOfYearAnnotation := util.FormatAnnotation(annotationPrefix, "excluded-days-of-year")
+
+	filteredList := []v1.Pod{}
+
+checkingPods:
+	for _, pod := range pods {
+		localNow := now
+
+		text, ok := pod.Annotations[timezoneAnnotation]
+		if ok {
+			location, err := time.LoadLocation(text)
+			if err != nil {
+				logger.WithField("err", err).WithField("pod-name", pod.Name).WithField("pod-namespace", pod.Namespace).
+					Warnf(msgFailedToParseAnnotation, timezoneAnnotation)
+
+				continue checkingPods
+			}
+
+			localNow = localNow.In(location)
+		}
+
+		// Weekdays
+		text, ok = pod.Annotations[weekdaysAnnotation]
+		if ok {
+			days := util.ParseWeekdays(text)
+			for _, wd := range days {
+				if wd == localNow.Weekday() {
+					continue checkingPods
+				}
+			}
+		}
+
+		// Times of day
+		text, ok = pod.Annotations[timesOfDayAnnotation]
+		if ok {
+			periods, err := util.ParseTimePeriods(text)
+			if err != nil {
+				logger.WithField("err", err).Warnf(msgFailedToParseAnnotation, timesOfDayAnnotation)
+				continue checkingPods
+			}
+
+			for _, tp := range periods {
+				if tp.Includes(localNow) {
+					continue checkingPods
+				}
+			}
+		}
+
+		// Days of year
+		text, ok = pod.Annotations[daysOfYearAnnotation]
+		if ok {
+			days, err := util.ParseDays(text)
+			if err != nil {
+				logger.WithField("err", err).Warnf(msgFailedToParseAnnotation, daysOfYearAnnotation)
+				continue checkingPods
+			}
+
+			for _, d := range days {
+				if d.Day() == localNow.Day() && d.Month() == localNow.Month() {
+					continue checkingPods
+				}
+			}
+		}
+
+		filteredList = append(filteredList, pod)
 	}
 
 	return filteredList

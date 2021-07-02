@@ -167,6 +167,10 @@ func FormatDays(days []time.Time) []string {
 	return formattedDays
 }
 
+func FormatAnnotation(prefix, name string) string {
+	return strings.Join([]string{prefix, name}, "/")
+}
+
 // NewNamespace returns a new namespace instance for testing purposes.
 func NewNamespace(name string) v1.Namespace {
 	return v1.Namespace{
@@ -278,6 +282,30 @@ func (b PodBuilder) WithFrequency(text string) PodBuilder {
 }
 func (b PodBuilder) WithMinimumAge(text string) PodBuilder {
 	annotation := strings.Join([]string{DefaultBaseAnnotation, "minimum-age"}, "/")
+
+	b.Annotations[annotation] = text
+	return b
+}
+func (b PodBuilder) WithTimezone(text string) PodBuilder {
+	annotation := strings.Join([]string{DefaultBaseAnnotation, "timezone"}, "/")
+
+	b.Annotations[annotation] = text
+	return b
+}
+func (b PodBuilder) WithExcludedWeekdays(text string) PodBuilder {
+	annotation := strings.Join([]string{DefaultBaseAnnotation, "excluded-weekdays"}, "/")
+
+	b.Annotations[annotation] = text
+	return b
+}
+func (b PodBuilder) WithExcludedTimesOfDay(text string) PodBuilder {
+	annotation := strings.Join([]string{DefaultBaseAnnotation, "excluded-times-of-day"}, "/")
+
+	b.Annotations[annotation] = text
+	return b
+}
+func (b PodBuilder) WithExcludedDaysOfYear(text string) PodBuilder {
+	annotation := strings.Join([]string{DefaultBaseAnnotation, "excluded-days-of-year"}, "/")
 
 	b.Annotations[annotation] = text
 	return b

@@ -5,7 +5,6 @@ import (
 	"math/rand"
 	"regexp"
 	"sort"
-	"strings"
 	"testing"
 	"time"
 
@@ -419,7 +418,7 @@ func (suite *Suite) TestNoVictimReturnsError() {
 		1,
 	)
 
-	_, err := chaoskube.Victims(context.Background())
+	_, err := chaoskube.Victims(context.Background(), time.Now())
 	suite.Equal(err, errPodNotFound)
 	suite.EqualError(err, "pod not found")
 }
@@ -727,7 +726,7 @@ func (suite *Suite) TestTerminateVictim() {
 		err := chaoskube.TerminateVictims(context.Background())
 		suite.Require().NoError(err)
 
-		pods, err := chaoskube.Candidates(context.Background())
+		pods, err := chaoskube.Candidates(context.Background(), time.Now())
 		suite.Require().NoError(err)
 
 		suite.Len(pods, tt.remainingPodCount)
@@ -766,14 +765,14 @@ func (suite *Suite) TestTerminateNoVictimLogsInfo() {
 // helper functions
 
 func (suite *Suite) assertCandidates(chaoskube *Chaoskube, expected []map[string]string) {
-	pods, err := chaoskube.Candidates(context.Background())
+	pods, err := chaoskube.Candidates(context.Background(), time.Now())
 	suite.Require().NoError(err)
 
 	suite.AssertPods(pods, expected)
 }
 
 func (suite *Suite) assertVictims(chaoskube *Chaoskube, expected []map[string]string) {
-	victims, err := chaoskube.Victims(context.Background())
+	victims, err := chaoskube.Victims(context.Background(), time.Now())
 	suite.Require().NoError(err)
 
 	for i, victim := range victims {
@@ -940,11 +939,11 @@ func (suite *Suite) TestMinimumAge() {
 			[]v1.Pod{overriddenMinAge},
 		},
 	} {
-		annotation := strings.Join([]string{util.DefaultBaseAnnotation, "minimum-age"}, "/")
-		pods := filterByMinimumAge(tt.pods, annotation,
+		pods := filterByMinimumAge(tt.pods, util.DefaultBaseAnnotation,
 			tt.minimumAge, now, logger)
 
-		suite.Assert().ElementsMatch(tt.expected, pods)
+		suite.Assert().ElementsMatch(tt.expected, pods,
+			"minimum-age: %v", tt.minimumAge)
 	}
 }
 
@@ -1136,11 +1135,77 @@ func (suite *Suite) TestFilterByFrequency() {
 	} {
 		rand.Seed(tt.seed)
 
-		annotation := strings.Join([]string{util.DefaultBaseAnnotation, "frequency"}, "/")
-		results := filterByFrequency(pods, annotation,
+		results := filterByFrequency(pods, util.DefaultBaseAnnotation,
 			tt.defaultFrequency, interval, logger)
 
-		suite.Assert().ElementsMatch(tt.expected, results)
+		suite.Assert().ElementsMatch(tt.expected, results,
+			"seed: %v, default: %v", tt.seed, tt.defaultFrequency)
+	}
+}
+
+func (suite *Suite) TestFilterByWeekdays() {
+	logger, _ := test.NewNullLogger()
+	now := ThankGodItsFriday{}.Now()
+
+	brisbane := "Australia/Brisbane"
+	brisbaneTimezone, _ := time.LoadLocation(brisbane)
+
+	noExcludes := util.NewPodBuilder("default", "no-excludes").Build()
+
+	neverFriday := util.NewPodBuilder("default", "never-friday").
+		WithExcludedWeekdays("Fri").Build()
+	neverBeforeFridayBrisbane := util.NewPodBuilder("default", "never-before-friday").
+		WithExcludedWeekdays("Mon,Tue,Wed,Thu").WithTimezone(brisbane).Build()
+
+	neverAt3pm := util.NewPodBuilder("default", "never-at-3pm").
+		WithExcludedTimesOfDay("15:00-16:00").Build()
+	neverAt8amBrisbane := util.NewPodBuilder("default", "never-at-8am-brisbane").
+		WithExcludedTimesOfDay("08:00-09:00").WithTimezone(brisbane).Build()
+
+	neverOnSept24th := util.NewPodBuilder("default", "never-on-sept-24").
+		WithExcludedDaysOfYear("Sep24").Build()
+	neverOnSept28thBrisbane := util.NewPodBuilder("default", "never-on-sept-28-brisbane").
+		WithExcludedDaysOfYear("Sep28").WithTimezone(brisbane).Build()
+
+	pods := []v1.Pod{
+		noExcludes,
+		neverFriday,
+		neverBeforeFridayBrisbane,
+		neverAt3pm,
+		neverAt8amBrisbane,
+		neverOnSept24th,
+		neverOnSept28thBrisbane,
+	}
+
+	for _, tt := range []struct {
+		now      time.Time
+		expected []v1.Pod
+	}{
+		{
+			now:      now,
+			expected: []v1.Pod{noExcludes, neverBeforeFridayBrisbane, neverAt8amBrisbane, neverOnSept28thBrisbane},
+		},
+		{
+			now:      now.Add(2 * time.Hour),
+			expected: []v1.Pod{noExcludes, neverBeforeFridayBrisbane, neverAt3pm, neverAt8amBrisbane, neverOnSept28thBrisbane},
+		},
+		{
+			now:      now.Add(7 * time.Hour),
+			expected: []v1.Pod{noExcludes, neverBeforeFridayBrisbane, neverAt3pm, neverOnSept28thBrisbane},
+		},
+		{
+			now:      now.AddDate(0, 0, 1),
+			expected: []v1.Pod{noExcludes, neverFriday, neverBeforeFridayBrisbane, neverAt8amBrisbane, neverOnSept24th, neverOnSept28thBrisbane},
+		},
+		{
+			now:      now.AddDate(0, 0, 4),
+			expected: []v1.Pod{noExcludes, neverFriday, neverAt8amBrisbane, neverOnSept24th, neverOnSept28thBrisbane},
+		},
+	} {
+		results := filterByTime(pods, util.DefaultBaseAnnotation, tt.now, logger)
+
+		suite.Assert().ElementsMatch(tt.expected, results,
+			"now: %v, now (brisbane): %v, weekday; %v", tt.now, tt.now.In(brisbaneTimezone), tt.now.Weekday().String())
 	}
 }
 

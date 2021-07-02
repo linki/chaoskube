@@ -15,9 +15,9 @@ import (
 	"syscall"
 	"time"
 
-	"gopkg.in/alecthomas/kingpin.v2"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
+	"gopkg.in/alecthomas/kingpin.v2"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -36,30 +36,32 @@ var (
 )
 
 var (
-	labelString        string
-	annString          string
-	kindsString        string
-	nsString           string
-	nsLabelString      string
-	includedPodNames   *regexp.Regexp
-	excludedPodNames   *regexp.Regexp
-	excludedWeekdays   string
-	excludedTimesOfDay string
-	excludedDaysOfYear string
-	timezone           string
-	minimumAge         time.Duration
-	maxRuntime         time.Duration
-	maxKill            int
-	master             string
-	kubeconfig         string
-	interval           time.Duration
-	dryRun             bool
-	debug              bool
-	metricsAddress     string
-	gracePeriod        time.Duration
-	logFormat          string
-	logCaller          bool
-	slackWebhook       string
+	labelString            string
+	annString              string
+	kindsString            string
+	nsString               string
+	nsLabelString          string
+	includedPodNames       *regexp.Regexp
+	excludedPodNames       *regexp.Regexp
+	excludedWeekdays       string
+	excludedTimesOfDay     string
+	excludedDaysOfYear     string
+	timezone               string
+	minimumAge             time.Duration
+	configAnnotationPrefix string
+	defaultFrequency       string
+	maxRuntime             time.Duration
+	maxKill                int
+	master                 string
+	kubeconfig             string
+	interval               time.Duration
+	dryRun                 bool
+	debug                  bool
+	metricsAddress         string
+	gracePeriod            time.Duration
+	logFormat              string
+	logCaller              bool
+	slackWebhook           string
 )
 
 func init() {
@@ -78,6 +80,8 @@ func init() {
 	kingpin.Flag("excluded-days-of-year", "A list of days of a year when termination is suspended, e.g. Apr1,Dec24").StringVar(&excludedDaysOfYear)
 	kingpin.Flag("timezone", "The timezone by which to interpret the excluded weekdays and times of day, e.g. UTC, Local, Europe/Berlin. Defaults to UTC.").Default("UTC").StringVar(&timezone)
 	kingpin.Flag("minimum-age", "Minimum age of pods to consider for termination").Default("0s").DurationVar(&minimumAge)
+	kingpin.Flag("config-annotation-prefix", "Annotation prefix to use when looking for configuration overrides in pod annotations. Defaults to 'chaos.alpha.kubernetes.io'.").Default(util.DefaultBaseAnnotation).StringVar(&configAnnotationPrefix)
+	kingpin.Flag("default-termination-frequency", "Default termination frequency to apply to pods without the annotation.").StringVar(&defaultFrequency)
 	kingpin.Flag("max-runtime", "Maximum runtime before chaoskube exits").Default("-1s").DurationVar(&maxRuntime)
 	kingpin.Flag("max-kill", "Specifies the maximum number of pods to be terminated per interval.").Default("1").IntVar(&maxKill)
 	kingpin.Flag("master", "The address of the Kubernetes cluster to target").StringVar(&master)
@@ -110,29 +114,31 @@ func main() {
 	log.SetReportCaller(logCaller)
 
 	log.WithFields(log.Fields{
-		"labels":             labelString,
-		"annotations":        annString,
-		"kinds":              kindsString,
-		"namespaces":         nsString,
-		"namespaceLabels":    nsLabelString,
-		"includedPodNames":   includedPodNames,
-		"excludedPodNames":   excludedPodNames,
-		"excludedWeekdays":   excludedWeekdays,
-		"excludedTimesOfDay": excludedTimesOfDay,
-		"excludedDaysOfYear": excludedDaysOfYear,
-		"timezone":           timezone,
-		"minimumAge":         minimumAge,
-		"maxRuntime":         maxRuntime,
-		"maxKill":            maxKill,
-		"master":             master,
-		"kubeconfig":         kubeconfig,
-		"interval":           interval,
-		"dryRun":             dryRun,
-		"debug":              debug,
-		"metricsAddress":     metricsAddress,
-		"gracePeriod":        gracePeriod,
-		"logFormat":          logFormat,
-		"slackWebhook":       slackWebhook,
+		"labels":                 labelString,
+		"annotations":            annString,
+		"kinds":                  kindsString,
+		"namespaces":             nsString,
+		"namespaceLabels":        nsLabelString,
+		"includedPodNames":       includedPodNames,
+		"excludedPodNames":       excludedPodNames,
+		"excludedWeekdays":       excludedWeekdays,
+		"excludedTimesOfDay":     excludedTimesOfDay,
+		"excludedDaysOfYear":     excludedDaysOfYear,
+		"timezone":               timezone,
+		"minimumAge":             minimumAge,
+		"configAnnotationPrefix": configAnnotationPrefix,
+		"defaultFrequency":       defaultFrequency,
+		"maxRuntime":             maxRuntime,
+		"maxKill":                maxKill,
+		"master":                 master,
+		"kubeconfig":             kubeconfig,
+		"interval":               interval,
+		"dryRun":                 dryRun,
+		"debug":                  debug,
+		"metricsAddress":         metricsAddress,
+		"gracePeriod":            gracePeriod,
+		"logFormat":              logFormat,
+		"slackWebhook":           slackWebhook,
 	}).Debug("reading config")
 
 	log.WithFields(log.Fields{
@@ -156,15 +162,16 @@ func main() {
 	)
 
 	log.WithFields(log.Fields{
-		"labels":           labelSelector,
-		"annotations":      annotations,
-		"kinds":            kinds,
-		"namespaces":       namespaces,
-		"namespaceLabels":  namespaceLabels,
-		"includedPodNames": includedPodNames,
-		"excludedPodNames": excludedPodNames,
-		"minimumAge":       minimumAge,
-		"maxKill":          maxKill,
+		"labels":                 labelSelector,
+		"annotations":            annotations,
+		"kinds":                  kinds,
+		"namespaces":             namespaces,
+		"namespaceLabels":        namespaceLabels,
+		"includedPodNames":       includedPodNames,
+		"excludedPodNames":       excludedPodNames,
+		"minimumAge":             minimumAge,
+		"configAnnotationPrefix": configAnnotationPrefix,
+		"maxKill":                maxKill,
 	}).Info("setting pod filter")
 
 	parsedWeekdays := util.ParseWeekdays(excludedWeekdays)
@@ -208,6 +215,7 @@ func main() {
 
 	chaoskube := chaoskube.New(
 		client,
+		interval,
 		labelSelector,
 		annotations,
 		kinds,
@@ -220,6 +228,8 @@ func main() {
 		parsedDaysOfYear,
 		parsedTimezone,
 		minimumAge,
+		configAnnotationPrefix,
+		defaultFrequency,
 		log.StandardLogger(),
 		dryRun,
 		terminator.NewDeletePodTerminator(client, log.StandardLogger(), gracePeriod),

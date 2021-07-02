@@ -366,6 +366,34 @@ func (suite *Suite) TestParseDates() {
 	}
 }
 
+func (suite *Suite) TestParseFrequency() {
+	interval := 10 * time.Minute
+
+	for _, tt := range []struct {
+		given          string
+		expectedApprox float64
+	}{
+		{
+			"1 / hour",
+			0.166666667,
+		}, {
+			"1 / minute",
+			10.0,
+		}, {
+			"2.5 / hour",
+			0.416666667,
+		}, {
+			"60 / day",
+			0.416666667,
+		},
+	} {
+		result, err := ParseFrequency(tt.given, interval)
+		suite.Require().NoError(err)
+
+		suite.Assert().InDelta(tt.expectedApprox, result, 0.001)
+	}
+}
+
 func (suite *Suite) TestFormatDays() {
 	for _, tt := range []struct {
 		given    []time.Time
@@ -389,7 +417,8 @@ func (suite *Suite) TestFormatDays() {
 }
 
 func (suite *Suite) TestNewPod() {
-	pod := NewPod("namespace", "name", "phase")
+	pod := NewPodBuilder("namespace", "name").
+		WithPhase("phase").Build()
 
 	suite.Equal("v1", pod.APIVersion)
 	suite.Equal("Pod", pod.Kind)
@@ -410,9 +439,9 @@ func (suite *Suite) TestNewNamespace() {
 
 func (suite *Suite) TestRandomPodSublice() {
 	pods := []v1.Pod{
-		NewPod("default", "foo", v1.PodRunning),
-		NewPod("testing", "bar", v1.PodRunning),
-		NewPod("test", "baz", v1.PodRunning),
+		NewPodBuilder("default", "foo").Build(),
+		NewPodBuilder("testing", "bar").Build(),
+		NewPodBuilder("test", "baz").Build(),
 	}
 
 	for _, tt := range []struct {

@@ -5,8 +5,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	v1 "k8s.io/api/core/v1"
-
 	"github.com/linki/chaoskube/internal/testutil"
 	"github.com/linki/chaoskube/util"
 
@@ -28,7 +26,7 @@ func (suite *SlackSuite) TestSlackNotificationForTerminationStatusOk() {
 	}))
 	defer testServer.Close()
 
-	testPod := util.NewPod("chaos", "chaos-57df4db6b-h9ktj", v1.PodRunning)
+	testPod := util.NewPodBuilder("chaos", "chaos-57df4db6b-h9ktj").Build()
 
 	slack := NewSlackNotifier(testServer.URL + webhookPath)
 	err := slack.NotifyPodTermination(testPod)
@@ -47,7 +45,7 @@ func (suite *SlackSuite) TestSlackNotificationForTerminationStatus500() {
 	}))
 	defer testServer.Close()
 
-	testPod := util.NewPod("chaos", "chaos-57df4db6b-h9ktj", v1.PodRunning)
+	testPod := util.NewPodBuilder("chaos", "chaos-57df4db6b-h9ktj").Build()
 
 	slack := NewSlackNotifier(testServer.URL + webhookPath)
 	err := slack.NotifyPodTermination(testPod)

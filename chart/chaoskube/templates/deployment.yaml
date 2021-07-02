@@ -22,9 +22,12 @@ spec:
       labels:
         {{- include "chaoskube.selectorLabels" . | nindent 8 }}
         {{- with .Values.podAnnotations }}
-        {{- toYaml . | nindent 8 }}
+        {{- toYaml . | indent 8 }}
         {{- end }}
     spec:
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 6 }}
+      {{- end }}
       serviceAccountName: {{ include "chaoskube.serviceAccountName" . }}
       containers:
       - name: {{ .Chart.Name }}

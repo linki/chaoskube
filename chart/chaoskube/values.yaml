@@ -5,7 +5,10 @@ replicaCount: 1
 # image specifies image location, tag and pullPolicy
 image:
   repository: quay.io/linki/chaoskube
+
   pullPolicy: IfNotPresent
+  pullSecrets: []
+
   # Provide digest of specific image to run
   digest: ""
   # Overrides the image tag whose default is the chart appVersion.

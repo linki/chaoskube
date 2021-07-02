@@ -821,7 +821,7 @@ func (suite *Suite) setupWithPods(interval time.Duration, labelSelector labels.S
 	pods := []v1.Pod{
 		util.NewPodBuilder("default", "foo").Build(),
 		util.NewPodBuilder("testing", "bar").Build(),
-		util.NewPodBuilder("testing", "baz").Build(), // Non-running pods are ignored
+		util.NewPodBuilder("testing", "baz").WithPhase(v1.PodPending).Build(), // Non-running pods are ignored
 	}
 
 	for _, pod := range pods {

@@ -17,7 +17,7 @@ const (
 	Kitchen24 = "15:04"
 	// a time format that just cares about the day and month.
 	YearDay = "Jan_2"
-
+	// default annotation prefix for configuration overrides
 	DefaultBaseAnnotation = "chaos.alpha.kubernetes.io"
 )
 
@@ -212,8 +212,8 @@ func NewPodBuilder(namespace string, name string) PodBuilder {
 		Phase:          v1.PodRunning,
 		CreationTime:   nil,
 		OwnerReference: nil,
-		Annotations:    make(map[string]string),
-		Labels:         make(map[string]string),
+		Annotations:    map[string]string{"chaos": name},
+		Labels:         map[string]string{"app": name},
 	}
 }
 

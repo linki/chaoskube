@@ -195,6 +195,7 @@ type PodBuilder struct {
 	Name           string
 	Namespace      string
 	Phase          v1.PodPhase
+	CreationTime   *time.Time
 	OwnerReference *metav1.OwnerReference
 	Labels         map[string]string
 	Annotations    map[string]string
@@ -205,6 +206,7 @@ func NewPodBuilder(namespace string, name string) PodBuilder {
 		Name:           name,
 		Namespace:      namespace,
 		Phase:          v1.PodRunning,
+		CreationTime:   nil,
 		OwnerReference: nil,
 		Annotations:    make(map[string]string),
 		Labels:         make(map[string]string),
@@ -233,6 +235,10 @@ func (b PodBuilder) Build() v1.Pod {
 		},
 	}
 
+	if b.CreationTime != nil {
+		pod.ObjectMeta.CreationTimestamp = metav1.Time{Time: *b.CreationTime}
+	}
+
 	if b.OwnerReference != nil {
 		pod.ObjectMeta.OwnerReferences = []metav1.OwnerReference{*b.OwnerReference}
 	}
@@ -242,6 +248,10 @@ func (b PodBuilder) Build() v1.Pod {
 
 func (b PodBuilder) WithPhase(phase v1.PodPhase) PodBuilder {
 	b.Phase = phase
+	return b
+}
+func (b PodBuilder) WithCreationTime(time time.Time) PodBuilder {
+	b.CreationTime = &time
 	return b
 }
 func (b PodBuilder) WithOwnerReference(ownerReference metav1.OwnerReference) PodBuilder {
@@ -262,6 +272,12 @@ func (b PodBuilder) WithLabels(labels map[string]string) PodBuilder {
 }
 func (b PodBuilder) WithFrequency(text string) PodBuilder {
 	annotation := strings.Join([]string{DefaultBaseAnnotation, "frequency"}, "/")
+
+	b.Annotations[annotation] = text
+	return b
+}
+func (b PodBuilder) WithMinimumAge(text string) PodBuilder {
+	annotation := strings.Join([]string{DefaultBaseAnnotation, "minimum-age"}, "/")
 
 	b.Annotations[annotation] = text
 	return b

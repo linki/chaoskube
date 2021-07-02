@@ -889,111 +889,62 @@ func (t ThankGodItsFriday) Now() time.Time {
 }
 
 func (suite *Suite) TestMinimumAge() {
-	type pod struct {
-		name         string
-		namespace    string
-		creationTime time.Time
-	}
+	logger, _ := test.NewNullLogger()
+	minimumAge := 1 * time.Hour
+
+	now := time.Date(0, 10, 24, 10, 00, 00, 00, time.UTC)
+	cutoff := now.Add(-minimumAge)
+
+	tooYoung := util.NewPodBuilder("default", "young").WithCreationTime(cutoff.Add(5 * time.Minute)).Build()
+	exactMatch := util.NewPodBuilder("default", "exact").WithCreationTime(cutoff).Build()
+	oldEnough := util.NewPodBuilder("default", "old").WithCreationTime(cutoff.Add(-5 * time.Minute)).Build()
+
+	overriddenMinAge := util.NewPodBuilder("default", "overridden").
+		WithCreationTime(now.Add(-30 * time.Minute)).
+		WithMinimumAge("10m").
+		Build()
 
 	for _, tt := range []struct {
 		minimumAge time.Duration
-		now        func() time.Time
-		pods       []pod
-		candidates int
+		pods       []v1.Pod
+		expected   []v1.Pod
 	}{
 		// no minimum age set
 		{
 			time.Duration(0),
-			func() time.Time { return time.Date(0, 10, 24, 10, 00, 00, 00, time.UTC) },
-			[]pod{
-				{
-					name:         "test1",
-					namespace:    "test",
-					creationTime: time.Date(0, 10, 24, 9, 00, 00, 00, time.UTC),
-				},
-			},
-			1,
+			[]v1.Pod{tooYoung},
+			[]v1.Pod{tooYoung},
 		},
 		// minimum age set, but pod is too young
 		{
-			time.Hour * 1,
-			func() time.Time { return time.Date(0, 10, 24, 10, 00, 00, 00, time.UTC) },
-			[]pod{
-				{
-					name:         "test1",
-					namespace:    "test",
-					creationTime: time.Date(0, 10, 24, 9, 30, 00, 00, time.UTC),
-				},
-			},
-			0,
+			minimumAge,
+			[]v1.Pod{tooYoung},
+			[]v1.Pod{},
 		},
 		// one pod is too young, one matches
 		{
-			time.Hour * 1,
-			func() time.Time { return time.Date(0, 10, 24, 10, 00, 00, 00, time.UTC) },
-			[]pod{
-				// too young
-				{
-					name:         "test1",
-					namespace:    "test",
-					creationTime: time.Date(0, 10, 24, 9, 30, 00, 00, time.UTC),
-				},
-				// matches
-				{
-					name:         "test2",
-					namespace:    "test",
-					creationTime: time.Date(0, 10, 23, 8, 00, 00, 00, time.UTC),
-				},
-			},
-			1,
+			minimumAge,
+			[]v1.Pod{tooYoung, oldEnough},
+			[]v1.Pod{oldEnough},
 		},
 		// exact time - should not match
 		{
-			time.Hour * 1,
-			func() time.Time { return time.Date(0, 10, 24, 10, 00, 00, 00, time.UTC) },
-			[]pod{
-				{
-					name:         "test1",
-					namespace:    "test",
-					creationTime: time.Date(0, 10, 24, 10, 00, 00, 00, time.UTC),
-				},
-			},
-			0,
+			minimumAge,
+			[]v1.Pod{exactMatch},
+			[]v1.Pod{},
+		},
+		// overridden minimum age - should match
+		{
+			minimumAge,
+			[]v1.Pod{overriddenMinAge},
+			[]v1.Pod{overriddenMinAge},
 		},
 	} {
-		chaoskube := suite.setup(
-			10*time.Minute,
-			labels.Everything(),
-			labels.Everything(),
-			labels.Everything(),
-			labels.Everything(),
-			labels.Everything(),
-			&regexp.Regexp{},
-			&regexp.Regexp{},
-			[]time.Weekday{},
-			[]util.TimePeriod{},
-			[]time.Time{},
-			time.UTC,
-			tt.minimumAge,
-			"",
-			"",
-			false,
-			10,
-			1,
-		)
-		chaoskube.Now = tt.now
+		annotation := strings.Join([]string{util.DefaultBaseAnnotation, "minimum-age"}, "/")
+		pods := filterByMinimumAge(tt.pods, annotation,
+			tt.minimumAge, now, logger)
 
-		for _, p := range tt.pods {
-			pod := util.NewPodBuilder(p.namespace, p.name).Build()
-			pod.ObjectMeta.CreationTimestamp = metav1.Time{Time: p.creationTime}
-			_, err := chaoskube.Client.CoreV1().Pods(pod.Namespace).Create(context.Background(), &pod, metav1.CreateOptions{})
-			suite.Require().NoError(err)
-		}
-
-		pods, err := chaoskube.Candidates(context.Background())
-		suite.Require().NoError(err)
-
-		suite.Len(pods, tt.candidates)
+		suite.Assert().ElementsMatch(tt.expected, pods)
 	}
 }
 

@@ -246,7 +246,15 @@ func (c *Chaoskube) Candidates(ctx context.Context) ([]v1.Pod, error) {
 	pods = filterByAnnotations(pods, c.Annotations)
 	pods = filterByPhase(pods, v1.PodRunning)
 	pods = filterTerminatingPods(pods)
-	pods = filterByMinimumAge(pods, c.MinimumAge, c.Now())
+
+	pods = filterByMinimumAge(
+		pods,
+		strings.Join([]string{c.ConfigAnnotationPrefix, "minimum-age"}, "/"),
+		c.MinimumAge,
+		c.Now(),
+		c.Logger,
+	)
+
 	pods = filterByPodName(pods, c.IncludedPodNames, c.ExcludedPodNames)
 	pods = filterByOwnerReference(pods)
 
@@ -490,16 +498,29 @@ func filterTerminatingPods(pods []v1.Pod) []v1.Pod {
 
 // filterByMinimumAge filters pods by creation time. Only pods
 // older than minimumAge are returned
-func filterByMinimumAge(pods []v1.Pod, minimumAge time.Duration, now time.Time) []v1.Pod {
-	if minimumAge <= time.Duration(0) {
+func filterByMinimumAge(pods []v1.Pod, annotation string, minimumAge time.Duration, now time.Time, logger log.FieldLogger) []v1.Pod {
+	if annotation == "" && minimumAge <= time.Duration(0) {
 		return pods
 	}
 
-	creationTime := now.Add(-minimumAge)
-
+	defaultCreationTime := now.Add(-minimumAge)
 	filteredList := []v1.Pod{}
 
 	for _, pod := range pods {
+		text, ok := pod.Annotations[annotation]
+
+		// Don't filter out pods missing frequency annotation
+		creationTime := defaultCreationTime
+		if ok {
+			minimumAgeOverride, err := time.ParseDuration(text)
+			if err != nil {
+				logger.WithField("err", err).Warn("failed to parse frequency annotation, excluding from candidates")
+				continue
+			}
+
+			creationTime = now.Add(-minimumAgeOverride)
+		}
+
 		if pod.ObjectMeta.CreationTimestamp.Time.Before(creationTime) {
 			filteredList = append(filteredList, pod)
 		}

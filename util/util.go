@@ -17,6 +17,8 @@ const (
 	Kitchen24 = "15:04"
 	// a time format that just cares about the day and month.
 	YearDay = "Jan_2"
+
+	DefaultBaseAnnotation = "chaos.alpha.kubernetes.io"
 )
 
 // TimePeriod represents a time period with a single beginning and end.
@@ -259,6 +261,8 @@ func (b PodBuilder) WithLabels(labels map[string]string) PodBuilder {
 	return b
 }
 func (b PodBuilder) WithFrequency(text string) PodBuilder {
-	b.Annotations["chaos.alpha.kubernetes.io/frequency"] = text
+	annotation := strings.Join([]string{DefaultBaseAnnotation, "frequency"}, "/")
+
+	b.Annotations[annotation] = text
 	return b
 }

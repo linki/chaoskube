@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"regexp"
+	"strings"
 	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
@@ -59,8 +60,9 @@ type Chaoskube struct {
 	Timezone *time.Location
 	// minimum age of pods to consider
 	MinimumAge time.Duration
-	// an annotation containing the frequency to kill a pod at
-	FrequencyAnnotation string
+	// the annotation prefix (eg. "chaos.alpha.kubernetes.io") to use when
+	// looking for configuration overrides in pod annotations
+	ConfigAnnotationPrefix string
 	// default frequency for pods lacking annotation
 	DefaultFrequency string
 	// an instance of logrus.StdLogger to write log messages to
@@ -102,35 +104,35 @@ var (
 // * a logger implementing logrus.FieldLogger to send log output to
 // * what specific terminator to use to imbue chaos on victim pods
 // * whether to enable/disable dry-run mode
-func New(client kubernetes.Interface, interval time.Duration, labels, annotations, kinds, namespaces, namespaceLabels labels.Selector, includedPodNames, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, frequencyAnnotation, defaultFrequency string, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator, maxKill int, notifier notifier.Notifier) *Chaoskube {
+func New(client kubernetes.Interface, interval time.Duration, labels, annotations, kinds, namespaces, namespaceLabels labels.Selector, includedPodNames, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, configAnnotationPrefix, defaultFrequency string, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator, maxKill int, notifier notifier.Notifier) *Chaoskube {
 	broadcaster := record.NewBroadcaster()
 	broadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events(v1.NamespaceAll)})
 	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "chaoskube"})
 
 	return &Chaoskube{
-		Client:              client,
-		Interval:            interval,
-		Labels:              labels,
-		Annotations:         annotations,
-		Kinds:               kinds,
-		Namespaces:          namespaces,
-		NamespaceLabels:     namespaceLabels,
-		IncludedPodNames:    includedPodNames,
-		ExcludedPodNames:    excludedPodNames,
-		ExcludedWeekdays:    excludedWeekdays,
-		ExcludedTimesOfDay:  excludedTimesOfDay,
-		ExcludedDaysOfYear:  excludedDaysOfYear,
-		Timezone:            timezone,
-		MinimumAge:          minimumAge,
-		FrequencyAnnotation: frequencyAnnotation,
-		DefaultFrequency:    defaultFrequency,
-		Logger:              logger,
-		DryRun:              dryRun,
-		Terminator:          terminator,
-		EventRecorder:       recorder,
-		Now:                 time.Now,
-		MaxKill:             maxKill,
-		Notifier:            notifier,
+		Client:                 client,
+		Interval:               interval,
+		Labels:                 labels,
+		Annotations:            annotations,
+		Kinds:                  kinds,
+		Namespaces:             namespaces,
+		NamespaceLabels:        namespaceLabels,
+		IncludedPodNames:       includedPodNames,
+		ExcludedPodNames:       excludedPodNames,
+		ExcludedWeekdays:       excludedWeekdays,
+		ExcludedTimesOfDay:     excludedTimesOfDay,
+		ExcludedDaysOfYear:     excludedDaysOfYear,
+		Timezone:               timezone,
+		MinimumAge:             minimumAge,
+		ConfigAnnotationPrefix: configAnnotationPrefix,
+		DefaultFrequency:       defaultFrequency,
+		Logger:                 logger,
+		DryRun:                 dryRun,
+		Terminator:             terminator,
+		EventRecorder:          recorder,
+		Now:                    time.Now,
+		MaxKill:                maxKill,
+		Notifier:               notifier,
 	}
 }
 
@@ -248,7 +250,13 @@ func (c *Chaoskube) Candidates(ctx context.Context) ([]v1.Pod, error) {
 	pods = filterByPodName(pods, c.IncludedPodNames, c.ExcludedPodNames)
 	pods = filterByOwnerReference(pods)
 
-	pods = filterByFrequency(pods, c.FrequencyAnnotation, c.DefaultFrequency, c.Interval, c.Logger)
+	pods = filterByFrequency(
+		pods,
+		strings.Join([]string{c.ConfigAnnotationPrefix, "frequency"}, "/"),
+		c.DefaultFrequency,
+		c.Interval,
+		c.Logger,
+	)
 
 	return pods, nil
 }
@@ -559,6 +567,7 @@ func filterByFrequency(pods []v1.Pod, annotation string, defaultFrequency string
 		if !ok {
 			if defaultFrequency == "" {
 				filteredList = append(filteredList, pod)
+				continue
 			} else {
 				text = defaultFrequency
 			}
@@ -566,7 +575,8 @@ func filterByFrequency(pods []v1.Pod, annotation string, defaultFrequency string
 
 		chance, err := util.ParseFrequency(text, interval)
 		if err != nil {
-			logger.WithField("err", err).Warn("failed to parse frequency annotation")
+			logger.WithField("err", err).Warn("failed to parse frequency annotation, excluding from candidates")
+			continue
 		}
 
 		if chance > rand.Float64() {

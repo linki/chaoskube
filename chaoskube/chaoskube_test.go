@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"regexp"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -48,25 +49,25 @@ func (suite *Suite) SetupTest() {
 // TestNew tests that arguments are passed to the new instance correctly
 func (suite *Suite) TestNew() {
 	var (
-		client              = fake.NewSimpleClientset()
-		interval            = 10 * time.Minute
-		labelSelector, _    = labels.Parse("foo=bar")
-		annotations, _      = labels.Parse("baz=waldo")
-		kinds, _            = labels.Parse("job")
-		namespaces, _       = labels.Parse("qux")
-		namespaceLabels, _  = labels.Parse("taz=wubble")
-		includedPodNames    = regexp.MustCompile("foo")
-		excludedPodNames    = regexp.MustCompile("bar")
-		excludedWeekdays    = []time.Weekday{time.Friday}
-		excludedTimesOfDay  = []util.TimePeriod{util.TimePeriod{}}
-		excludedDaysOfYear  = []time.Time{time.Now()}
-		minimumAge          = time.Duration(42)
-		frequencyAnnotation = "chaos.alpha.kubernetes.io/frequency"
-		defaultFrequency    = "1 / hour"
-		dryRun              = true
-		terminator          = terminator.NewDeletePodTerminator(client, logger, 10*time.Second)
-		maxKill             = 1
-		notifier            = testNotifier
+		client                 = fake.NewSimpleClientset()
+		interval               = 10 * time.Minute
+		labelSelector, _       = labels.Parse("foo=bar")
+		annotations, _         = labels.Parse("baz=waldo")
+		kinds, _               = labels.Parse("job")
+		namespaces, _          = labels.Parse("qux")
+		namespaceLabels, _     = labels.Parse("taz=wubble")
+		includedPodNames       = regexp.MustCompile("foo")
+		excludedPodNames       = regexp.MustCompile("bar")
+		excludedWeekdays       = []time.Weekday{time.Friday}
+		excludedTimesOfDay     = []util.TimePeriod{util.TimePeriod{}}
+		excludedDaysOfYear     = []time.Time{time.Now()}
+		minimumAge             = time.Duration(42)
+		configAnnotationPrefix = "chaos.alpha.kubernetes.io"
+		defaultFrequency       = "1 / hour"
+		dryRun                 = true
+		terminator             = terminator.NewDeletePodTerminator(client, logger, 10*time.Second)
+		maxKill                = 1
+		notifier               = testNotifier
 	)
 
 	chaoskube := New(
@@ -84,7 +85,7 @@ func (suite *Suite) TestNew() {
 		excludedDaysOfYear,
 		time.UTC,
 		minimumAge,
-		frequencyAnnotation,
+		configAnnotationPrefix,
 		defaultFrequency,
 		logger,
 		dryRun,
@@ -108,7 +109,7 @@ func (suite *Suite) TestNew() {
 	suite.Equal(excludedDaysOfYear, chaoskube.ExcludedDaysOfYear)
 	suite.Equal(time.UTC, chaoskube.Timezone)
 	suite.Equal(minimumAge, chaoskube.MinimumAge)
-	suite.Equal("chaos.alpha.kubernetes.io/frequency", chaoskube.FrequencyAnnotation)
+	suite.Equal("chaos.alpha.kubernetes.io", chaoskube.ConfigAnnotationPrefix)
 	suite.Equal("1 / hour", chaoskube.DefaultFrequency)
 	suite.Equal(logger, chaoskube.Logger)
 	suite.Equal(dryRun, chaoskube.DryRun)
@@ -788,7 +789,7 @@ func (suite *Suite) assertNotified(notifier *notifier.Noop) {
 	suite.Assert().Greater(notifier.Calls, 0)
 }
 
-func (suite *Suite) setupWithPods(interval time.Duration, labelSelector labels.Selector, annotations labels.Selector, kinds labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, frequencyAnnotation string, defaultFrequency string, dryRun bool, gracePeriod time.Duration) *Chaoskube {
+func (suite *Suite) setupWithPods(interval time.Duration, labelSelector labels.Selector, annotations labels.Selector, kinds labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, configAnnotationPrefix string, defaultFrequency string, dryRun bool, gracePeriod time.Duration) *Chaoskube {
 	chaoskube := suite.setup(
 		10*time.Minute,
 		labelSelector,
@@ -803,7 +804,7 @@ func (suite *Suite) setupWithPods(interval time.Duration, labelSelector labels.S
 		excludedDaysOfYear,
 		timezone,
 		minimumAge,
-		frequencyAnnotation,
+		configAnnotationPrefix,
 		defaultFrequency,
 		dryRun,
 		gracePeriod,
@@ -843,7 +844,7 @@ func (suite *Suite) createPods(client kubernetes.Interface, podsInfo []podInfo) 
 	}
 }
 
-func (suite *Suite) setup(interval time.Duration, labelSelector labels.Selector, annotations labels.Selector, kinds labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, frequencyAnnotation string, defaultFrequency string, dryRun bool, gracePeriod time.Duration, maxKill int) *Chaoskube {
+func (suite *Suite) setup(interval time.Duration, labelSelector labels.Selector, annotations labels.Selector, kinds labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, configAnnotationPrefix string, defaultFrequency string, dryRun bool, gracePeriod time.Duration, maxKill int) *Chaoskube {
 	logOutput.Reset()
 
 	client := fake.NewSimpleClientset()
@@ -864,7 +865,7 @@ func (suite *Suite) setup(interval time.Duration, labelSelector labels.Selector,
 		excludedDaysOfYear,
 		timezone,
 		minimumAge,
-		frequencyAnnotation,
+		configAnnotationPrefix,
 		defaultFrequency,
 		logger,
 		dryRun,
@@ -1183,7 +1184,9 @@ func (suite *Suite) TestFilterByFrequency() {
 		},
 	} {
 		rand.Seed(tt.seed)
-		results := filterByFrequency(pods, "chaos.alpha.kubernetes.io/frequency",
+
+		annotation := strings.Join([]string{util.DefaultBaseAnnotation, "frequency"}, "/")
+		results := filterByFrequency(pods, annotation,
 			tt.defaultFrequency, interval, logger)
 
 		suite.Assert().ElementsMatch(tt.expected, results)

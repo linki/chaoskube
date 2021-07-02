@@ -246,6 +246,7 @@ func (c *Chaoskube) Candidates(ctx context.Context) ([]v1.Pod, error) {
 	pods = filterByAnnotations(pods, c.Annotations)
 	pods = filterByPhase(pods, v1.PodRunning)
 	pods = filterTerminatingPods(pods)
+	pods = filterByPodName(pods, c.IncludedPodNames, c.ExcludedPodNames)
 
 	pods = filterByMinimumAge(
 		pods,
@@ -255,9 +256,6 @@ func (c *Chaoskube) Candidates(ctx context.Context) ([]v1.Pod, error) {
 		c.Logger,
 	)
 
-	pods = filterByPodName(pods, c.IncludedPodNames, c.ExcludedPodNames)
-	pods = filterByOwnerReference(pods)
-
 	pods = filterByFrequency(
 		pods,
 		strings.Join([]string{c.ConfigAnnotationPrefix, "frequency"}, "/"),
@@ -265,6 +263,8 @@ func (c *Chaoskube) Candidates(ctx context.Context) ([]v1.Pod, error) {
 		c.Interval,
 		c.Logger,
 	)
+
+	pods = filterByOwnerReference(pods)
 
 	return pods, nil
 }

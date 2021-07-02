@@ -21,8 +21,8 @@ spec:
       {{- end }}
       labels:
         {{- include "chaoskube.selectorLabels" . | nindent 8 }}
-        {{- with .Values.podAnnotations }}
-        {{- toYaml . | indent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
       {{- with .Values.image.pullSecrets }}
@@ -43,14 +43,15 @@ spec:
         {{- end }}
         args:
         {{- range $key, $value := .Values.chaoskube.args }}
-        {{- if $value }}
         - --{{ $key }}={{ $value }}
-        {{- else }}
+        {{- end }}
+        {{- range $key, $value := .Values.chaoskube.flags }}
+        {{- if $value }}
         - --{{ $key }}
         {{- end }}
         {{- end }}
         {{- if .Values.chaoskube.metrics.enabled }}
-        - --metrics-address={{ .Values.chaoskube.metrics.port }}
+        - --metrics-address=:{{ .Values.chaoskube.metrics.port }}
         {{- end }}
         {{- if .Values.chaoskube.metrics.enabled }}
         ports:

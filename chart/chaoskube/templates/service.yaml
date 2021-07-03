@@ -1,0 +1,22 @@
+{{- if and .Values.chaoskube.metrics.enabled .Values.chaoskube.metrics.service.create }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "chaoskube.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "chaoskube.labels" . | nindent 4 }}
+
+spec:
+  type: {{ .Values.chaoskube.metrics.service.type }}
+
+  ports:
+    - port: {{ .Values.chaoskube.metrics.port }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+
+  selector:
+    app.kubernetes.io/name: {{ include "chaoskube.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}

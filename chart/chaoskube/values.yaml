@@ -5,13 +5,23 @@ replicaCount: 1
 # image specifies image location, tag and pullPolicy
 image:
   repository: quay.io/linki/chaoskube
+
   pullPolicy: IfNotPresent
+  pullSecrets: []
+
+  # Provide digest of specific image to run
+  digest: ""
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
 
 # chaoskube is used to configure chaoskube
 chaoskube:
   env: {}
+
+  flags:
+    # terminate pods for real: this disables dry-run mode which is on by default
+    no-dry-run: true
+
   args:
     # kill a pod every 10 minutes
     interval: "10m"
@@ -33,8 +43,17 @@ chaoskube:
     timezone: "UTC"
     # exclude all pods that haven't been running for at least one hour
     minimum-age: "1h"
-    # terminate pods for real: this disables dry-run mode which is on by default
-    no-dry-run: ""
+    # sets the annotation prefix to use when looking for configuration overrides in pod annotations
+    # eg. termination frequency will look for the annotation "chaos.alpha.kubernetes.io/frequency"
+    config-annotation-prefix: "chaos.alpha.kubernetes.io"
+
+  metrics:
+    enabled: true
+    port: 8080
+
+    service:
+      create: true
+      type: ClusterIP
 
 # serviceAccount can be used to customize the service account which will be crated and used by chaoskube
 serviceAccount:
@@ -42,8 +61,15 @@ serviceAccount:
   name: ""
   annotations: {}
 
+# rbac allows configuring the permissions for chaoskube
+rbac:
+  create: true
+
 # podAnnotations can be used to add additional annotations to the pod
 podAnnotations: {}
+
+# podAnnotations can be used to add additional labels to the pod
+podLabels: {}
 
 # podSecurityContext is used to customize the security context of the pod
 podSecurityContext:

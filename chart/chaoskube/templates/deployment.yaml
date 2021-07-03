@@ -21,11 +21,21 @@ spec:
       {{- end }}
       labels:
         {{- include "chaoskube.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
     spec:
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 6 }}
+      {{- end }}
       serviceAccountName: {{ include "chaoskube.serviceAccountName" . }}
       containers:
       - name: {{ .Chart.Name }}
+        {{- if .Values.image.digest }}
+        image: "{{ .Values.image.repository }}@{{ .Values.image.digest }}"
+        {{- else }}
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         {{- if .Values.chaoskube.env }}
         env:
@@ -33,11 +43,20 @@ spec:
         {{- end }}
         args:
         {{- range $key, $value := .Values.chaoskube.args }}
-        {{- if $value }}
         - --{{ $key }}={{ $value }}
-        {{- else }}
+        {{- end }}
+        {{- range $key, $value := .Values.chaoskube.flags }}
+        {{- if $value }}
         - --{{ $key }}
         {{- end }}
+        {{- end }}
+        {{- if .Values.chaoskube.metrics.enabled }}
+        - --metrics-address=:{{ .Values.chaoskube.metrics.port }}
+        {{- end }}
+        {{- if .Values.chaoskube.metrics.enabled }}
+        ports:
+          - name: metrics
+            containerPort: {{ .Values.chaoskube.metrics.port }}
         {{- end }}
         securityContext:
           {{- toYaml .Values.podSecurityContext | nindent 10 }}

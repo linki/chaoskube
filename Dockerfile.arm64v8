@@ -13,7 +13,7 @@ RUN go build -o /bin/chaoskube -v \
   -ldflags "-X main.version=$(git describe --tags --always --dirty) -w -s"
 
 # final image
-FROM arm64v8/alpine:3.14.0
+FROM arm64v8/alpine:3.14.1
 MAINTAINER Linki <linki+docker.com@posteo.de>
 
 COPY --from=builder /bin/chaoskube /bin/chaoskube

@@ -232,6 +232,7 @@ There are several other projects that allow you to create some chaos in your Kub
 * [k8aos](https://github.com/AlexsJones/k8aos): An interactive tool that can issue [a series of random pod deletions](https://github.com/AlexsJones/k8aos/blob/0dd0e1876a3d10b558d661bed7a28f79439b489e/core/mischief.go#L41-L51) across an entire Kubernetes cluster or scoped to a namespace.
 * [pod-reaper](https://github.com/target/pod-reaper) kills pods based on an interval and a configurable chaos chance. It allows to specify possible target pods via a label selector and namespace. It has the ability successfully shutdown itself after a while and therefore might be suited to work well with Kubernetes Job objects. It can also be configured to kill every pod that has been running for longer than a configurable duration.
 * [kubernetes-pod-chaos-monkey](https://github.com/jnewland/kubernetes-pod-chaos-monkey): A very simple random pod killer using `kubectl` written in a [couple lines of bash](https://github.com/jnewland/kubernetes-pod-chaos-monkey/blob/master/chaos.sh). Given a namespace and an interval it kills a random pod in that namespace at each interval. Pretty much like `chaoskube` worked in the beginning.
+* [kubeinvaders](https://github.com/lucky-sideburn/KubeInvaders) gamified chaos engineering tool for Kubernetes. It is like Space Invaders but the aliens are pods or worker nodes.
 
 ## Acknowledgements
 

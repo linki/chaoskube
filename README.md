@@ -45,7 +45,8 @@ INFO[4804] terminating pod          name=nginx-701339712-51nt8 namespace=chaosku
 You can install `chaoskube` with [`Helm`](https://github.com/kubernetes/helm). Follow [Helm's Quickstart Guide](https://helm.sh/docs/intro/quickstart/) and then install the `chaoskube` chart.
 
 ```console
-$ helm install stable/chaoskube
+$ helm repo add chaoskube https://linki.github.io/chaoskube/
+$ helm install chaoskube chaoskube/chaoskube --atomic --namespace=chaoskube --create-namespace
 ```
 
 Refer to [chaoskube on kubeapps.com](https://kubeapps.com/charts/stable/chaoskube) to learn how to configure it and to find other useful Helm charts.

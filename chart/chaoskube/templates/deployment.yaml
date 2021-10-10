@@ -25,21 +25,25 @@ spec:
       serviceAccountName: {{ include "chaoskube.serviceAccountName" . }}
       containers:
       - name: {{ .Chart.Name }}
-        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default (printf "v%s" .Chart.AppVersion) }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         {{- if .Values.chaoskube.env }}
         env:
           {{ toYaml .Values.chaoskube.env | indent 8 }}
         {{- end }}
+        {{- with .Values.chaoskube.args }}
         args:
-        {{- range $key, $value := .Values.chaoskube.args }}
+        {{- range $key, $value := . }}
         {{- if $value }}
         - --{{ $key }}={{ $value }}
         {{- else }}
         - --{{ $key }}
         {{- end }}
         {{- end }}
+        {{- end }}
         securityContext:
           {{- toYaml .Values.podSecurityContext | nindent 10 }}
+        {{- with .Values.resources}}
         resources:
-          {{- toYaml .Values.resources | nindent 10 }}
+          {{- toYaml . | nindent 10 }}
+        {{- end }}

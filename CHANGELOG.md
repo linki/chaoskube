@@ -1,3 +1,15 @@
+## v0.22.0 - 2021-11-05
+
+  Features:
+  * [#325](https://github.com/linki/chaoskube/pull/325) Add maximum runtime flag @IoannisMatzaris
+  * [#295](https://github.com/linki/chaoskube/pull/295) Add a Helm chart to deploy chaoskube @ghouscht
+
+  Updates:
+  * [#374](https://github.com/linki/chaoskube/pull/374) Add kubeinvaders as related project in the docs @lucky-sideburn
+  * [#341](https://github.com/linki/chaoskube/pull/341) Add namespace metadata to deleted pods metric @linki
+  * [#323](https://github.com/linki/chaoskube/pull/323) Add missing max-kill flag to the docs @KeisukeYamashita
+  * Update several dependencies, such as Kubernetes to v0.20.x.
+
 ## v0.21.0 - 2020-09-28
 
   Features:

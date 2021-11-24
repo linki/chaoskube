@@ -10,6 +10,7 @@ require (
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	k8s.io/api v0.22.4
 	k8s.io/apimachinery v0.22.4
-	k8s.io/client-go v0.21.7
+	k8s.io/client-go v0.22.4
 	k8s.io/klog v1.0.0
+	k8s.io/kube-openapi v0.0.0-20211110012726-3cc51fd1e909 // indirect
 )

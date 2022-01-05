@@ -85,6 +85,7 @@ func (suite *Suite) TestNew() {
 		terminator,
 		maxKill,
 		notifier,
+		v1.NamespaceAll,
 	)
 	suite.Require().NotNil(chaoskube)
 
@@ -124,6 +125,7 @@ func (suite *Suite) TestRunContextCanceled() {
 		false,
 		10,
 		1,
+		v1.NamespaceAll,
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -179,6 +181,7 @@ func (suite *Suite) TestCandidates() {
 			time.Duration(0),
 			false,
 			10,
+			v1.NamespaceAll,
 		)
 
 		suite.assertCandidates(chaoskube, tt.pods)
@@ -224,6 +227,41 @@ func (suite *Suite) TestCandidatesNamespaceLabels() {
 			time.Duration(0),
 			false,
 			10,
+			v1.NamespaceAll,
+		)
+
+		suite.assertCandidates(chaoskube, tt.pods)
+	}
+}
+
+func (suite *Suite) TestCandidatesClientNamespaceScope() {
+	foo := map[string]string{"namespace": "default", "name": "foo"}
+	bar := map[string]string{"namespace": "testing", "name": "bar"}
+
+	for _, tt := range []struct {
+		clientNamespaceScope string
+		pods                 []map[string]string
+	}{
+		{v1.NamespaceAll, []map[string]string{foo, bar}},
+		{"default", []map[string]string{foo}},
+		{"testing", []map[string]string{bar}},
+	} {
+		chaoskube := suite.setupWithPods(
+			labels.Everything(),
+			labels.Everything(),
+			labels.Everything(),
+			labels.Everything(),
+			labels.Everything(),
+			nil,
+			nil,
+			[]time.Weekday{},
+			[]util.TimePeriod{},
+			[]time.Time{},
+			time.UTC,
+			time.Duration(0),
+			false,
+			10,
+			tt.clientNamespaceScope,
 		)
 
 		suite.assertCandidates(chaoskube, tt.pods)
@@ -267,6 +305,7 @@ func (suite *Suite) TestCandidatesPodNameRegexp() {
 			time.Duration(0),
 			false,
 			10,
+			v1.NamespaceAll,
 		)
 
 		suite.assertCandidates(chaoskube, tt.pods)
@@ -307,6 +346,7 @@ func (suite *Suite) TestVictim() {
 			time.Duration(0),
 			false,
 			10,
+			v1.NamespaceAll,
 		)
 
 		suite.assertVictim(chaoskube, tt.victim)
@@ -361,6 +401,7 @@ func (suite *Suite) TestVictims() {
 			false,
 			10,
 			tt.maxKill,
+			v1.NamespaceAll,
 		)
 		suite.createPods(chaoskube.Client, podsInfo)
 
@@ -386,6 +427,7 @@ func (suite *Suite) TestNoVictimReturnsError() {
 		false,
 		10,
 		1,
+		v1.NamespaceAll,
 	)
 
 	_, err := chaoskube.Victims(context.Background())
@@ -420,6 +462,7 @@ func (suite *Suite) TestDeletePod() {
 			time.Duration(0),
 			tt.dryRun,
 			10,
+			v1.NamespaceAll,
 		)
 
 		victim := util.NewPod("default", "foo", v1.PodRunning)
@@ -450,6 +493,7 @@ func (suite *Suite) TestDeletePodNotFound() {
 		false,
 		10,
 		1,
+		v1.NamespaceAll,
 	)
 
 	victim := util.NewPod("default", "foo", v1.PodRunning)
@@ -681,6 +725,7 @@ func (suite *Suite) TestTerminateVictim() {
 			time.Duration(0),
 			false,
 			10,
+			v1.NamespaceAll,
 		)
 		chaoskube.Now = tt.now
 
@@ -712,6 +757,7 @@ func (suite *Suite) TestTerminateNoVictimLogsInfo() {
 		false,
 		10,
 		1,
+		v1.NamespaceAll,
 	)
 
 	err := chaoskube.TerminateVictims(context.Background())
@@ -746,7 +792,7 @@ func (suite *Suite) assertNotified(notifier *notifier.Noop) {
 	suite.Assert().Greater(notifier.Calls, 0)
 }
 
-func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, kinds labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration) *Chaoskube {
+func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, kinds labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration, clientNamespaceScope string) *Chaoskube {
 	chaoskube := suite.setup(
 		labelSelector,
 		annotations,
@@ -763,6 +809,7 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 		dryRun,
 		gracePeriod,
 		1,
+		clientNamespaceScope,
 	)
 
 	for _, namespace := range []v1.Namespace{
@@ -798,7 +845,7 @@ func (suite *Suite) createPods(client kubernetes.Interface, podsInfo []podInfo) 
 	}
 }
 
-func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, kinds labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration, maxKill int) *Chaoskube {
+func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, kinds labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration, maxKill int, clientNamespaceScope string) *Chaoskube {
 	logOutput.Reset()
 
 	client := fake.NewSimpleClientset()
@@ -823,6 +870,7 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 		terminator.NewDeletePodTerminator(client, nullLogger, gracePeriod),
 		maxKill,
 		testNotifier,
+		clientNamespaceScope,
 	)
 }
 
@@ -928,6 +976,7 @@ func (suite *Suite) TestMinimumAge() {
 			false,
 			10,
 			1,
+			v1.NamespaceAll,
 		)
 		chaoskube.Now = tt.now
 
@@ -1110,6 +1159,7 @@ func (suite *Suite) TestNotifierCall() {
 		time.Duration(0),
 		false,
 		10,
+		v1.NamespaceAll,
 	)
 
 	victim := util.NewPod("default", "foo", v1.PodRunning)

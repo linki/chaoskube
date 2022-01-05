@@ -72,6 +72,8 @@ type Chaoskube struct {
 	MaxKill int
 	// chaos events notifier
 	Notifier notifier.Notifier
+	// namespace scope for the Kubernetes client
+	ClientNamespaceScope string
 }
 
 var (
@@ -95,32 +97,33 @@ var (
 // * a logger implementing logrus.FieldLogger to send log output to
 // * what specific terminator to use to imbue chaos on victim pods
 // * whether to enable/disable dry-run mode
-func New(client kubernetes.Interface, labels, annotations, kinds, namespaces, namespaceLabels labels.Selector, includedPodNames, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator, maxKill int, notifier notifier.Notifier) *Chaoskube {
+func New(client kubernetes.Interface, labels, annotations, kinds, namespaces, namespaceLabels labels.Selector, includedPodNames, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator, maxKill int, notifier notifier.Notifier, clientNamespaceScope string) *Chaoskube {
 	broadcaster := record.NewBroadcaster()
 	broadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events(v1.NamespaceAll)})
 	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "chaoskube"})
 
 	return &Chaoskube{
-		Client:             client,
-		Labels:             labels,
-		Annotations:        annotations,
-		Kinds:              kinds,
-		Namespaces:         namespaces,
-		NamespaceLabels:    namespaceLabels,
-		IncludedPodNames:   includedPodNames,
-		ExcludedPodNames:   excludedPodNames,
-		ExcludedWeekdays:   excludedWeekdays,
-		ExcludedTimesOfDay: excludedTimesOfDay,
-		ExcludedDaysOfYear: excludedDaysOfYear,
-		Timezone:           timezone,
-		MinimumAge:         minimumAge,
-		Logger:             logger,
-		DryRun:             dryRun,
-		Terminator:         terminator,
-		EventRecorder:      recorder,
-		Now:                time.Now,
-		MaxKill:            maxKill,
-		Notifier:           notifier,
+		Client:               client,
+		Labels:               labels,
+		Annotations:          annotations,
+		Kinds:                kinds,
+		Namespaces:           namespaces,
+		NamespaceLabels:      namespaceLabels,
+		IncludedPodNames:     includedPodNames,
+		ExcludedPodNames:     excludedPodNames,
+		ExcludedWeekdays:     excludedWeekdays,
+		ExcludedTimesOfDay:   excludedTimesOfDay,
+		ExcludedDaysOfYear:   excludedDaysOfYear,
+		Timezone:             timezone,
+		MinimumAge:           minimumAge,
+		Logger:               logger,
+		DryRun:               dryRun,
+		Terminator:           terminator,
+		EventRecorder:        recorder,
+		Now:                  time.Now,
+		MaxKill:              maxKill,
+		Notifier:             notifier,
+		ClientNamespaceScope: clientNamespaceScope,
 	}
 }
 
@@ -211,7 +214,7 @@ func (c *Chaoskube) Victims(ctx context.Context) ([]v1.Pod, error) {
 func (c *Chaoskube) Candidates(ctx context.Context) ([]v1.Pod, error) {
 	listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
 
-	podList, err := c.Client.CoreV1().Pods(v1.NamespaceAll).List(ctx, listOptions)
+	podList, err := c.Client.CoreV1().Pods(c.ClientNamespaceScope).List(ctx, listOptions)
 	if err != nil {
 		return nil, err
 	}

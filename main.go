@@ -15,10 +15,11 @@ import (
 	"syscall"
 	"time"
 
-	"gopkg.in/alecthomas/kingpin.v2"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
+	"gopkg.in/alecthomas/kingpin.v2"
 
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -36,30 +37,31 @@ var (
 )
 
 var (
-	labelString        string
-	annString          string
-	kindsString        string
-	nsString           string
-	nsLabelString      string
-	includedPodNames   *regexp.Regexp
-	excludedPodNames   *regexp.Regexp
-	excludedWeekdays   string
-	excludedTimesOfDay string
-	excludedDaysOfYear string
-	timezone           string
-	minimumAge         time.Duration
-	maxRuntime         time.Duration
-	maxKill            int
-	master             string
-	kubeconfig         string
-	interval           time.Duration
-	dryRun             bool
-	debug              bool
-	metricsAddress     string
-	gracePeriod        time.Duration
-	logFormat          string
-	logCaller          bool
-	slackWebhook       string
+	labelString          string
+	annString            string
+	kindsString          string
+	nsString             string
+	nsLabelString        string
+	includedPodNames     *regexp.Regexp
+	excludedPodNames     *regexp.Regexp
+	excludedWeekdays     string
+	excludedTimesOfDay   string
+	excludedDaysOfYear   string
+	timezone             string
+	minimumAge           time.Duration
+	maxRuntime           time.Duration
+	maxKill              int
+	master               string
+	kubeconfig           string
+	interval             time.Duration
+	dryRun               bool
+	debug                bool
+	metricsAddress       string
+	gracePeriod          time.Duration
+	logFormat            string
+	logCaller            bool
+	slackWebhook         string
+	clientNamespaceScope string
 )
 
 func init() {
@@ -90,6 +92,7 @@ func init() {
 	kingpin.Flag("log-format", "Specify the format of the log messages. Options are text and json. Defaults to text.").Default("text").EnumVar(&logFormat, "text", "json")
 	kingpin.Flag("log-caller", "Include the calling function name and location in the log messages.").BoolVar(&logCaller)
 	kingpin.Flag("slack-webhook", "The address of the slack webhook for notifications").StringVar(&slackWebhook)
+	kingpin.Flag("client-namespace-scope", "Scope Kubernetes API calls to the given namespace. Defaults to v1.NamespaceAll which requires global read permission.").Default(v1.NamespaceAll).StringVar(&clientNamespaceScope)
 }
 
 func main() {
@@ -110,29 +113,30 @@ func main() {
 	log.SetReportCaller(logCaller)
 
 	log.WithFields(log.Fields{
-		"labels":             labelString,
-		"annotations":        annString,
-		"kinds":              kindsString,
-		"namespaces":         nsString,
-		"namespaceLabels":    nsLabelString,
-		"includedPodNames":   includedPodNames,
-		"excludedPodNames":   excludedPodNames,
-		"excludedWeekdays":   excludedWeekdays,
-		"excludedTimesOfDay": excludedTimesOfDay,
-		"excludedDaysOfYear": excludedDaysOfYear,
-		"timezone":           timezone,
-		"minimumAge":         minimumAge,
-		"maxRuntime":         maxRuntime,
-		"maxKill":            maxKill,
-		"master":             master,
-		"kubeconfig":         kubeconfig,
-		"interval":           interval,
-		"dryRun":             dryRun,
-		"debug":              debug,
-		"metricsAddress":     metricsAddress,
-		"gracePeriod":        gracePeriod,
-		"logFormat":          logFormat,
-		"slackWebhook":       slackWebhook,
+		"labels":               labelString,
+		"annotations":          annString,
+		"kinds":                kindsString,
+		"namespaces":           nsString,
+		"namespaceLabels":      nsLabelString,
+		"includedPodNames":     includedPodNames,
+		"excludedPodNames":     excludedPodNames,
+		"excludedWeekdays":     excludedWeekdays,
+		"excludedTimesOfDay":   excludedTimesOfDay,
+		"excludedDaysOfYear":   excludedDaysOfYear,
+		"timezone":             timezone,
+		"minimumAge":           minimumAge,
+		"maxRuntime":           maxRuntime,
+		"maxKill":              maxKill,
+		"master":               master,
+		"kubeconfig":           kubeconfig,
+		"interval":             interval,
+		"dryRun":               dryRun,
+		"debug":                debug,
+		"metricsAddress":       metricsAddress,
+		"gracePeriod":          gracePeriod,
+		"logFormat":            logFormat,
+		"slackWebhook":         slackWebhook,
+		"clientNamespaceScope": clientNamespaceScope,
 	}).Debug("reading config")
 
 	log.WithFields(log.Fields{
@@ -225,6 +229,7 @@ func main() {
 		terminator.NewDeletePodTerminator(client, log.StandardLogger(), gracePeriod),
 		maxKill,
 		notifiers,
+		clientNamespaceScope,
 	)
 
 	if metricsAddress != "" {

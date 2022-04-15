@@ -200,27 +200,29 @@ Use `UTC`, `Local` or pick a timezone name from the [(IANA) tz database](https:/
 
 ## Flags
 
-| Option                    | Description                                                          | Default                    |
-|---------------------------|----------------------------------------------------------------------|----------------------------|
-| `--interval`              | interval between pod terminations                                    | 10m                        |
-| `--labels`                | label selector to filter pods by                                     | (matches everything)       |
-| `--annotations`           | annotation selector to filter pods by                                | (matches everything)       |
-| `--kinds`                 | owner's kind selector to filter pods by                              | (all kinds)                |
-| `--namespaces`            | namespace selector to filter pods by                                 | (all namespaces)           |
-| `--namespace-labels`      | label selector to filter namespaces and its pods by                  | (all namespaces)           |
-| `--included-pod-names`    | regular expression pattern for pod names to include                  | (all included)             |
-| `--excluded-pod-names`    | regular expression pattern for pod names to exclude                  | (none excluded)            |
-| `--excluded-weekdays`     | weekdays when chaos is to be suspended, e.g. "Sat,Sun"               | (no weekday excluded)      |
-| `--excluded-times-of-day` | times of day when chaos is to be suspended, e.g. "22:00-08:00"       | (no times of day excluded) |
-| `--excluded-days-of-year` | days of a year when chaos is to be suspended, e.g. "Apr1,Dec24"      | (no days of year excluded) |
-| `--timezone`              | timezone from tz database, e.g. "America/New_York", "UTC" or "Local" | (UTC)                      |
-| `--max-runtime`           | Maximum runtime before chaoskube exits                               | -1s (infinite time)        |
-| `--max-kill`              | Specifies the maximum number of pods to be terminated per interval   | 1                          |
-| `--minimum-age`           | Minimum age to filter pods by                                        | 0s (matches every pod)     |
-| `--dry-run`               | don't kill pods, only log what would have been done                  | true                       |
-| `--log-format`            | specify the format of the log messages. Options are text and json    | text                       |
-| `--log-caller`            | include the calling function name and location in the log messages   | false                      |
-| `--slack-webhook`         | The address of the slack webhook for notifications                   | disabled                   |
+| Option                      | Description                                                          | Default                    |
+|-----------------------------|----------------------------------------------------------------------|----------------------------|
+| `--interval`                | interval between pod terminations                                    | 10m                        |
+| `--labels`                  | label selector to filter pods by                                     | (matches everything)       |
+| `--annotations`             | annotation selector to filter pods by                                | (matches everything)       |
+| `--kinds`                   | owner's kind selector to filter pods by                              | (all kinds)                |
+| `--namespaces`              | namespace selector to filter pods by                                 | (all namespaces)           |
+| `--namespace-labels`        | label selector to filter namespaces and its pods by                  | (all namespaces)           |
+| `--included-pod-names`      | regular expression pattern for pod names to include                  | (all included)             |
+| `--excluded-pod-names`      | regular expression pattern for pod names to exclude                  | (none excluded)            |
+| `--excluded-weekdays`       | weekdays when chaos is to be suspended, e.g. "Sat,Sun"               | (no weekday excluded)      |
+| `--excluded-times-of-day`   | times of day when chaos is to be suspended, e.g. "22:00-08:00"       | (no times of day excluded) |
+| `--excluded-days-of-year`   | days of a year when chaos is to be suspended, e.g. "Apr1,Dec24"      | (no days of year excluded) |
+| `--timezone`                | timezone from tz database, e.g. "America/New_York", "UTC" or "Local" | (UTC)                      |
+| `--max-runtime`             | Maximum runtime before chaoskube exits                               | -1s (infinite time)        |
+| `--max-kill`                | Specifies the maximum number of pods to be terminated per interval   | 1                          |
+| `--minimum-age`             | Minimum age to filter pods by                                        | 0s (matches every pod)     |
+| `--dry-run`                 | don't kill pods, only log what would have been done                  | true                       |
+| `--log-format`              | specify the format of the log messages. Options are text and json    | text                       |
+| `--log-caller`              | include the calling function name and location in the log messages   | false                      |
+| `--slack-webhook`           | The address of the slack webhook for notifications                   | disabled                   |
+| `--limited-by-one-namespace`| limited by one namespace. If true then namespaces mast one namespace.| false                      |
+| `--no-event`                | no send event                                                        | false                      |
 
 ## Related work
 

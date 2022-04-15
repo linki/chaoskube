@@ -12,12 +12,13 @@ import (
 	"path"
 	"regexp"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
-	"gopkg.in/alecthomas/kingpin.v2"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
+	"gopkg.in/alecthomas/kingpin.v2"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -36,30 +37,32 @@ var (
 )
 
 var (
-	labelString        string
-	annString          string
-	kindsString        string
-	nsString           string
-	nsLabelString      string
-	includedPodNames   *regexp.Regexp
-	excludedPodNames   *regexp.Regexp
-	excludedWeekdays   string
-	excludedTimesOfDay string
-	excludedDaysOfYear string
-	timezone           string
-	minimumAge         time.Duration
-	maxRuntime         time.Duration
-	maxKill            int
-	master             string
-	kubeconfig         string
-	interval           time.Duration
-	dryRun             bool
-	debug              bool
-	metricsAddress     string
-	gracePeriod        time.Duration
-	logFormat          string
-	logCaller          bool
-	slackWebhook       string
+	labelString           string
+	annString             string
+	kindsString           string
+	nsString              string
+	nsLabelString         string
+	includedPodNames      *regexp.Regexp
+	excludedPodNames      *regexp.Regexp
+	excludedWeekdays      string
+	excludedTimesOfDay    string
+	excludedDaysOfYear    string
+	timezone              string
+	minimumAge            time.Duration
+	maxRuntime            time.Duration
+	maxKill               int
+	master                string
+	kubeconfig            string
+	interval              time.Duration
+	dryRun                bool
+	limitedByOneNamespace bool
+	debug                 bool
+	metricsAddress        string
+	gracePeriod           time.Duration
+	logFormat             string
+	logCaller             bool
+	slackWebhook          string
+	noEvent               bool
 )
 
 func init() {
@@ -83,6 +86,7 @@ func init() {
 	kingpin.Flag("master", "The address of the Kubernetes cluster to target").StringVar(&master)
 	kingpin.Flag("kubeconfig", "Path to a kubeconfig file").StringVar(&kubeconfig)
 	kingpin.Flag("interval", "Interval between Pod terminations").Default("10m").DurationVar(&interval)
+	kingpin.Flag("limited-by-one-namespace", "limited by one namespace. if it is true then namespaces mast only one namespace.").Default("false").BoolVar(&limitedByOneNamespace)
 	kingpin.Flag("dry-run", "Don't actually kill any pod. Turned on by default. Turn off with `--no-dry-run`.").Default("true").BoolVar(&dryRun)
 	kingpin.Flag("debug", "Enable debug logging.").BoolVar(&debug)
 	kingpin.Flag("metrics-address", "Listening address for metrics handler").Default(":8080").StringVar(&metricsAddress)
@@ -90,6 +94,7 @@ func init() {
 	kingpin.Flag("log-format", "Specify the format of the log messages. Options are text and json. Defaults to text.").Default("text").EnumVar(&logFormat, "text", "json")
 	kingpin.Flag("log-caller", "Include the calling function name and location in the log messages.").BoolVar(&logCaller)
 	kingpin.Flag("slack-webhook", "The address of the slack webhook for notifications").StringVar(&slackWebhook)
+	kingpin.Flag("no-event", "no send event").Default("false").BoolVar(&noEvent)
 }
 
 func main() {
@@ -110,41 +115,53 @@ func main() {
 	log.SetReportCaller(logCaller)
 
 	log.WithFields(log.Fields{
-		"labels":             labelString,
-		"annotations":        annString,
-		"kinds":              kindsString,
-		"namespaces":         nsString,
-		"namespaceLabels":    nsLabelString,
-		"includedPodNames":   includedPodNames,
-		"excludedPodNames":   excludedPodNames,
-		"excludedWeekdays":   excludedWeekdays,
-		"excludedTimesOfDay": excludedTimesOfDay,
-		"excludedDaysOfYear": excludedDaysOfYear,
-		"timezone":           timezone,
-		"minimumAge":         minimumAge,
-		"maxRuntime":         maxRuntime,
-		"maxKill":            maxKill,
-		"master":             master,
-		"kubeconfig":         kubeconfig,
-		"interval":           interval,
-		"dryRun":             dryRun,
-		"debug":              debug,
-		"metricsAddress":     metricsAddress,
-		"gracePeriod":        gracePeriod,
-		"logFormat":          logFormat,
-		"slackWebhook":       slackWebhook,
+		"labels":                 labelString,
+		"annotations":            annString,
+		"kinds":                  kindsString,
+		"namespaces":             nsString,
+		"namespaceLabels":        nsLabelString,
+		"includedPodNames":       includedPodNames,
+		"excludedPodNames":       excludedPodNames,
+		"excludedWeekdays":       excludedWeekdays,
+		"excludedTimesOfDay":     excludedTimesOfDay,
+		"excludedDaysOfYear":     excludedDaysOfYear,
+		"timezone":               timezone,
+		"minimumAge":             minimumAge,
+		"maxRuntime":             maxRuntime,
+		"maxKill":                maxKill,
+		"master":                 master,
+		"kubeconfig":             kubeconfig,
+		"interval":               interval,
+		"llimitedByOneNamespace": limitedByOneNamespace,
+		"dryRun":                 dryRun,
+		"debug":                  debug,
+		"metricsAddress":         metricsAddress,
+		"gracePeriod":            gracePeriod,
+		"logFormat":              logFormat,
+		"slackWebhook":           slackWebhook,
+		"noEvent":                noEvent,
 	}).Debug("reading config")
 
 	log.WithFields(log.Fields{
-		"version":    version,
-		"dryRun":     dryRun,
-		"interval":   interval,
-		"maxRuntime": maxRuntime,
+		"version":               version,
+		"limitedByOneNamespace": limitedByOneNamespace,
+		"dryRun":                dryRun,
+		"interval":              interval,
+		"maxRuntime":            maxRuntime,
 	}).Info("starting up")
 
 	client, err := newClient()
 	if err != nil {
 		log.WithField("err", err).Fatal("failed to connect to cluster")
+	}
+
+	if limitedByOneNamespace {
+		if !isOneNamespace(nsString) {
+			log.WithFields(log.Fields{
+				"limitedByOneNamespace": limitedByOneNamespace,
+				"namespaces":            nsString,
+			}).Fatal("mast only one namespace")
+		}
 	}
 
 	var (
@@ -221,10 +238,12 @@ func main() {
 		parsedTimezone,
 		minimumAge,
 		log.StandardLogger(),
+		limitedByOneNamespace,
 		dryRun,
 		terminator.NewDeletePodTerminator(client, log.StandardLogger(), gracePeriod),
 		maxKill,
 		notifiers,
+		noEvent,
 	)
 
 	if metricsAddress != "" {
@@ -286,6 +305,19 @@ func newClient() (*kubernetes.Clientset, error) {
 	}).Info("connected to cluster")
 
 	return client, nil
+}
+
+func isOneNamespace(str string) bool {
+	if str == "" {
+		return false
+	}
+	if len(strings.Split(str, ",")) != 1 {
+		return false
+	}
+	if strings.HasPrefix(str, "!") {
+		return false
+	}
+	return true
 }
 
 func parseSelector(str string) labels.Selector {

@@ -48,22 +48,24 @@ func (suite *Suite) SetupTest() {
 // TestNew tests that arguments are passed to the new instance correctly
 func (suite *Suite) TestNew() {
 	var (
-		client             = fake.NewSimpleClientset()
-		labelSelector, _   = labels.Parse("foo=bar")
-		annotations, _     = labels.Parse("baz=waldo")
-		kinds, _           = labels.Parse("job")
-		namespaces, _      = labels.Parse("qux")
-		namespaceLabels, _ = labels.Parse("taz=wubble")
-		includedPodNames   = regexp.MustCompile("foo")
-		excludedPodNames   = regexp.MustCompile("bar")
-		excludedWeekdays   = []time.Weekday{time.Friday}
-		excludedTimesOfDay = []util.TimePeriod{util.TimePeriod{}}
-		excludedDaysOfYear = []time.Time{time.Now()}
-		minimumAge         = time.Duration(42)
-		dryRun             = true
-		terminator         = terminator.NewDeletePodTerminator(client, logger, 10*time.Second)
-		maxKill            = 1
-		notifier           = testNotifier
+		client                = fake.NewSimpleClientset()
+		labelSelector, _      = labels.Parse("foo=bar")
+		annotations, _        = labels.Parse("baz=waldo")
+		kinds, _              = labels.Parse("job")
+		namespaces, _         = labels.Parse("qux")
+		namespaceLabels, _    = labels.Parse("taz=wubble")
+		includedPodNames      = regexp.MustCompile("foo")
+		excludedPodNames      = regexp.MustCompile("bar")
+		excludedWeekdays      = []time.Weekday{time.Friday}
+		excludedTimesOfDay    = []util.TimePeriod{util.TimePeriod{}}
+		excludedDaysOfYear    = []time.Time{time.Now()}
+		minimumAge            = time.Duration(42)
+		limitedByOneNamespace = false
+		dryRun                = true
+		terminator            = terminator.NewDeletePodTerminator(client, logger, 10*time.Second)
+		maxKill               = 1
+		notifier              = testNotifier
+		noEvent               = false
 	)
 
 	chaoskube := New(
@@ -81,10 +83,12 @@ func (suite *Suite) TestNew() {
 		time.UTC,
 		minimumAge,
 		logger,
+		limitedByOneNamespace,
 		dryRun,
 		terminator,
 		maxKill,
 		notifier,
+		noEvent,
 	)
 	suite.Require().NotNil(chaoskube)
 
@@ -121,6 +125,7 @@ func (suite *Suite) TestRunContextCanceled() {
 		[]time.Time{},
 		time.UTC,
 		time.Duration(0),
+		false,
 		false,
 		10,
 		1,
@@ -178,6 +183,7 @@ func (suite *Suite) TestCandidates() {
 			time.UTC,
 			time.Duration(0),
 			false,
+			false,
 			10,
 		)
 
@@ -223,6 +229,7 @@ func (suite *Suite) TestCandidatesNamespaceLabels() {
 			time.UTC,
 			time.Duration(0),
 			false,
+			false,
 			10,
 		)
 
@@ -266,6 +273,7 @@ func (suite *Suite) TestCandidatesPodNameRegexp() {
 			time.UTC,
 			time.Duration(0),
 			false,
+			false,
 			10,
 		)
 
@@ -305,6 +313,7 @@ func (suite *Suite) TestVictim() {
 			[]time.Time{},
 			time.UTC,
 			time.Duration(0),
+			false,
 			false,
 			10,
 		)
@@ -359,6 +368,7 @@ func (suite *Suite) TestVictims() {
 			time.UTC,
 			time.Duration(0),
 			false,
+			false,
 			10,
 			tt.maxKill,
 		)
@@ -384,6 +394,7 @@ func (suite *Suite) TestNoVictimReturnsError() {
 		time.UTC,
 		time.Duration(0),
 		false,
+		false,
 		10,
 		1,
 	)
@@ -399,11 +410,12 @@ func (suite *Suite) TestDeletePod() {
 	bar := map[string]string{"namespace": "testing", "name": "bar"}
 
 	for _, tt := range []struct {
-		dryRun        bool
-		remainingPods []map[string]string
+		limitedByOneNamespace bool
+		dryRun                bool
+		remainingPods         []map[string]string
 	}{
-		{false, []map[string]string{bar}},
-		{true, []map[string]string{foo, bar}},
+		{false, false, []map[string]string{bar}},
+		{false, true, []map[string]string{foo, bar}},
 	} {
 		chaoskube := suite.setupWithPods(
 			labels.Everything(),
@@ -418,6 +430,7 @@ func (suite *Suite) TestDeletePod() {
 			[]time.Time{},
 			time.UTC,
 			time.Duration(0),
+			tt.limitedByOneNamespace,
 			tt.dryRun,
 			10,
 		)
@@ -447,6 +460,7 @@ func (suite *Suite) TestDeletePodNotFound() {
 		[]time.Time{},
 		time.UTC,
 		time.Duration(0),
+		false,
 		false,
 		10,
 		1,
@@ -680,6 +694,7 @@ func (suite *Suite) TestTerminateVictim() {
 			tt.timezone,
 			time.Duration(0),
 			false,
+			false,
 			10,
 		)
 		chaoskube.Now = tt.now
@@ -709,6 +724,7 @@ func (suite *Suite) TestTerminateNoVictimLogsInfo() {
 		[]time.Time{},
 		time.UTC,
 		time.Duration(0),
+		false,
 		false,
 		10,
 		1,
@@ -746,7 +762,7 @@ func (suite *Suite) assertNotified(notifier *notifier.Noop) {
 	suite.Assert().Greater(notifier.Calls, 0)
 }
 
-func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, kinds labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration) *Chaoskube {
+func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, kinds labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, limitedByOneNamespace bool, dryRun bool, gracePeriod time.Duration) *Chaoskube {
 	chaoskube := suite.setup(
 		labelSelector,
 		annotations,
@@ -760,6 +776,7 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 		excludedDaysOfYear,
 		timezone,
 		minimumAge,
+		limitedByOneNamespace,
 		dryRun,
 		gracePeriod,
 		1,
@@ -798,7 +815,7 @@ func (suite *Suite) createPods(client kubernetes.Interface, podsInfo []podInfo) 
 	}
 }
 
-func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, kinds labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration, maxKill int) *Chaoskube {
+func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, kinds labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, limitedByOneNamespace bool, dryRun bool, gracePeriod time.Duration, maxKill int) *Chaoskube {
 	logOutput.Reset()
 
 	client := fake.NewSimpleClientset()
@@ -819,10 +836,12 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 		timezone,
 		minimumAge,
 		logger,
+		limitedByOneNamespace,
 		dryRun,
 		terminator.NewDeletePodTerminator(client, nullLogger, gracePeriod),
 		maxKill,
 		testNotifier,
+		false,
 	)
 }
 
@@ -925,6 +944,7 @@ func (suite *Suite) TestMinimumAge() {
 			[]time.Time{},
 			time.UTC,
 			tt.minimumAge,
+			false,
 			false,
 			10,
 			1,
@@ -1108,6 +1128,7 @@ func (suite *Suite) TestNotifierCall() {
 		[]time.Time{},
 		time.UTC,
 		time.Duration(0),
+		false,
 		false,
 		10,
 	)

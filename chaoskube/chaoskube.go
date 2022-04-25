@@ -60,6 +60,8 @@ type Chaoskube struct {
 	Logger log.FieldLogger
 	// a terminator that terminates victim pods
 	Terminator terminator.Terminator
+	// limited by one namespace. if it is true then namespaces mast only one namespace.
+	LimitedByOneNamespace bool
 	// dry run will not allow any pod terminations
 	DryRun bool
 	// grace period to terminate the pods
@@ -72,6 +74,8 @@ type Chaoskube struct {
 	MaxKill int
 	// chaos events notifier
 	Notifier notifier.Notifier
+	// no event
+	NoEvent bool
 }
 
 var (
@@ -95,32 +99,41 @@ var (
 // * a logger implementing logrus.FieldLogger to send log output to
 // * what specific terminator to use to imbue chaos on victim pods
 // * whether to enable/disable dry-run mode
-func New(client kubernetes.Interface, labels, annotations, kinds, namespaces, namespaceLabels labels.Selector, includedPodNames, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator, maxKill int, notifier notifier.Notifier) *Chaoskube {
+func New(client kubernetes.Interface, labels, annotations, kinds, namespaces, namespaceLabels labels.Selector, includedPodNames, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, limitedByOneNamespace bool, dryRun bool, terminator terminator.Terminator, maxKill int, notifier notifier.Notifier, noEvent bool) *Chaoskube {
+	var ns string
+	if limitedByOneNamespace {
+		ns = namespaces.String()
+	} else {
+		ns = v1.NamespaceAll
+	}
+
 	broadcaster := record.NewBroadcaster()
-	broadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events(v1.NamespaceAll)})
+	broadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events(ns)})
 	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "chaoskube"})
 
 	return &Chaoskube{
-		Client:             client,
-		Labels:             labels,
-		Annotations:        annotations,
-		Kinds:              kinds,
-		Namespaces:         namespaces,
-		NamespaceLabels:    namespaceLabels,
-		IncludedPodNames:   includedPodNames,
-		ExcludedPodNames:   excludedPodNames,
-		ExcludedWeekdays:   excludedWeekdays,
-		ExcludedTimesOfDay: excludedTimesOfDay,
-		ExcludedDaysOfYear: excludedDaysOfYear,
-		Timezone:           timezone,
-		MinimumAge:         minimumAge,
-		Logger:             logger,
-		DryRun:             dryRun,
-		Terminator:         terminator,
-		EventRecorder:      recorder,
-		Now:                time.Now,
-		MaxKill:            maxKill,
-		Notifier:           notifier,
+		Client:                client,
+		Labels:                labels,
+		Annotations:           annotations,
+		Kinds:                 kinds,
+		Namespaces:            namespaces,
+		NamespaceLabels:       namespaceLabels,
+		IncludedPodNames:      includedPodNames,
+		ExcludedPodNames:      excludedPodNames,
+		ExcludedWeekdays:      excludedWeekdays,
+		ExcludedTimesOfDay:    excludedTimesOfDay,
+		ExcludedDaysOfYear:    excludedDaysOfYear,
+		Timezone:              timezone,
+		MinimumAge:            minimumAge,
+		Logger:                logger,
+		LimitedByOneNamespace: limitedByOneNamespace,
+		DryRun:                dryRun,
+		Terminator:            terminator,
+		NoEvent:               noEvent,
+		EventRecorder:         recorder,
+		Now:                   time.Now,
+		MaxKill:               maxKill,
+		Notifier:              notifier,
 	}
 }
 
@@ -210,8 +223,13 @@ func (c *Chaoskube) Victims(ctx context.Context) ([]v1.Pod, error) {
 // It returns all pods that match the configured label, annotation and namespace selectors.
 func (c *Chaoskube) Candidates(ctx context.Context) ([]v1.Pod, error) {
 	listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
-
-	podList, err := c.Client.CoreV1().Pods(v1.NamespaceAll).List(ctx, listOptions)
+	var ns string
+	if c.LimitedByOneNamespace {
+		ns = c.Namespaces.String()
+	} else {
+		ns = v1.NamespaceAll
+	}
+	podList, err := c.Client.CoreV1().Pods(ns).List(ctx, listOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -263,17 +281,17 @@ func (c *Chaoskube) DeletePod(ctx context.Context, victim v1.Pod) error {
 
 	metrics.PodsDeletedTotal.WithLabelValues(victim.Namespace).Inc()
 
-	ref, err := reference.GetReference(scheme.Scheme, &victim)
-	if err != nil {
-		return err
+	if !c.NoEvent {
+		ref, err := reference.GetReference(scheme.Scheme, &victim)
+		if err != nil {
+			return err
+		}
+
+		c.EventRecorder.Event(ref, v1.EventTypeNormal, "Killing", "Pod was terminated by chaoskube to introduce chaos.")
 	}
-
-	c.EventRecorder.Event(ref, v1.EventTypeNormal, "Killing", "Pod was terminated by chaoskube to introduce chaos.")
-
 	if err := c.Notifier.NotifyPodTermination(victim); err != nil {
 		c.Logger.WithField("err", err).Warn("failed to notify pod termination")
 	}
-
 	return nil
 }
 

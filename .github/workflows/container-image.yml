@@ -21,6 +21,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Get all git tags
+        run: git fetch --prune --unshallow --tags
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
 
@@ -49,6 +52,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v2
         with:
+          context: .
           platforms: linux/amd64,linux/arm64,linux/arm/v6,linux/ppc64le
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}

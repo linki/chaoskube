@@ -2,20 +2,19 @@
 FROM golang:1.16-alpine3.14 as builder
 
 ENV CGO_ENABLED 0
-ENV GO111MODULE on
-RUN apk --no-cache add git
+RUN apk --no-cache add alpine-sdk
 WORKDIR /go/src/github.com/linki/chaoskube
 COPY . .
 RUN go test -v ./...
-RUN go run main.go --version
-RUN go build -o /bin/chaoskube -v \
+RUN go build -o /usr/local/bin/chaoskube -v \
   -ldflags "-X main.version=$(git describe --tags --always --dirty) -w -s"
+RUN /usr/local/bin/chaoskube --version
 
 # final image
 FROM alpine:3.14.3
 
 RUN apk --no-cache add ca-certificates dumb-init tzdata
-COPY --from=builder /bin/chaoskube /bin/chaoskube
+COPY --from=builder /usr/local/bin/chaoskube /usr/local/bin/chaoskube
 
 USER 65534
-ENTRYPOINT ["dumb-init", "--", "/bin/chaoskube"]
+ENTRYPOINT ["dumb-init", "--", "/usr/local/bin/chaoskube"]

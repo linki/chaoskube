@@ -1,5 +1,5 @@
 # builder image
-FROM golang:1.17-alpine3.15 as builder
+FROM golang:1.18-alpine3.15 as builder
 
 ENV CGO_ENABLED 0
 RUN apk --no-cache add alpine-sdk

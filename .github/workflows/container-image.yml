@@ -16,10 +16,20 @@ env:
 
 jobs:
   build-and-push:
+
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+
+      - name: Install cosign
+        if: github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@main
 
       - name: Get all git tags
         run: git fetch --prune --unshallow --tags
@@ -51,9 +61,16 @@ jobs:
 
       - name: Build and push
         uses: docker/build-push-action@v3
+        id: build-and-push
         with:
           context: .
           platforms: linux/amd64,linux/arm64,linux/arm/v6,linux/ppc64le
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Sign the published Docker image
+        if: ${{ github.event_name != 'pull_request' }}
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: cosign sign ${{ steps.meta.outputs.tags }}@${{ steps.build-and-push.outputs.digest }}

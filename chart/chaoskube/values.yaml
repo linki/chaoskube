@@ -33,6 +33,9 @@ chaoskube:
     timezone: "UTC"
     # exclude all pods that haven't been running for at least one hour
     minimum-age: "1h"
+    # sets the annotation prefix to use when looking for configuration overrides in pod annotations
+    # eg. termination frequency will look for the annotation "chaos.alpha.kubernetes.io/frequency"
+    config-annotation-prefix: "chaos.alpha.kubernetes.io"
     # terminate pods for real: this disables dry-run mode which is on by default
     no-dry-run: ""
 

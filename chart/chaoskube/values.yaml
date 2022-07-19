@@ -4,7 +4,7 @@ replicaCount: 1
 
 # image specifies image location, tag and pullPolicy
 image:
-  repository: quay.io/linki/chaoskube
+  repository: ghcr.io/linki/chaoskube
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
@@ -12,29 +12,33 @@ image:
 # chaoskube is used to configure chaoskube
 chaoskube:
   env: {}
-  args:
+  args: {}
+    ######
+    # Example configuration, uncomment and adjust to your needs.
+    # Be sure to read: https://github.com/linki/chaoskube#flags
+    ######
     # kill a pod every 10 minutes
-    interval: "10m"
+    #interval: "10m"
     # only target pods in the test environment
-    labels: "environment=test"
+    #labels: "environment=test"
     # only consider pods with this annotation
-    annotations: "chaos.alpha.kubernetes.io/enabled=true"
+    #annotations: "chaos.alpha.kubernetes.io/enabled=true"
     # exclude all DaemonSet pods
-    kinds: "!DaemonSet"
+    #kinds: "!DaemonSet"
     # exclude all pods in the kube-system namespace
-    namespaces: "!kube-system"
+    #namespaces: "!kube-system"
     # don't kill anything on weekends
-    excluded-weekdays: "Sat,Sun"
+    #excluded-weekdays: "Sat,Sun"
     # don't kill anything during the night or at lunchtime
-    excluded-times-of-day: "22:00-08:00,11:00-13:00"
+    #excluded-times-of-day: "22:00-08:00,11:00-13:00"
     # don't kill anything as a joke or on christmas eve
-    excluded-days-of-year: "Apr1,Dec24"
+    #excluded-days-of-year: "Apr1,Dec24"
     # let's make sure we all agree on what the above times mean
-    timezone: "UTC"
+    #timezone: "UTC"
     # exclude all pods that haven't been running for at least one hour
-    minimum-age: "1h"
+    #minimum-age: "1h"
     # terminate pods for real: this disables dry-run mode which is on by default
-    no-dry-run: ""
+    #no-dry-run: ""
 
 # serviceAccount can be used to customize the service account which will be crated and used by chaoskube
 serviceAccount:

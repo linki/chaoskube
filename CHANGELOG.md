@@ -1,3 +1,6 @@
+  Updates:
+  * [#505](https://github.com/linki/chaoskube/pull/505) Update builds to use Go `v1.19` @linki
+
 ## v0.22.0 - 2021-11-05
 
   Features:

@@ -31,6 +31,13 @@ spec:
         env:
           {{ toYaml .Values.chaoskube.env | indent 8 }}
         {{- end }}
+        {{- if .Values.chaoskube.envFromConfigMapRefs }}
+        envFrom:
+          {{- range .Values.chaoskube.envFromConfigMapRefs }}
+          - configMapRef:
+              name: {{ . }}
+          {{- end }}
+        {{- end }}
         {{- with .Values.chaoskube.args }}
         args:
         {{- range $key, $value := . }}

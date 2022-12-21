@@ -12,6 +12,8 @@ image:
 # chaoskube is used to configure chaoskube
 chaoskube:
   env: {}
+  envFromConfigMapRefs: []
+    # - 'configmap-a'
   args: {}
     ######
     # Example configuration, uncomment and adjust to your needs.

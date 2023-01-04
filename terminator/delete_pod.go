@@ -42,5 +42,6 @@ func deleteOptions(gracePeriod time.Duration) metav1.DeleteOptions {
 		return metav1.DeleteOptions{}
 	}
 
-	return metav1.DeleteOptions{GracePeriodSeconds: (*int64)(&gracePeriod)}
+	inSeconds := int64(gracePeriod.Seconds())
+	return metav1.DeleteOptions{GracePeriodSeconds: &inSeconds}
 }

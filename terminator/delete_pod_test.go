@@ -71,15 +71,15 @@ func (suite *DeletePodTerminatorSuite) TestDeleteOptions() {
 		expected    metav1.DeleteOptions
 	}{
 		{
-			-1,
+			-1 * time.Second,
 			metav1.DeleteOptions{},
 		},
 		{
-			0,
+			0 * time.Second,
 			metav1.DeleteOptions{GracePeriodSeconds: int64Ptr(0)},
 		},
 		{
-			300,
+			300 * time.Second,
 			metav1.DeleteOptions{GracePeriodSeconds: int64Ptr(300)},
 		},
 	} {

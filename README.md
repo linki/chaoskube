@@ -200,27 +200,28 @@ INFO[0000] setting timezone         location=Europe/Berlin name=CET offset=1
 Use `UTC`, `Local` or pick a timezone name from the [(IANA) tz database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). If you're testing `chaoskube` from your local machine then `Local` makes the most sense. Once you deploy `chaoskube` to your cluster you should deploy it with a specific timezone, e.g. where most of your team members are living, so that both your team and `chaoskube` have a common understanding when a particular weekday begins and ends, for instance. If your team is spread across multiple time zones it's probably best to pick `UTC` which is also the default. Picking the wrong timezone shifts the meaning of a particular weekday by a couple of hours between you and the server.
 
 ## Flags
-| Option                    | Environment                       | Description                                                          | Default                    |
-| ------------------------- | --------------------------------- | -------------------------------------------------------------------- | -------------------------- |
-| `--interval`              | `CHAOSKUBE_INTERVAL`              | interval between pod terminations                                    | 10m                        |
-| `--labels`                | `CHAOSKUBE_LABELS`                | label selector to filter pods by                                     | (matches everything)       |
-| `--annotations`           | `CHAOSKUBE_ANNOTATIONS`           | annotation selector to filter pods by                                | (matches everything)       |
-| `--kinds`                 | `CHAOSKUBE_KINDS`                 | owner's kind selector to filter pods by                              | (all kinds)                |
-| `--namespaces`            | `CHAOSKUBE_NAMESPACES`            | namespace selector to filter pods by                                 | (all namespaces)           |
-| `--namespace-labels`      | `CHAOSKUBE_NAMESPACE_LABELS`      | label selector to filter namespaces and its pods by                  | (all namespaces)           |
-| `--included-pod-names`    | `CHAOSKUBE_INCLUDED_POD_NAMES`    | regular expression pattern for pod names to include                  | (all included)             |
-| `--excluded-pod-names`    | `CHAOSKUBE_EXCLUDED_POD_NAMES`    | regular expression pattern for pod names to exclude                  | (none excluded)            |
-| `--excluded-weekdays`     | `CHAOSKUBE_EXCLUDED_WEEKDAYS`     | weekdays when chaos is to be suspended, e.g. "Sat,Sun"               | (no weekday excluded)      |
-| `--excluded-times-of-day` | `CHAOSKUBE_EXCLUDED_TIMES_OF_DAY` | times of day when chaos is to be suspended, e.g. "22:00-08:00"       | (no times of day excluded) |
-| `--excluded-days-of-year` | `CHAOSKUBE_EXCLUDED_DAYS_OF_YEAR` | days of a year when chaos is to be suspended, e.g. "Apr1,Dec24"      | (no days of year excluded) |
-| `--timezone`              | `CHAOSKUBE_TIMEZONE`              | timezone from tz database, e.g. "America/New_York", "UTC" or "Local" | (UTC)                      |
-| `--max-runtime`           | `CHAOSKUBE_MAX_RUNTIME`           | Maximum runtime before chaoskube exits                               | -1s (infinite time)        |
-| `--max-kill`              | `CHAOSKUBE_MAX_KILL`              | Specifies the maximum number of pods to be terminated per interval   | 1                          |
-| `--minimum-age`           | `CHAOSKUBE_MINIMUM_AGE`           | Minimum age to filter pods by                                        | 0s (matches every pod)     |
-| `--dry-run`               | `CHAOSKUBE_DRY_RUN`               | don't kill pods, only log what would have been done                  | true                       |
-| `--log-format`            | `CHAOSKUBE_LOG_FORMAT`            | specify the format of the log messages. Options are text and json    | text                       |
-| `--log-caller`            | `CHAOSKUBE_LOG_CALLER`            | include the calling function name and location in the log messages   | false                      |
-| `--slack-webhook`         | `CHAOSKUBE_SLACK_WEBHOOK`         | The address of the slack webhook for notifications                   | disabled                   |
+| Option                     | Environment                        | Description                                                          | Default                    |
+| -------------------------- | ---------------------------------- | -------------------------------------------------------------------- | -------------------------- |
+| `--interval`               | `CHAOSKUBE_INTERVAL`               | interval between pod terminations                                    | 10m                        |
+| `--labels`                 | `CHAOSKUBE_LABELS`                 | label selector to filter pods by                                     | (matches everything)       |
+| `--annotations`            | `CHAOSKUBE_ANNOTATIONS`            | annotation selector to filter pods by                                | (matches everything)       |
+| `--kinds`                  | `CHAOSKUBE_KINDS`                  | owner's kind selector to filter pods by                              | (all kinds)                |
+| `--namespaces`             | `CHAOSKUBE_NAMESPACES`             | namespace selector to filter pods by                                 | (all namespaces)           |
+| `--namespace-labels`       | `CHAOSKUBE_NAMESPACE_LABELS`       | label selector to filter namespaces and its pods by                  | (all namespaces)           |
+| `--included-pod-names`     | `CHAOSKUBE_INCLUDED_POD_NAMES`     | regular expression pattern for pod names to include                  | (all included)             |
+| `--excluded-pod-names`     | `CHAOSKUBE_EXCLUDED_POD_NAMES`     | regular expression pattern for pod names to exclude                  | (none excluded)            |
+| `--excluded-weekdays`      | `CHAOSKUBE_EXCLUDED_WEEKDAYS`      | weekdays when chaos is to be suspended, e.g. "Sat,Sun"               | (no weekday excluded)      |
+| `--excluded-times-of-day`  | `CHAOSKUBE_EXCLUDED_TIMES_OF_DAY`  | times of day when chaos is to be suspended, e.g. "22:00-08:00"       | (no times of day excluded) |
+| `--excluded-days-of-year`  | `CHAOSKUBE_EXCLUDED_DAYS_OF_YEAR`  | days of a year when chaos is to be suspended, e.g. "Apr1,Dec24"      | (no days of year excluded) |
+| `--timezone`               | `CHAOSKUBE_TIMEZONE`               | timezone from tz database, e.g. "America/New_York", "UTC" or "Local" | (UTC)                      |
+| `--max-runtime`            | `CHAOSKUBE_MAX_RUNTIME`            | Maximum runtime before chaoskube exits                               | -1s (infinite time)        |
+| `--max-kill`               | `CHAOSKUBE_MAX_KILL`               | Specifies the maximum number of pods to be terminated per interval   | 1                          |
+| `--minimum-age`            | `CHAOSKUBE_MINIMUM_AGE`            | Minimum age to filter pods by                                        | 0s (matches every pod)     |
+| `--dry-run`                | `CHAOSKUBE_DRY_RUN`                | don't kill pods, only log what would have been done                  | true                       |
+| `--log-format`             | `CHAOSKUBE_LOG_FORMAT`             | specify the format of the log messages. Options are text and json    | text                       |
+| `--log-caller`             | `CHAOSKUBE_LOG_CALLER`             | include the calling function name and location in the log messages   | false                      |
+| `--slack-webhook`          | `CHAOSKUBE_SLACK_WEBHOOK`          | The address of the slack webhook for notifications                   | disabled                   |
+| `--client-namespace-scope` | `CHAOSKUBE_CLIENT_NAMESPACE_SCOPE` | Scope Kubernetes API calls to the given namespace                    | (all namespaces)           |
 
 ## Related work
 

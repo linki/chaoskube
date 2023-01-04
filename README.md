@@ -221,6 +221,7 @@ Use `UTC`, `Local` or pick a timezone name from the [(IANA) tz database](https:/
 | `--log-format`            | `CHAOSKUBE_LOG_FORMAT`            | specify the format of the log messages. Options are text and json    | text                       |
 | `--log-caller`            | `CHAOSKUBE_LOG_CALLER`            | include the calling function name and location in the log messages   | false                      |
 | `--slack-webhook`         | `CHAOSKUBE_SLACK_WEBHOOK`         | The address of the slack webhook for notifications                   | disabled                   |
+| `--client-namespace-scope`| `CLIENT_NAMESPACE_SCOPE`          | Scope Kubernetes API calls to the given namespace                    | (all namespaces)           |
 
 ## Related work
 

@@ -51,6 +51,9 @@ serviceAccount:
 # podAnnotations can be used to add additional annotations to the pod
 podAnnotations: {}
 
+# additionalLabels can be used to add additional labels to the pod
+additionalLabels: {}
+
 # podSecurityContext is used to customize the security context of the pod
 podSecurityContext:
   runAsNonRoot: true

@@ -23,34 +23,36 @@ spec:
         {{- include "chaoskube.selectorLabels" . | nindent 8 }}
     spec:
       serviceAccountName: {{ include "chaoskube.serviceAccountName" . }}
+      tolerations:
+        {{- toYaml .Values.tolerations | nindent 8 }}
       containers:
-      - name: {{ .Chart.Name }}
-        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default (printf "v%s" .Chart.AppVersion) }}"
-        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default (printf "v%s" .Chart.AppVersion) }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
         {{- if .Values.chaoskube.env }}
-        env:
+          env:
           {{ toYaml .Values.chaoskube.env | indent 8 }}
         {{- end }}
         {{- if .Values.chaoskube.envFromConfigMapRefs }}
-        envFrom:
+          envFrom:
           {{- range .Values.chaoskube.envFromConfigMapRefs }}
-          - configMapRef:
-              name: {{ . }}
+            - configMapRef:
+                name: {{ . }}
           {{- end }}
         {{- end }}
         {{- with .Values.chaoskube.args }}
-        args:
+          args:
         {{- range $key, $value := . }}
         {{- if $value }}
-        - --{{ $key }}={{ $value }}
+            - --{{ $key }}={{ $value }}
         {{- else }}
-        - --{{ $key }}
+            - --{{ $key }}
         {{- end }}
         {{- end }}
         {{- end }}
-        securityContext:
+          securityContext:
           {{- toYaml .Values.podSecurityContext | nindent 10 }}
         {{- with .Values.resources}}
-        resources:
+          resources:
           {{- toYaml . | nindent 10 }}
         {{- end }}

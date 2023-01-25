@@ -13,7 +13,7 @@ image:
 chaoskube:
   env: {}
   envFromConfigMapRefs: []
-  # - 'configmap-a'
+    # - 'configmap-a'
   args: {}
     ######
     # Example configuration, uncomment and adjust to your needs.
@@ -40,7 +40,7 @@ chaoskube:
     # exclude all pods that haven't been running for at least one hour
     #minimum-age: "1h"
     # terminate pods for real: this disables dry-run mode which is on by default
-  #no-dry-run: ""
+    #no-dry-run: ""
 
 # serviceAccount can be used to customize the service account which will be crated and used by chaoskube
 serviceAccount:
@@ -68,5 +68,5 @@ resources: {}
 #   cpu: 10m
 #   memory: 16Mi
 
-#tolerations can be used to configure tolerations for the pods
+# tolerations can be used to configure tolerations for the pods
 tolerations: []

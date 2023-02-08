@@ -67,3 +67,6 @@ resources: {}
 # requests:
 #   cpu: 10m
 #   memory: 16Mi
+
+# tolerations can be used to configure tolerations for the pods
+tolerations: []

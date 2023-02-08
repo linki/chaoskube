@@ -22,6 +22,8 @@ spec:
       labels:
         {{- include "chaoskube.selectorLabels" . | nindent 8 }}
     spec:
+      tolerations:
+        {{- toYaml .Values.tolerations | nindent 8 }}
       serviceAccountName: {{ include "chaoskube.serviceAccountName" . }}
       containers:
       - name: {{ .Chart.Name }}

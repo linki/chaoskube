@@ -6,6 +6,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "chaoskube.labels" . | nindent 4 }}
+    {{- if .Values.additionalLabels }}
+    {{- range $key, $value := .Values.additionalLabels }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+    {{- end }}
 spec:
   strategy:
     type: Recreate
@@ -21,6 +26,11 @@ spec:
       {{- end }}
       labels:
         {{- include "chaoskube.selectorLabels" . | nindent 8 }}
+        {{- if .Values.additionalLabels }}
+        {{- range $key, $value := .Values.additionalLabels }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
+        {{- end }}
     spec:
       tolerations:
         {{- toYaml .Values.tolerations | nindent 8 }}

@@ -1,6 +1,6 @@
 module github.com/linki/chaoskube
 
-go 1.19
+go 1.20
 
 require (
 	github.com/hashicorp/go-multierror v1.1.1

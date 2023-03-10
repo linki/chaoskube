@@ -1,5 +1,5 @@
 # builder image
-FROM golang:1.19.5-alpine3.17 as builder
+FROM golang:1.20.1-alpine3.17 as builder
 
 ENV CGO_ENABLED 0
 RUN apk --no-cache add alpine-sdk
@@ -11,7 +11,7 @@ RUN go build -o /usr/local/bin/chaoskube -v \
 RUN /usr/local/bin/chaoskube --version
 
 # final image
-FROM alpine:3.17.1
+FROM alpine:3.17.2
 
 RUN apk --no-cache add ca-certificates dumb-init tzdata
 COPY --from=builder /usr/local/bin/chaoskube /usr/local/bin/chaoskube

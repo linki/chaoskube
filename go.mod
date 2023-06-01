@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/alecthomas/kingpin/v2 v2.3.2
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/prometheus/client_golang v1.15.0
+	github.com/prometheus/client_golang v1.15.1
 	github.com/sirupsen/logrus v1.9.0
 	github.com/stretchr/testify v1.8.2
 	k8s.io/api v0.27.1

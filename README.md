@@ -1,6 +1,5 @@
 # chaoskube
 [![GitHub release](https://img.shields.io/github/release/linki/chaoskube.svg)](https://github.com/linki/chaoskube/releases)
-[![Docker Repository on Quay](https://quay.io/repository/linki/chaoskube/status "Docker Repository on Quay")](https://quay.io/repository/linki/chaoskube)
 [![go-doc](https://godoc.org/github.com/linki/chaoskube/chaoskube?status.svg)](https://godoc.org/github.com/linki/chaoskube/chaoskube)
 
 `chaoskube` periodically kills random pods in your Kubernetes cluster.

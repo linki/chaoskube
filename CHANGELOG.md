@@ -1,4 +1,5 @@
   Updates:
+  * [#568](https://github.com/linki/chaoskube/pull/568) Update builds to use Go `v1.21` @linki
   * [#528](https://github.com/linki/chaoskube/pull/528) Update builds to use Go `v1.20` @linki
   * [#505](https://github.com/linki/chaoskube/pull/505) Update builds to use Go `v1.19` @linki
 

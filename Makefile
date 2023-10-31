@@ -7,10 +7,6 @@ else
 	go test ./... -race -cover
 endif
 
-coveralls:
-	roveralls
-	goveralls -coverprofile=roveralls.coverprofile -service=travis-ci
-
 test: check
 
 build: 

@@ -16,7 +16,7 @@ spec:
       serviceAccountName: chaoskube
       containers:
       - name: chaoskube
-        image: quay.io/linki/chaoskube:v0.22.0
+        image: ghcr.io/linki/chaoskube:v0.29.0
         args:
         # kill a pod every 10 minutes
         - --interval=10m

@@ -164,11 +164,11 @@ func main() {
 	)
 
 	log.WithFields(log.Fields{
-		"labels":           labelSelector,
-		"annotations":      annotations,
-		"kinds":            kinds,
-		"namespaces":       namespaces,
-		"namespaceLabels":  namespaceLabels,
+		"labels":           labelSelector.String(),
+		"annotations":      annotations.String(),
+		"kinds":            kinds.String(),
+		"namespaces":       namespaces.String(),
+		"namespaceLabels":  namespaceLabels.String(),
 		"includedPodNames": includedPodNames,
 		"excludedPodNames": excludedPodNames,
 		"minimumAge":       minimumAge,
@@ -193,7 +193,7 @@ func main() {
 
 	log.WithFields(log.Fields{
 		"weekdays":   parsedWeekdays,
-		"timesOfDay": parsedTimesOfDay,
+		"timesOfDay": excludedTimesOfDay,
 		"daysOfYear": util.FormatDays(parsedDaysOfYear),
 	}).Info("setting quiet times")
 

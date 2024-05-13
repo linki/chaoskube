@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
@@ -70,7 +70,7 @@ func cliEnvVar(name string) string {
 
 func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
-	klog.SetOutput(ioutil.Discard)
+	klog.SetOutput(io.Discard)
 
 	kingpin.Flag("labels", "A set of labels to restrict the list of affected pods. Defaults to everything.").Envar(cliEnvVar("LABELS")).StringVar(&labelString)
 	kingpin.Flag("annotations", "A set of annotations to restrict the list of affected pods. Defaults to everything.").Envar(cliEnvVar("ANNOTATIONS")).StringVar(&annString)

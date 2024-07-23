@@ -1,7 +1,7 @@
 # builder image
-FROM golang:1.22.4-alpine3.19 as builder
+FROM golang:1.22.4-alpine3.19 AS builder
 
-ENV CGO_ENABLED 0
+ENV CGO_ENABLED=0
 RUN apk --no-cache add alpine-sdk
 WORKDIR /go/src/github.com/linki/chaoskube
 COPY . .

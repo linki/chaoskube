@@ -2,6 +2,26 @@ apiVersion: v1
 entries:
   chaoskube:
   - apiVersion: v2
+    appVersion: 0.32.0
+    created: "2024-07-23T09:06:17.138112316Z"
+    description: Chaoskube periodically kills random pods in your Kubernetes cluster.
+    digest: 5359efe46b4b91d27a99a3413bd4124377ed172f8925939307f91477411e2f23
+    home: https://github.com/linki/chaoskube
+    icon: https://raw.githubusercontent.com/linki/chaoskube/master/chaoskube.png
+    keywords:
+    - chaos-monkey
+    - chaos-engineering
+    maintainers:
+    - name: Martin Linkhorst
+      url: https://github.com/linki
+    - name: Thomas Gosteli
+      url: https://github.com/ghouscht
+    name: chaoskube
+    type: application
+    urls:
+    - https://github.com/linki/chaoskube/releases/download/helm-chart-0.4.0/chaoskube-0.4.0.tgz
+    version: 0.4.0
+  - apiVersion: v2
     appVersion: 0.27.0
     created: "2023-02-08T15:33:34.395861848Z"
     description: Chaoskube periodically kills random pods in your Kubernetes cluster.
@@ -61,4 +81,4 @@ entries:
     urls:
     - https://github.com/linki/chaoskube/releases/download/helm-chart-0.1.0/chaoskube-0.1.0.tgz
     version: 0.1.0
-generated: "2023-02-08T15:33:34.395876548Z"
+generated: "2024-07-23T09:06:17.138128736Z"

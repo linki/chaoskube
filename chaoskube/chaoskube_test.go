@@ -326,7 +326,7 @@ func (suite *Suite) TestVictim() {
 		{2000, "", bar},
 		{2000, "app=foo", foo},
 	} {
-		rand.Seed(tt.seed)
+		rand.New(rand.NewSource(tt.seed))
 
 		labelSelector, err := labels.Parse(tt.labelSelector)
 		suite.Require().NoError(err)
@@ -370,7 +370,7 @@ func (suite *Suite) TestVictims() {
 	bar := t(podsInfo[1])
 	baz := t(podsInfo[2])
 
-	rand.Seed(2) // yields order of bar, baz, foo
+	rand.New(rand.NewSource(2)) // yields order of bar, baz, foo
 
 	for _, tt := range []struct {
 		labelSelector string
@@ -1127,7 +1127,7 @@ func (suite *Suite) TestFilterByOwnerReference() {
 			expected: []v1.Pod{baz, baz1},
 		},
 	} {
-		rand.Seed(tt.seed)
+		rand.New(rand.NewSource(tt.seed))
 
 		results := filterByOwnerReference(tt.pods)
 		suite.Require().Len(results, len(tt.expected))

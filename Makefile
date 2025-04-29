@@ -2,9 +2,9 @@ TPARSE := $(shell tparse --version 2>/dev/null)
 
 check:
 ifdef TPARSE
-	go test ./... -race -cover -json | tparse -all
+	GODEBUG=randseednop=0 go test ./... -race -cover -json | tparse -all
 else
-	go test ./... -race -cover
+	GODEBUG=randseednop=0 go test ./... -race -cover
 endif
 
 test: check

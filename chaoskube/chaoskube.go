@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"time"
 
@@ -74,6 +75,11 @@ type Chaoskube struct {
 	Notifier notifier.Notifier
 	// namespace scope for the Kubernetes client
 	ClientNamespaceScope string
+
+	// Dynamic interval configuration
+	DynamicInterval       bool
+	DynamicIntervalFactor float64
+	BaseInterval          time.Duration
 }
 
 var (
@@ -97,40 +103,102 @@ var (
 // * a logger implementing logrus.FieldLogger to send log output to
 // * what specific terminator to use to imbue chaos on victim pods
 // * whether to enable/disable dry-run mode
-func New(client kubernetes.Interface, labels, annotations, kinds, namespaces, namespaceLabels labels.Selector, includedPodNames, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator, maxKill int, notifier notifier.Notifier, clientNamespaceScope string) *Chaoskube {
+func New(client kubernetes.Interface, labels, annotations, kinds, namespaces, namespaceLabels labels.Selector, includedPodNames, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator, maxKill int, notifier notifier.Notifier, clientNamespaceScope string, dynamicInterval bool, dynamicIntervalFactor float64, baseInterval time.Duration) *Chaoskube {
 	broadcaster := record.NewBroadcaster()
 	broadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events(clientNamespaceScope)})
 	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "chaoskube"})
 
 	return &Chaoskube{
-		Client:               client,
-		Labels:               labels,
-		Annotations:          annotations,
-		Kinds:                kinds,
-		Namespaces:           namespaces,
-		NamespaceLabels:      namespaceLabels,
-		IncludedPodNames:     includedPodNames,
-		ExcludedPodNames:     excludedPodNames,
-		ExcludedWeekdays:     excludedWeekdays,
-		ExcludedTimesOfDay:   excludedTimesOfDay,
-		ExcludedDaysOfYear:   excludedDaysOfYear,
-		Timezone:             timezone,
-		MinimumAge:           minimumAge,
-		Logger:               logger,
-		DryRun:               dryRun,
-		Terminator:           terminator,
-		EventRecorder:        recorder,
-		Now:                  time.Now,
-		MaxKill:              maxKill,
-		Notifier:             notifier,
-		ClientNamespaceScope: clientNamespaceScope,
+		Client:                client,
+		Labels:                labels,
+		Annotations:           annotations,
+		Kinds:                 kinds,
+		Namespaces:            namespaces,
+		NamespaceLabels:       namespaceLabels,
+		IncludedPodNames:      includedPodNames,
+		ExcludedPodNames:      excludedPodNames,
+		ExcludedWeekdays:      excludedWeekdays,
+		ExcludedTimesOfDay:    excludedTimesOfDay,
+		ExcludedDaysOfYear:    excludedDaysOfYear,
+		Timezone:              timezone,
+		MinimumAge:            minimumAge,
+		Logger:                logger,
+		DryRun:                dryRun,
+		Terminator:            terminator,
+		EventRecorder:         recorder,
+		Now:                   time.Now,
+		MaxKill:               maxKill,
+		Notifier:              notifier,
+		ClientNamespaceScope:  clientNamespaceScope,
+		DynamicInterval:       dynamicInterval,
+		DynamicIntervalFactor: dynamicIntervalFactor,
+		BaseInterval:          baseInterval,
 	}
+}
+
+// CalculateDynamicInterval calculates a dynamic interval based on current pod count
+func (c *Chaoskube) CalculateDynamicInterval(ctx context.Context) time.Duration {
+	// If dynamic interval is disabled, return the base interval
+	if !c.DynamicInterval {
+		return c.BaseInterval
+	}
+
+	// Get candidate pods count
+	pods, err := c.Candidates(ctx)
+	if err != nil {
+		c.Logger.WithField("err", err).Error("failed to get candidates, using base interval")
+		return c.BaseInterval
+	}
+
+	podCount := len(pods)
+
+	// Guard against division by zero
+	if podCount == 0 {
+		c.Logger.WithField("podCount", 0).Info("no pods found, using base interval")
+		return c.BaseInterval
+	}
+
+	// Simple inverse proportion formula: newInterval = baseInterval * (10 / podCount)^factor
+	// Using 10 as a reference point:
+	// - With 10 pods: interval = baseInterval
+	// - With 20 pods: interval = baseInterval / (2^factor)
+	// - With 5 pods: interval = baseInterval * (2^factor)
+
+	referencePodCount := 10.0
+	ratio := referencePodCount / float64(podCount)
+
+	// Apply the factor to make the change more or less dramatic
+	adjustedRatio := math.Pow(ratio, c.DynamicIntervalFactor)
+
+	// Calculate the new interval
+	newInterval := time.Duration(float64(c.BaseInterval) * adjustedRatio)
+
+	// Record metric
+	metrics.CurrentIntervalSeconds.Set(newInterval.Seconds())
+
+	// Provide detailed logging about the calculation
+	c.Logger.WithFields(log.Fields{
+		"podCount":      podCount,
+		"baseInterval":  c.BaseInterval,
+		"ratio":         ratio,
+		"factor":        c.DynamicIntervalFactor,
+		"adjustedRatio": adjustedRatio,
+		"newInterval":   newInterval,
+	}).Info("calculated dynamic interval")
+
+	return newInterval
 }
 
 // Run continuously picks and terminates a victim pod at a given interval
 // described by channel next. It returns when the given context is canceled.
 func (c *Chaoskube) Run(ctx context.Context, next <-chan time.Time) {
 	for {
+		// If dynamic interval is enabled, calculate new interval before terminating victims
+		var waitDuration time.Duration
+		if c.DynamicInterval {
+			waitDuration = c.CalculateDynamicInterval(ctx)
+		}
+
 		if err := c.TerminateVictims(ctx); err != nil {
 			c.Logger.WithField("err", err).Error("failed to terminate victim")
 			metrics.ErrorsTotal.Inc()
@@ -138,10 +206,22 @@ func (c *Chaoskube) Run(ctx context.Context, next <-chan time.Time) {
 
 		c.Logger.Debug("sleeping...")
 		metrics.IntervalsTotal.Inc()
-		select {
-		case <-next:
-		case <-ctx.Done():
-			return
+
+		// Use the appropriate waiting mechanism
+		if c.DynamicInterval {
+			select {
+			case <-time.After(waitDuration):
+				// Continue to next iteration
+			case <-ctx.Done():
+				return
+			}
+		} else {
+			// Use original fixed interval from ticker
+			select {
+			case <-next:
+			case <-ctx.Done():
+				return
+			}
 		}
 	}
 }

@@ -2,6 +2,7 @@ package chaoskube
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"regexp"
 	"sort"
@@ -64,6 +65,9 @@ func (suite *Suite) TestNew() {
 		terminator         = terminator.NewDeletePodTerminator(client, logger, 10*time.Second)
 		maxKill            = 1
 		notifier           = testNotifier
+		dynamicInterval    = true
+		dynamicFactor      = 2.5
+		interval           = 10 * time.Minute
 	)
 
 	chaoskube := New(
@@ -86,6 +90,9 @@ func (suite *Suite) TestNew() {
 		maxKill,
 		notifier,
 		v1.NamespaceAll,
+		dynamicInterval,
+		dynamicFactor,
+		interval,
 	)
 	suite.Require().NotNil(chaoskube)
 
@@ -105,6 +112,9 @@ func (suite *Suite) TestNew() {
 	suite.Equal(logger, chaoskube.Logger)
 	suite.Equal(dryRun, chaoskube.DryRun)
 	suite.Equal(terminator, chaoskube.Terminator)
+	suite.Equal(dynamicInterval, chaoskube.DynamicInterval)
+	suite.Equal(dynamicFactor, chaoskube.DynamicIntervalFactor)
+	suite.Equal(interval, chaoskube.BaseInterval)
 }
 
 // TestRunContextCanceled tests that a canceled context will exit the Run function.
@@ -846,6 +856,10 @@ func (suite *Suite) createPods(client kubernetes.Interface, podsInfo []podInfo) 
 }
 
 func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, kinds labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration, maxKill int, clientNamespaceScope string) *Chaoskube {
+	return suite.setupWithInterval(labelSelector, annotations, kinds, namespaces, namespaceLabels, includedPodNames, excludedPodNames, excludedWeekdays, excludedTimesOfDay, excludedDaysOfYear, timezone, minimumAge, dryRun, gracePeriod, maxKill, clientNamespaceScope, false, 1.0, 10*time.Minute)
+}
+
+func (suite *Suite) setupWithInterval(labelSelector labels.Selector, annotations labels.Selector, kinds labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration, maxKill int, clientNamespaceScope string, dynamicInterval bool, dynamicFactor float64, interval time.Duration) *Chaoskube {
 	logOutput.Reset()
 
 	client := fake.NewSimpleClientset()
@@ -871,7 +885,108 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 		maxKill,
 		testNotifier,
 		clientNamespaceScope,
+		dynamicInterval,
+		dynamicFactor,
+		interval,
 	)
+}
+
+func (suite *Suite) TestDynamicIntervalCalculation() {
+	for _, tt := range []struct {
+		name             string
+		podCount         int
+		dynamicInterval  bool
+		dynamicFactor    float64
+		baseInterval     time.Duration
+		expectedInterval time.Duration
+	}{
+		{
+			name:             "dynamic interval disabled",
+			podCount:         10,
+			dynamicInterval:  false,
+			dynamicFactor:    1.0,
+			baseInterval:     10 * time.Minute,
+			expectedInterval: 10 * time.Minute,
+		},
+		{
+			name:            "100 pods with factor 1.0",
+			podCount:        100,
+			dynamicInterval: true,
+			dynamicFactor:   1.0,
+			baseInterval:    10 * time.Minute,
+			// Total working minutes (5 days * 8 hours * 60 minutes) = 2400 minutes
+			// With 100 pods and target of 50%, interval = 2400 / (100 * 0.5 * 1.0) = 48 minutes
+			expectedInterval: 48 * time.Minute,
+		},
+		{
+			name:            "1500 pods with factor 1.0",
+			podCount:        1500,
+			dynamicInterval: true,
+			dynamicFactor:   1.0,
+			baseInterval:    10 * time.Minute,
+			// With 1500 pods and target of 50%, interval = 2400 / (1500 * 0.5 * 1.0) = 3.2 minutes -> rounded to 3 minutes
+			expectedInterval: 3 * time.Minute,
+		},
+		{
+			name:            "1500 pods with factor 2.0",
+			podCount:        1500,
+			dynamicInterval: true,
+			dynamicFactor:   2.0,
+			baseInterval:    10 * time.Minute,
+			// With 1500 pods and factor 2.0, interval = 2400 / (1500 * 0.5 * 2.0) = 1.6 minutes -> rounded to 2 minutes
+			expectedInterval: 2 * time.Minute,
+		},
+		{
+			name:            "50 pods with factor 0.5",
+			podCount:        50,
+			dynamicInterval: true,
+			dynamicFactor:   0.5,
+			baseInterval:    10 * time.Minute,
+			// With 50 pods and factor 0.5, interval = 2400 / (50 * 0.5 * 0.5) = 192 minutes
+			expectedInterval: 192 * time.Minute,
+		},
+		{
+			name:            "0 pods fallback to base interval",
+			podCount:        0,
+			dynamicInterval: true,
+			dynamicFactor:   1.0,
+			baseInterval:    10 * time.Minute,
+			// Should fall back to base interval with 0 pods
+			expectedInterval: 10 * time.Minute,
+		},
+	} {
+		chaoskube := suite.setupWithInterval(
+			labels.Everything(),
+			labels.Everything(),
+			labels.Everything(),
+			labels.Everything(),
+			labels.Everything(),
+			&regexp.Regexp{},
+			&regexp.Regexp{},
+			[]time.Weekday{},
+			[]util.TimePeriod{},
+			[]time.Time{},
+			time.UTC,
+			time.Duration(0),
+			false,
+			10*time.Second,
+			1,
+			v1.NamespaceAll,
+			tt.dynamicInterval,
+			tt.dynamicFactor,
+			tt.baseInterval,
+		)
+
+		// Create test pods
+		for i := 0; i < tt.podCount; i++ {
+			pod := util.NewPod("default", fmt.Sprintf("pod-%d", i), v1.PodRunning)
+			_, err := chaoskube.Client.CoreV1().Pods(pod.Namespace).Create(context.Background(), &pod, metav1.CreateOptions{})
+			suite.Require().NoError(err)
+		}
+
+		interval := chaoskube.CalculateDynamicInterval(context.Background())
+		suite.Equal(tt.expectedInterval, interval, tt.name)
+	}
 }
 
 func TestSuite(t *testing.T) {

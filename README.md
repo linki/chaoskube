@@ -67,6 +67,35 @@ Remember that `chaoskube` by default kills any pod in all your namespaces, inclu
 
 `chaoskube` provides a simple HTTP endpoint that can be used to check that it is running. This can be used for [Kubernetes liveness and readiness probes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/). By default, this listens on port 8080. To disable, pass `--metrics-address=""` to `chaoskube`.
 
+## Dynamic Interval
+
+chaoskube supports a dynamic interval feature that automatically adjusts the time between pod terminations based on the number of candidate pods in your cluster. This helps ensure appropriate chaos levels in both small and large environments.
+
+### How it works
+
+With dynamic interval enabled, chaoskube will calculate the interval between pod terminations using the following formula:
+
+```
+interval = totalWorkingMinutes / (podCount * targetPercentage * factor)
+```
+
+Where:
+- `totalWorkingMinutes` = 5 days * 8 hours * 60 minutes = 2400 minutes (representing a work week)
+- `targetPercentage` = 0.5 (50% of pods)
+- `factor` is the configurable dynamic interval factor
+
+The formula aims to cause a predictable amount of chaos within a defined timeframe (5 working days by default), targeting a percentage of your pods. The dynamic interval factor lets you control the aggressiveness of the terminations:
+
+- With `factor = 1.0`: Standard interval calculation
+- With `factor > 1.0`: More aggressive terminations (shorter intervals)
+- With `factor < 1.0`: Less aggressive terminations (longer intervals)
+
+### Example scenarios
+
+- Small cluster (100 pods, factor 1.0): interval = 48 minutes
+- Large cluster (1500 pods, factor 1.0): interval = 3 minutes
+- Large cluster (1500 pods, factor 2.0): interval = 2 minutes
+
 ## Filtering targets
 
 However, you can limit the search space of `chaoskube` by providing label, annotation, and namespace selectors, pod name include/exclude patterns, as well as a minimum age setting.
@@ -200,6 +229,8 @@ Use `UTC`, `Local` or pick a timezone name from the [(IANA) tz database](https:/
 | Option                     | Environment                        | Description                                                          | Default                    |
 | -------------------------- | ---------------------------------- | -------------------------------------------------------------------- | -------------------------- |
 | `--interval`               | `CHAOSKUBE_INTERVAL`               | interval between pod terminations                                    | 10m                        |
+| `--dynamic-interval`       | `CHAOSKUBE_DYNAMIC_INTERVAL`       | enable dynamic interval calculation                                  | false                      |
+| `--dynamic-factor`         | `CHAOSKUBE_DYNAMIC_FACTOR`         | factor to adjust the dynamic interval                                | 1.0                        |
 | `--labels`                 | `CHAOSKUBE_LABELS`                 | label selector to filter pods by                                     | (matches everything)       |
 | `--annotations`            | `CHAOSKUBE_ANNOTATIONS`            | annotation selector to filter pods by                                | (matches everything)       |
 | `--kinds`                  | `CHAOSKUBE_KINDS`                  | owner's kind selector to filter pods by                              | (all kinds)                |

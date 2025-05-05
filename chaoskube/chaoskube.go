@@ -157,36 +157,35 @@ func (c *Chaoskube) CalculateDynamicInterval(ctx context.Context) time.Duration 
 		c.Logger.WithField("podCount", 0).Info("no pods found, using base interval")
 		return c.BaseInterval
 	}
+	// To explain what we were thinging, show the whole flow how we calculate the inteval
+	// Let's asume that we would like to kill all the pods during 1 week (office hours)
+	// Total available minutes in 5 working days (5 days * 8 hours * 60 minutes)
+	totalWorkingMinutes := 5 * 8 * 60
 
-	// Simple inverse proportion formula: newInterval = baseInterval * (10 / podCount)^factor
-	// Using 10 as a reference point:
-	// - With 10 pods: interval = baseInterval
-	// - With 20 pods: interval = baseInterval / (2^factor)
-	// - With 5 pods: interval = baseInterval * (2^factor)
+	// Reduce it by a percentage as it might be to aggressive
+	// Determine what percentage of pods we want to kill in 5 days
+	// Using 0.5 (50%) as a default
+	targetPercentage := 0.5
 
-	referencePodCount := 10.0
-	ratio := referencePodCount / float64(podCount)
+	// Calculate raw interval in minutes
+	// Higher pod counts = shorter intervals, lower pod counts = longer intervals
+	rawIntervalMinutes := float64(totalWorkingMinutes) / (float64(podCount) * targetPercentage * c.DynamicIntervalFactor)
 
-	// Apply the factor to make the change more or less dramatic
-	adjustedRatio := math.Pow(ratio, c.DynamicIntervalFactor)
-
-	// Calculate the new interval
-	newInterval := time.Duration(float64(c.BaseInterval) * adjustedRatio)
-
-	// Record metric
-	metrics.CurrentIntervalSeconds.Set(newInterval.Seconds())
+	// Round to nearest minute and ensure minimum of 1 minute
+	minutes := int(math.Max(1, math.Round(rawIntervalMinutes)))
+	roundedInterval := time.Duration(minutes) * time.Minute
 
 	// Provide detailed logging about the calculation
 	c.Logger.WithFields(log.Fields{
-		"podCount":      podCount,
-		"baseInterval":  c.BaseInterval,
-		"ratio":         ratio,
-		"factor":        c.DynamicIntervalFactor,
-		"adjustedRatio": adjustedRatio,
-		"newInterval":   newInterval,
+		"podCount":         podCount,
+		"totalWorkMinutes": totalWorkingMinutes,
+		"targetPercentage": targetPercentage,
+		"factor":           c.DynamicIntervalFactor,
+		"rawIntervalMins":  rawIntervalMinutes,
+		"roundedInterval":  roundedInterval,
 	}).Info("calculated dynamic interval")
 
-	return newInterval
+	return roundedInterval
 }
 
 // Run continuously picks and terminates a victim pod at a given interval

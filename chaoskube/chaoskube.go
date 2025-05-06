@@ -152,6 +152,20 @@ func (c *Chaoskube) CalculateDynamicInterval(ctx context.Context) time.Duration 
 
 	podCount := len(pods)
 
+	// Add debug logging for pod details
+	if c.Logger.(*log.Entry).Logger.Level >= log.DebugLevel {
+		c.Logger.Debug("Listing candidate pods for dynamic interval calculation:")
+		for i, pod := range pods {
+			c.Logger.WithFields(log.Fields{
+				"index":     i,
+				"name":      pod.Name,
+				"namespace": pod.Namespace,
+				"labels":    pod.Labels,
+				"phase":     pod.Status.Phase,
+			}).Debug("candidate pod")
+		}
+	}
+
 	// Guard against division by zero
 	if podCount == 0 {
 		c.Logger.WithField("podCount", 0).Info("no pods found, using base interval")

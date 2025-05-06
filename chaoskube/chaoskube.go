@@ -188,6 +188,7 @@ func (c *Chaoskube) Run(ctx context.Context, next <-chan time.Time) {
 		var waitDuration time.Duration
 		if c.DynamicInterval {
 			waitDuration = c.CalculateDynamicInterval(ctx)
+			metrics.CurrentIntervalSeconds.Set(float64(waitDuration.Seconds()))
 		}
 
 		if err := c.TerminateVictims(ctx); err != nil {

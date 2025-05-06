@@ -298,36 +298,51 @@ func (c *Chaoskube) Victims(ctx context.Context) ([]v1.Pod, error) {
 // Candidates returns the list of pods that are available for termination.
 // It returns all pods that match the configured label, annotation and namespace selectors.
 func (c *Chaoskube) Candidates(ctx context.Context) ([]v1.Pod, error) {
-	listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
+    listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
 
-	podList, err := c.Client.CoreV1().Pods(c.ClientNamespaceScope).List(ctx, listOptions)
-	if err != nil {
-		return nil, err
-	}
+    podList, err := c.Client.CoreV1().Pods(c.ClientNamespaceScope).List(ctx, listOptions)
+    if err != nil {
+        return nil, err
+    }
+    c.Logger.Debug(fmt.Sprintf("Initial pod count after API list: %d", len(podList.Items)))
 
-	pods, err := filterByNamespaces(podList.Items, c.Namespaces)
-	if err != nil {
-		return nil, err
-	}
+    pods, err := filterByNamespaces(podList.Items, c.Namespaces)
+    if err != nil {
+        return nil, err
+    }
+    c.Logger.Debug(fmt.Sprintf("Pod count after namespace filtering: %d", len(pods)))
 
-	pods, err = filterPodsByNamespaceLabels(ctx, pods, c.NamespaceLabels, c.Client)
-	if err != nil {
-		return nil, err
-	}
+    pods, err = filterPodsByNamespaceLabels(ctx, pods, c.NamespaceLabels, c.Client)
+    if err != nil {
+        return nil, err
+    }
+    c.Logger.Debug(fmt.Sprintf("Pod count after namespace labels filtering: %d", len(pods)))
 
-	pods, err = filterByKinds(pods, c.Kinds)
-	if err != nil {
-		return nil, err
-	}
+    pods, err = filterByKinds(pods, c.Kinds)
+    if err != nil {
+        return nil, err
+    }
+    c.Logger.Debug(fmt.Sprintf("Pod count after kinds filtering: %d", len(pods)))
 
-	pods = filterByAnnotations(pods, c.Annotations)
-	pods = filterByPhase(pods, v1.PodRunning)
-	pods = filterTerminatingPods(pods)
-	pods = filterByMinimumAge(pods, c.MinimumAge, c.Now())
-	pods = filterByPodName(pods, c.IncludedPodNames, c.ExcludedPodNames)
-	pods = filterByOwnerReference(pods)
+    pods = filterByAnnotations(pods, c.Annotations)
+    c.Logger.Debug(fmt.Sprintf("Pod count after annotations filtering: %d", len(pods)))
 
-	return pods, nil
+    pods = filterByPhase(pods, v1.PodRunning)
+    c.Logger.Debug(fmt.Sprintf("Pod count after phase filtering: %d", len(pods)))
+
+    pods = filterTerminatingPods(pods)
+    c.Logger.Debug(fmt.Sprintf("Pod count after terminating pods filtering: %d", len(pods)))
+
+    pods = filterByMinimumAge(pods, c.MinimumAge, c.Now())
+    c.Logger.Debug(fmt.Sprintf("Pod count after minimum age filtering: %d", len(pods)))
+
+    pods = filterByPodName(pods, c.IncludedPodNames, c.ExcludedPodNames)
+    c.Logger.Debug(fmt.Sprintf("Pod count after pod name filtering: %d", len(pods)))
+
+    pods = filterByOwnerReference(pods)
+    c.Logger.Debug(fmt.Sprintf("Final pod count after owner reference filtering: %d", len(pods)))
+
+    return pods, nil
 }
 
 // DeletePod deletes the given pod with the selected terminator.

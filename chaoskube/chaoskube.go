@@ -151,6 +151,24 @@ func (c *Chaoskube) CalculateDynamicInterval(ctx context.Context) time.Duration 
 		c.Logger.WithField("err", err).Error("failed to get list of pods, using base interval")
 		return c.BaseInterval
 	}
+	
+	pods, err := filterByNamespaces(podList.Items, c.Namespaces)
+	if err != nil {
+		c.Logger.WithField("err", err).Error("failed to filterByNamespaces, using base interval")
+		return c.BaseInterval
+	}
+
+	pods, err = filterPodsByNamespaceLabels(ctx, pods, c.NamespaceLabels, c.Client)
+	if err != nil {
+		c.Logger.WithField("err", err).Error("failed to filterPodsByNamespaceLabels, using base interval")
+		return c.BaseInterval
+	}
+
+	pods, err = filterByKinds(pods, c.Kinds)
+	if err != nil {
+		c.Logger.WithField("err", err).Error("failed to filterByKinds, using base interval")
+		return c.BaseInterval
+	}
 
 	podCount := len(pods)
 

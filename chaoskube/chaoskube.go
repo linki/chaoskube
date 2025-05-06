@@ -304,43 +304,63 @@ func (c *Chaoskube) Candidates(ctx context.Context) ([]v1.Pod, error) {
     if err != nil {
         return nil, err
     }
-    c.Logger.Debug(fmt.Sprintf("Initial pod count after API list: %d", len(podList.Items)))
+    c.Logger.WithFields(log.Fields{
+        "count": len(podList.Items),
+    }).Debug("Initial pod count after API list")
 
     pods, err := filterByNamespaces(podList.Items, c.Namespaces)
     if err != nil {
         return nil, err
     }
-    c.Logger.Debug(fmt.Sprintf("Pod count after namespace filtering: %d", len(pods)))
+    c.Logger.WithFields(log.Fields{
+        "count": len(pods),
+    }).Debug("Pod count after namespace filtering")
 
     pods, err = filterPodsByNamespaceLabels(ctx, pods, c.NamespaceLabels, c.Client)
     if err != nil {
         return nil, err
     }
-    c.Logger.Debug(fmt.Sprintf("Pod count after namespace labels filtering: %d", len(pods)))
+    c.Logger.WithFields(log.Fields{
+        "count": len(pods),
+    }).Debug("Pod count after namespace labels filtering")
 
     pods, err = filterByKinds(pods, c.Kinds)
     if err != nil {
         return nil, err
     }
-    c.Logger.Debug(fmt.Sprintf("Pod count after kinds filtering: %d", len(pods)))
+    c.Logger.WithFields(log.Fields{
+        "count": len(pods),
+    }).Debug("Pod count after kinds filtering")
 
     pods = filterByAnnotations(pods, c.Annotations)
-    c.Logger.Debug(fmt.Sprintf("Pod count after annotations filtering: %d", len(pods)))
+    c.Logger.WithFields(log.Fields{
+        "count": len(pods),
+    }).Debug("Pod count after annotations filtering")
 
     pods = filterByPhase(pods, v1.PodRunning)
-    c.Logger.Debug(fmt.Sprintf("Pod count after phase filtering: %d", len(pods)))
+    c.Logger.WithFields(log.Fields{
+        "count": len(pods),
+    }).Debug("Pod count after phase filtering")
 
     pods = filterTerminatingPods(pods)
-    c.Logger.Debug(fmt.Sprintf("Pod count after terminating pods filtering: %d", len(pods)))
+    c.Logger.WithFields(log.Fields{
+        "count": len(pods),
+    }).Debug("Pod count after terminating pods filtering")
 
     pods = filterByMinimumAge(pods, c.MinimumAge, c.Now())
-    c.Logger.Debug(fmt.Sprintf("Pod count after minimum age filtering: %d", len(pods)))
+    c.Logger.WithFields(log.Fields{
+        "count": len(pods),
+    }).Debug("Pod count after minimum age filtering")
 
     pods = filterByPodName(pods, c.IncludedPodNames, c.ExcludedPodNames)
-    c.Logger.Debug(fmt.Sprintf("Pod count after pod name filtering: %d", len(pods)))
+    c.Logger.WithFields(log.Fields{
+        "count": len(pods),
+    }).Debug("Pod count after pod name filtering")
 
     pods = filterByOwnerReference(pods)
-    c.Logger.Debug(fmt.Sprintf("Final pod count after owner reference filtering: %d", len(pods)))
+    c.Logger.WithFields(log.Fields{
+        "count": len(pods),
+    }).Debug("Final pod count after owner reference filtering")
 
     return pods, nil
 }

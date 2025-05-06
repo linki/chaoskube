@@ -143,10 +143,12 @@ func (c *Chaoskube) CalculateDynamicInterval(ctx context.Context) time.Duration 
 		return c.BaseInterval
 	}
 
-	// Get candidate pods count
-	pods, err := c.Candidates(ctx)
+	// Count total number of pods
+	listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
+	podList, err := c.Client.CoreV1().Pods(c.ClientNamespaceScope).List(ctx, listOptions)
+    
 	if err != nil {
-		c.Logger.WithField("err", err).Error("failed to get candidates, using base interval")
+		c.Logger.WithField("err", err).Error("failed to get list of pods, using base interval")
 		return c.BaseInterval
 	}
 

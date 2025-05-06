@@ -153,7 +153,18 @@ func (c *Chaoskube) CalculateDynamicInterval(ctx context.Context) time.Duration 
 	podCount := len(pods)
 
 	// Add debug logging for pod details
-	if c.Logger.(*log.Entry).Logger.Level >= log.DebugLevel {
+	logger := c.Logger
+	// Check if debug logging is enabled
+	// We need to handle both *log.Logger and *log.Entry types that implement FieldLogger
+	debugEnabled := false
+	switch l := logger.(type) {
+	case *log.Logger:
+		debugEnabled = l.Level >= log.DebugLevel
+	case *log.Entry:
+		debugEnabled = l.Logger.Level >= log.DebugLevel
+	}
+
+	if debugEnabled {
 		c.Logger.Debug("Listing candidate pods for dynamic interval calculation:")
 		for i, pod := range pods {
 			c.Logger.WithFields(log.Fields{
@@ -298,71 +309,71 @@ func (c *Chaoskube) Victims(ctx context.Context) ([]v1.Pod, error) {
 // Candidates returns the list of pods that are available for termination.
 // It returns all pods that match the configured label, annotation and namespace selectors.
 func (c *Chaoskube) Candidates(ctx context.Context) ([]v1.Pod, error) {
-    listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
+	listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
 
-    podList, err := c.Client.CoreV1().Pods(c.ClientNamespaceScope).List(ctx, listOptions)
-    if err != nil {
-        return nil, err
-    }
-    c.Logger.WithFields(log.Fields{
-        "count": len(podList.Items),
-    }).Debug("Initial pod count after API list")
+	podList, err := c.Client.CoreV1().Pods(c.ClientNamespaceScope).List(ctx, listOptions)
+	if err != nil {
+		return nil, err
+	}
+	c.Logger.WithFields(log.Fields{
+		"count": len(podList.Items),
+	}).Debug("Initial pod count after API list")
 
-    pods, err := filterByNamespaces(podList.Items, c.Namespaces)
-    if err != nil {
-        return nil, err
-    }
-    c.Logger.WithFields(log.Fields{
-        "count": len(pods),
-    }).Debug("Pod count after namespace filtering")
+	pods, err := filterByNamespaces(podList.Items, c.Namespaces)
+	if err != nil {
+		return nil, err
+	}
+	c.Logger.WithFields(log.Fields{
+		"count": len(pods),
+	}).Debug("Pod count after namespace filtering")
 
-    pods, err = filterPodsByNamespaceLabels(ctx, pods, c.NamespaceLabels, c.Client)
-    if err != nil {
-        return nil, err
-    }
-    c.Logger.WithFields(log.Fields{
-        "count": len(pods),
-    }).Debug("Pod count after namespace labels filtering")
+	pods, err = filterPodsByNamespaceLabels(ctx, pods, c.NamespaceLabels, c.Client)
+	if err != nil {
+		return nil, err
+	}
+	c.Logger.WithFields(log.Fields{
+		"count": len(pods),
+	}).Debug("Pod count after namespace labels filtering")
 
-    pods, err = filterByKinds(pods, c.Kinds)
-    if err != nil {
-        return nil, err
-    }
-    c.Logger.WithFields(log.Fields{
-        "count": len(pods),
-    }).Debug("Pod count after kinds filtering")
+	pods, err = filterByKinds(pods, c.Kinds)
+	if err != nil {
+		return nil, err
+	}
+	c.Logger.WithFields(log.Fields{
+		"count": len(pods),
+	}).Debug("Pod count after kinds filtering")
 
-    pods = filterByAnnotations(pods, c.Annotations)
-    c.Logger.WithFields(log.Fields{
-        "count": len(pods),
-    }).Debug("Pod count after annotations filtering")
+	pods = filterByAnnotations(pods, c.Annotations)
+	c.Logger.WithFields(log.Fields{
+		"count": len(pods),
+	}).Debug("Pod count after annotations filtering")
 
-    pods = filterByPhase(pods, v1.PodRunning)
-    c.Logger.WithFields(log.Fields{
-        "count": len(pods),
-    }).Debug("Pod count after phase filtering")
+	pods = filterByPhase(pods, v1.PodRunning)
+	c.Logger.WithFields(log.Fields{
+		"count": len(pods),
+	}).Debug("Pod count after phase filtering")
 
-    pods = filterTerminatingPods(pods)
-    c.Logger.WithFields(log.Fields{
-        "count": len(pods),
-    }).Debug("Pod count after terminating pods filtering")
+	pods = filterTerminatingPods(pods)
+	c.Logger.WithFields(log.Fields{
+		"count": len(pods),
+	}).Debug("Pod count after terminating pods filtering")
 
-    pods = filterByMinimumAge(pods, c.MinimumAge, c.Now())
-    c.Logger.WithFields(log.Fields{
-        "count": len(pods),
-    }).Debug("Pod count after minimum age filtering")
+	pods = filterByMinimumAge(pods, c.MinimumAge, c.Now())
+	c.Logger.WithFields(log.Fields{
+		"count": len(pods),
+	}).Debug("Pod count after minimum age filtering")
 
-    pods = filterByPodName(pods, c.IncludedPodNames, c.ExcludedPodNames)
-    c.Logger.WithFields(log.Fields{
-        "count": len(pods),
-    }).Debug("Pod count after pod name filtering")
+	pods = filterByPodName(pods, c.IncludedPodNames, c.ExcludedPodNames)
+	c.Logger.WithFields(log.Fields{
+		"count": len(pods),
+	}).Debug("Pod count after pod name filtering")
 
-    pods = filterByOwnerReference(pods)
-    c.Logger.WithFields(log.Fields{
-        "count": len(pods),
-    }).Debug("Final pod count after owner reference filtering")
+	pods = filterByOwnerReference(pods)
+	c.Logger.WithFields(log.Fields{
+		"count": len(pods),
+	}).Debug("Final pod count after owner reference filtering")
 
-    return pods, nil
+	return pods, nil
 }
 
 // DeletePod deletes the given pod with the selected terminator.

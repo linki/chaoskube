@@ -76,15 +76,14 @@ chaoskube supports a dynamic interval feature that automatically adjusts the tim
 With dynamic interval enabled, chaoskube will calculate the interval between pod terminations using the following formula:
 
 ```
-interval = totalWorkingMinutes / (podCount * targetPercentage * factor)
+interval = totalWorkingMinutes / (podCount  * factor)
 ```
 
 Where:
-- `totalWorkingMinutes` = 5 days * 8 hours * 60 minutes = 2400 minutes (representing a work week)
-- `targetPercentage` = 0.5 (50% of pods)
+- `totalWorkingMinutes` = 10 days * 8 hours * 60 minutes = 4800 minutes (we asume that all pods should be killed during 2 work weeks)
 - `factor` is the configurable dynamic interval factor
 
-The formula aims to cause a predictable amount of chaos within a defined timeframe (5 working days by default), targeting a percentage of your pods. The dynamic interval factor lets you control the aggressiveness of the terminations:
+The dynamic interval factor lets you control the aggressiveness of the terminations:
 
 - With `factor = 1.0`: Standard interval calculation
 - With `factor > 1.0`: More aggressive terminations (shorter intervals)
@@ -93,8 +92,9 @@ The formula aims to cause a predictable amount of chaos within a defined timefra
 ### Example scenarios
 
 - Small cluster (100 pods, factor 1.0): interval = 48 minutes
+- Small cluster (100 pods, factor 1.5): interval = 32 minutes
+- Small cluster (100 pods, factor 2.0): interval = 24 minutes
 - Large cluster (1500 pods, factor 1.0): interval = 3 minutes
-- Large cluster (1500 pods, factor 2.0): interval = 2 minutes
 
 ## Filtering targets
 

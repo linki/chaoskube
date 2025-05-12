@@ -146,12 +146,12 @@ func (c *Chaoskube) CalculateDynamicInterval(ctx context.Context) time.Duration 
 	// Count total number of pods
 	listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
 	podList, err := c.Client.CoreV1().Pods(c.ClientNamespaceScope).List(ctx, listOptions)
-    
+
 	if err != nil {
 		c.Logger.WithField("err", err).Error("failed to get list of pods, using base interval")
 		return c.BaseInterval
 	}
-	
+
 	pods, err := filterByNamespaces(podList.Items, c.Namespaces)
 	if err != nil {
 		c.Logger.WithField("err", err).Error("failed to filterByNamespaces, using base interval")
@@ -197,7 +197,7 @@ func (c *Chaoskube) CalculateDynamicInterval(ctx context.Context) time.Duration 
 		}
 	}
 
-	// Guard against division by zero
+	// Guard against division by zero, pods could be filtered!
 	if podCount == 0 {
 		c.Logger.WithField("podCount", 0).Info("no pods found, using base interval")
 		return c.BaseInterval

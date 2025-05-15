@@ -138,12 +138,8 @@ func New(client kubernetes.Interface, labels, annotations, kinds, namespaces, na
 
 // CalculateDynamicInterval calculates a dynamic interval based on current pod count
 func (c *Chaoskube) CalculateDynamicInterval(ctx context.Context) time.Duration {
-	// If dynamic interval is disabled, return the base interval
-	if !c.DynamicInterval {
-		return c.BaseInterval
-	}
 
-	// Count total number of pods
+	// Get total number of pods
 	listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
 	podList, err := c.Client.CoreV1().Pods(c.ClientNamespaceScope).List(ctx, listOptions)
 
@@ -169,6 +165,8 @@ func (c *Chaoskube) CalculateDynamicInterval(ctx context.Context) time.Duration 
 		c.Logger.WithField("err", err).Error("failed to filterByKinds, using base interval")
 		return c.BaseInterval
 	}
+
+	pods = filterByAnnotations(pods, c.Annotations)
 
 	podCount := len(pods)
 
@@ -197,7 +195,7 @@ func (c *Chaoskube) CalculateDynamicInterval(ctx context.Context) time.Duration 
 		}
 	}
 
-	// Guard against division by zero, pods could be filtered!
+	// Guard against division by zero, pods could be all filtered!
 	if podCount == 0 {
 		c.Logger.WithField("podCount", 0).Info("no pods found, using base interval")
 		return c.BaseInterval

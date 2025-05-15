@@ -895,22 +895,18 @@ func (suite *Suite) TestDynamicIntervalCalculation() {
 	for _, tt := range []struct {
 		name             string
 		podCount         int
+		annotatedCount   int
+		annotations      labels.Selector
 		dynamicInterval  bool
 		dynamicFactor    float64
 		baseInterval     time.Duration
 		expectedInterval time.Duration
 	}{
 		{
-			name:             "dynamic interval disabled",
-			podCount:         10,
-			dynamicInterval:  false,
-			dynamicFactor:    1.0,
-			baseInterval:     10 * time.Minute,
-			expectedInterval: 10 * time.Minute,
-		},
-		{
 			name:            "100 pods with factor 1.0",
 			podCount:        100,
+			annotatedCount:  100,
+			annotations:     labels.Everything(),
 			dynamicInterval: true,
 			dynamicFactor:   1.0,
 			baseInterval:    10 * time.Minute,
@@ -921,6 +917,8 @@ func (suite *Suite) TestDynamicIntervalCalculation() {
 		{
 			name:            "1500 pods with factor 1.0",
 			podCount:        1500,
+			annotatedCount:  1500,
+			annotations:     labels.Everything(),
 			dynamicInterval: true,
 			dynamicFactor:   1.0,
 			baseInterval:    10 * time.Minute,
@@ -930,6 +928,8 @@ func (suite *Suite) TestDynamicIntervalCalculation() {
 		{
 			name:            "1500 pods with factor 2.0",
 			podCount:        1500,
+			annotatedCount:  1500,
+			annotations:     labels.Everything(),
 			dynamicInterval: true,
 			dynamicFactor:   2.0,
 			baseInterval:    10 * time.Minute,
@@ -939,6 +939,8 @@ func (suite *Suite) TestDynamicIntervalCalculation() {
 		{
 			name:            "50 pods with factor 0.5",
 			podCount:        50,
+			annotatedCount:  50,
+			annotations:     labels.Everything(),
 			dynamicInterval: true,
 			dynamicFactor:   0.5,
 			baseInterval:    10 * time.Minute,
@@ -948,16 +950,29 @@ func (suite *Suite) TestDynamicIntervalCalculation() {
 		{
 			name:            "0 pods fallback to base interval",
 			podCount:        0,
+			annotatedCount:  0,
+			annotations:     labels.Everything(),
 			dynamicInterval: true,
 			dynamicFactor:   1.0,
 			baseInterval:    10 * time.Minute,
 			// Should fall back to base interval with 0 pods
 			expectedInterval: 10 * time.Minute,
 		},
+		{
+			name:            "50 pods with 10 matching annotation",
+			podCount:        50,
+			annotatedCount:  10,
+			annotations:     labels.SelectorFromSet(labels.Set{"chaos": "true"}),
+			dynamicInterval: true,
+			dynamicFactor:   1.0,
+			baseInterval:    10 * time.Minute,
+			// With 10 pods after annotation filtering and target of 50%, interval = 2400 / (10 * 0.5 * 1.0) = 480 minutes
+			expectedInterval: 480 * time.Minute,
+		},
 	} {
 		chaoskube := suite.setupWithInterval(
 			labels.Everything(),
-			labels.Everything(),
+			tt.annotations,
 			labels.Everything(),
 			labels.Everything(),
 			labels.Everything(),
@@ -980,6 +995,14 @@ func (suite *Suite) TestDynamicIntervalCalculation() {
 		// Create test pods
 		for i := 0; i < tt.podCount; i++ {
 			pod := util.NewPod("default", fmt.Sprintf("pod-%d", i), v1.PodRunning)
+
+			// Add the annotation to a subset of pods if annotatedCount is specified
+			if i < tt.annotatedCount {
+				pod.Annotations = map[string]string{
+					"chaos": "true",
+				}
+			}
+
 			_, err := chaoskube.Client.CoreV1().Pods(pod.Namespace).Create(context.Background(), &pod, metav1.CreateOptions{})
 			suite.Require().NoError(err)
 		}

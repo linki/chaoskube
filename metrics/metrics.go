@@ -30,4 +30,10 @@ var (
 		Name:      "termination_duration_seconds",
 		Help:      "The time it took a single pod termination to finish",
 	})
+	// CurrentIntervalSeconds is a gauge for the current dynamic interval in seconds.
+	CurrentIntervalSeconds = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: "chaoskube",
+		Name:      "current_interval_seconds",
+		Help:      "Current interval in seconds between pod terminations",
+	})
 )

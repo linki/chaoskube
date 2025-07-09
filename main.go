@@ -37,31 +37,33 @@ const envVarPrefix = "CHAOSKUBE_"
 var version = "undefined"
 
 var (
-	labelString          string
-	annString            string
-	kindsString          string
-	nsString             string
-	nsLabelString        string
-	includedPodNames     *regexp.Regexp
-	excludedPodNames     *regexp.Regexp
-	excludedWeekdays     string
-	excludedTimesOfDay   string
-	excludedDaysOfYear   string
-	timezone             string
-	minimumAge           time.Duration
-	maxRuntime           time.Duration
-	maxKill              int
-	master               string
-	kubeconfig           string
-	interval             time.Duration
-	dryRun               bool
-	debug                bool
-	metricsAddress       string
-	gracePeriod          time.Duration
-	logFormat            string
-	logCaller            bool
-	slackWebhook         string
-	clientNamespaceScope string
+	labelString            string
+	annString              string
+	kindsString            string
+	nsString               string
+	nsLabelString          string
+	includedPodNames       *regexp.Regexp
+	excludedPodNames       *regexp.Regexp
+	excludedWeekdays       string
+	excludedTimesOfDay     string
+	excludedDaysOfYear     string
+	timezone               string
+	minimumAge             time.Duration
+	maxRuntime             time.Duration
+	maxKill                int
+	master                 string
+	kubeconfig             string
+	interval               time.Duration
+	dynamicIntervalEnabled bool
+	dynamicIntervalFactor  float64
+	dryRun                 bool
+	debug                  bool
+	metricsAddress         string
+	gracePeriod            time.Duration
+	logFormat              string
+	logCaller              bool
+	slackWebhook           string
+	clientNamespaceScope   string
 )
 
 func cliEnvVar(name string) string {
@@ -89,6 +91,8 @@ func init() {
 	kingpin.Flag("master", "The address of the Kubernetes cluster to target").Envar(cliEnvVar("MASTER")).StringVar(&master)
 	kingpin.Flag("kubeconfig", "Path to a kubeconfig file").Envar(cliEnvVar("KUBECONFIG")).StringVar(&kubeconfig)
 	kingpin.Flag("interval", "Interval between Pod terminations").Envar(cliEnvVar("INTERVAL")).Default("10m").DurationVar(&interval)
+	kingpin.Flag("dynamic-interval", "Enable dynamic interval calculation based on pod count").Envar(cliEnvVar("DYNAMIC_INTERVAL")).Default("false").BoolVar(&dynamicIntervalEnabled)
+	kingpin.Flag("dynamic-interval-factor", "Factor to adjust dynamic interval calculation (higher values make intervals change more dramatically)").Envar(cliEnvVar("DYNAMIC_INTERVAL_FACTOR")).Default("1.0").Float64Var(&dynamicIntervalFactor)
 	kingpin.Flag("dry-run", "Don't actually kill any pod. Turned on by default. Turn off with `--no-dry-run`.").Envar(cliEnvVar("DRY_RUN")).Default("true").BoolVar(&dryRun)
 	kingpin.Flag("debug", "Enable debug logging.").Envar(cliEnvVar("DEBUG")).BoolVar(&debug)
 	kingpin.Flag("metrics-address", "Listening address for metrics handler").Envar(cliEnvVar("METRICS_ADDRESS")).Default(":8080").StringVar(&metricsAddress)
@@ -117,37 +121,41 @@ func main() {
 	log.SetReportCaller(logCaller)
 
 	log.WithFields(log.Fields{
-		"labels":               labelString,
-		"annotations":          annString,
-		"kinds":                kindsString,
-		"namespaces":           nsString,
-		"namespaceLabels":      nsLabelString,
-		"includedPodNames":     includedPodNames,
-		"excludedPodNames":     excludedPodNames,
-		"excludedWeekdays":     excludedWeekdays,
-		"excludedTimesOfDay":   excludedTimesOfDay,
-		"excludedDaysOfYear":   excludedDaysOfYear,
-		"timezone":             timezone,
-		"minimumAge":           minimumAge,
-		"maxRuntime":           maxRuntime,
-		"maxKill":              maxKill,
-		"master":               master,
-		"kubeconfig":           kubeconfig,
-		"interval":             interval,
-		"dryRun":               dryRun,
-		"debug":                debug,
-		"metricsAddress":       metricsAddress,
-		"gracePeriod":          gracePeriod,
-		"logFormat":            logFormat,
-		"slackWebhook":         slackWebhook,
-		"clientNamespaceScope": clientNamespaceScope,
+		"labels":                 labelString,
+		"annotations":            annString,
+		"kinds":                  kindsString,
+		"namespaces":             nsString,
+		"namespaceLabels":        nsLabelString,
+		"includedPodNames":       includedPodNames,
+		"excludedPodNames":       excludedPodNames,
+		"excludedWeekdays":       excludedWeekdays,
+		"excludedTimesOfDay":     excludedTimesOfDay,
+		"excludedDaysOfYear":     excludedDaysOfYear,
+		"timezone":               timezone,
+		"minimumAge":             minimumAge,
+		"maxRuntime":             maxRuntime,
+		"maxKill":                maxKill,
+		"master":                 master,
+		"kubeconfig":             kubeconfig,
+		"interval":               interval,
+		"dynamicIntervalEnabled": dynamicIntervalEnabled,
+		"dynamicIntervalFactor":  dynamicIntervalFactor,
+		"dryRun":                 dryRun,
+		"debug":                  debug,
+		"metricsAddress":         metricsAddress,
+		"gracePeriod":            gracePeriod,
+		"logFormat":              logFormat,
+		"slackWebhook":           slackWebhook,
+		"clientNamespaceScope":   clientNamespaceScope,
 	}).Debug("reading config")
 
 	log.WithFields(log.Fields{
-		"version":    version,
-		"dryRun":     dryRun,
-		"interval":   interval,
-		"maxRuntime": maxRuntime,
+		"version":               version,
+		"dryRun":                dryRun,
+		"interval":              interval,
+		"dynamicInterval":       dynamicIntervalEnabled,
+		"dynamicIntervalFactor": dynamicIntervalFactor,
+		"maxRuntime":            maxRuntime,
 	}).Info("starting up")
 
 	client, err := newClient()
@@ -234,6 +242,9 @@ func main() {
 		maxKill,
 		notifiers,
 		clientNamespaceScope,
+		dynamicIntervalEnabled,
+		dynamicIntervalFactor,
+		interval,
 	)
 
 	if metricsAddress != "" {

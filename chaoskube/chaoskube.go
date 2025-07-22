@@ -215,29 +215,15 @@ func (c *Chaoskube) CalculateDynamicInterval(ctx context.Context) time.Duration 
 
 	podCount := len(pods)
 
-	// Add debug logging for pod details
-	logger := c.Logger
-	// Check if debug logging is enabled
-	// We need to handle both *log.Logger and *log.Entry types that implement FieldLogger
-	debugEnabled := false
-	switch l := logger.(type) {
-	case *log.Logger:
-		debugEnabled = l.Level >= log.DebugLevel
-	case *log.Entry:
-		debugEnabled = l.Logger.Level >= log.DebugLevel
-	}
-
-	if debugEnabled {
-		c.Logger.Debug("Listing candidate pods for dynamic interval calculation:")
-		for i, pod := range pods {
-			c.Logger.WithFields(log.Fields{
-				"index":     i,
-				"name":      pod.Name,
-				"namespace": pod.Namespace,
-				"labels":    pod.Labels,
-				"phase":     pod.Status.Phase,
-			}).Debug("candidate pod")
-		}
+	c.Logger.Debug("Listing candidate pods for dynamic interval calculation:")
+	for i, pod := range pods {
+		c.Logger.WithFields(log.Fields{
+			"index":     i,
+			"name":      pod.Name,
+			"namespace": pod.Namespace,
+			"labels":    pod.Labels,
+			"phase":     pod.Status.Phase,
+		}).Debug("candidate pod")
 	}
 
 	// Guard against division by zero, pods could be all filtered!

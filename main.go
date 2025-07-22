@@ -267,10 +267,10 @@ func main() {
 		cancel()
 	}()
 
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
+	tickerChan, stopTicker := chaoskube.NewTicker(ctx)
+	defer stopTicker()
 
-	chaoskube.Run(ctx, ticker.C)
+	chaoskube.Run(ctx, tickerChan)
 }
 
 func newClient() (*kubernetes.Clientset, error) {

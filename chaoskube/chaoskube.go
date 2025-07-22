@@ -136,6 +136,51 @@ func New(client kubernetes.Interface, labels, annotations, kinds, namespaces, na
 	}
 }
 
+// NewTicker creates a ticker channel that handles both fixed and dynamic intervals.
+// It returns a channel that sends ticks and a stop function to clean up resources.
+func (c *Chaoskube) NewTicker(ctx context.Context) (<-chan time.Time, func()) {
+	if !c.DynamicInterval {
+		// Use fixed interval ticker
+		ticker := time.NewTicker(c.BaseInterval)
+		return ticker.C, ticker.Stop
+	}
+
+	// Use dynamic interval
+	tickerChan := make(chan time.Time)
+	stopChan := make(chan struct{})
+
+	go func() {
+		defer close(tickerChan)
+
+		for {
+			// Calculate current dynamic interval
+			waitDuration := c.CalculateDynamicInterval(ctx)
+			metrics.CurrentIntervalSeconds.Set(float64(waitDuration.Seconds()))
+
+			select {
+			case <-time.After(waitDuration):
+				select {
+				case tickerChan <- time.Now():
+				case <-stopChan:
+					return
+				case <-ctx.Done():
+					return
+				}
+			case <-stopChan:
+				return
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	stopFunc := func() {
+		close(stopChan)
+	}
+
+	return tickerChan, stopFunc
+}
+
 // CalculateDynamicInterval calculates a dynamic interval based on current pod count
 func (c *Chaoskube) CalculateDynamicInterval(ctx context.Context) time.Duration {
 
@@ -227,13 +272,6 @@ func (c *Chaoskube) CalculateDynamicInterval(ctx context.Context) time.Duration 
 // described by channel next. It returns when the given context is canceled.
 func (c *Chaoskube) Run(ctx context.Context, next <-chan time.Time) {
 	for {
-		// If dynamic interval is enabled, calculate new interval before terminating victims
-		var waitDuration time.Duration
-		if c.DynamicInterval {
-			waitDuration = c.CalculateDynamicInterval(ctx)
-			metrics.CurrentIntervalSeconds.Set(float64(waitDuration.Seconds()))
-		}
-
 		if err := c.TerminateVictims(ctx); err != nil {
 			c.Logger.WithField("err", err).Error("failed to terminate victim")
 			metrics.ErrorsTotal.Inc()
@@ -242,21 +280,11 @@ func (c *Chaoskube) Run(ctx context.Context, next <-chan time.Time) {
 		c.Logger.Debug("sleeping...")
 		metrics.IntervalsTotal.Inc()
 
-		// Use the appropriate waiting mechanism
-		if c.DynamicInterval {
-			select {
-			case <-time.After(waitDuration):
-				// Continue to next iteration
-			case <-ctx.Done():
-				return
-			}
-		} else {
-			// Use original fixed interval from ticker
-			select {
-			case <-next:
-			case <-ctx.Done():
-				return
-			}
+		select {
+		case <-next:
+			// Continue to next iteration
+		case <-ctx.Done():
+			return
 		}
 	}
 }

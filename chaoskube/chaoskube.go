@@ -93,6 +93,8 @@ var (
 	msgTimeOfDayExcluded = "time of day excluded"
 	// msgDayOfYearExcluded is the log message when termination is suspended due to the day of year filter
 	msgDayOfYearExcluded = "day of year excluded"
+	// mirrorPodAnnotation is the annotation key for static pods
+	mirrorPodAnnotation = "kubernetes.io/config.mirror"
 )
 
 // New returns a new instance of Chaoskube. It expects:
@@ -212,6 +214,8 @@ func (c *Chaoskube) CalculateDynamicInterval(ctx context.Context) time.Duration 
 	}
 
 	pods = filterByAnnotations(pods, c.Annotations)
+
+	pods = filterStaticPods(pods)
 
 	podCount := len(pods)
 
@@ -347,63 +351,49 @@ func (c *Chaoskube) Candidates(ctx context.Context) ([]v1.Pod, error) {
 	if err != nil {
 		return nil, err
 	}
-	c.Logger.WithFields(log.Fields{
-		"count": len(podList.Items),
-	}).Debug("Initial pod count after API list")
+
+	filterCounts := fmt.Sprintf("initial:%d", len(podList.Items))
 
 	pods, err := filterByNamespaces(podList.Items, c.Namespaces)
 	if err != nil {
 		return nil, err
 	}
-	c.Logger.WithFields(log.Fields{
-		"count": len(pods),
-	}).Debug("Pod count after namespace filtering")
+	filterCounts += fmt.Sprintf(" → namespaces:%d", len(pods))
 
 	pods, err = filterPodsByNamespaceLabels(ctx, pods, c.NamespaceLabels, c.Client)
 	if err != nil {
 		return nil, err
 	}
-	c.Logger.WithFields(log.Fields{
-		"count": len(pods),
-	}).Debug("Pod count after namespace labels filtering")
+	filterCounts += fmt.Sprintf(" → ns-labels:%d", len(pods))
 
 	pods, err = filterByKinds(pods, c.Kinds)
 	if err != nil {
 		return nil, err
 	}
-	c.Logger.WithFields(log.Fields{
-		"count": len(pods),
-	}).Debug("Pod count after kinds filtering")
+	filterCounts += fmt.Sprintf(" → kinds:%d", len(pods))
 
 	pods = filterByAnnotations(pods, c.Annotations)
-	c.Logger.WithFields(log.Fields{
-		"count": len(pods),
-	}).Debug("Pod count after annotations filtering")
+	filterCounts += fmt.Sprintf(" → annotations:%d", len(pods))
 
 	pods = filterByPhase(pods, v1.PodRunning)
-	c.Logger.WithFields(log.Fields{
-		"count": len(pods),
-	}).Debug("Pod count after phase filtering")
+	filterCounts += fmt.Sprintf(" → running:%d", len(pods))
 
 	pods = filterTerminatingPods(pods)
-	c.Logger.WithFields(log.Fields{
-		"count": len(pods),
-	}).Debug("Pod count after terminating pods filtering")
+	filterCounts += fmt.Sprintf(" → non-terminating:%d", len(pods))
 
 	pods = filterByMinimumAge(pods, c.MinimumAge, c.Now())
-	c.Logger.WithFields(log.Fields{
-		"count": len(pods),
-	}).Debug("Pod count after minimum age filtering")
+	filterCounts += fmt.Sprintf(" → min-age:%d", len(pods))
 
 	pods = filterByPodName(pods, c.IncludedPodNames, c.ExcludedPodNames)
-	c.Logger.WithFields(log.Fields{
-		"count": len(pods),
-	}).Debug("Pod count after pod name filtering")
+	filterCounts += fmt.Sprintf(" → pod-names:%d", len(pods))
 
 	pods = filterByOwnerReference(pods)
-	c.Logger.WithFields(log.Fields{
-		"count": len(pods),
-	}).Debug("Final pod count after owner reference filtering")
+	filterCounts += fmt.Sprintf(" → owner-ref:%d", len(pods))
+
+	pods = filterStaticPods(pods)
+	filterCounts += fmt.Sprintf(" → static-pods:%d", len(pods))
+
+	c.Logger.Debug("Pod filtering: " + filterCounts)
 
 	return pods, nil
 }
@@ -696,6 +686,21 @@ func filterByOwnerReference(pods []v1.Pod) []v1.Pod {
 	// For each owner reference select a random pod from its group
 	for _, pods := range owners {
 		filteredList = append(filteredList, util.RandomPodSubSlice(pods, 1)...)
+	}
+
+	return filteredList
+}
+
+// filterStaticPods filters out static pods (mirror pods) that should not be killed
+func filterStaticPods(pods []v1.Pod) []v1.Pod {
+	filteredList := []v1.Pod{}
+
+	for _, pod := range pods {
+		// Skip static pods (mirror pods) which have the mirror pod annotation
+		if _, ok := pod.Annotations[mirrorPodAnnotation]; ok {
+			continue
+		}
+		filteredList = append(filteredList, pod)
 	}
 
 	return filteredList

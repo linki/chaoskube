@@ -1281,6 +1281,31 @@ func (suite *Suite) TestFilterByOwnerReference() {
 	}
 }
 
+func (suite *Suite) TestFilterStaticPods() {
+	// Regular pod without mirror annotation
+	regularPod := util.NewPod("default", "regular", v1.PodRunning)
+
+	// Static pod with mirror annotation
+	staticPod := util.NewPod("default", "static", v1.PodRunning)
+	staticPod.Annotations["kubernetes.io/config.mirror"] = "node-1"
+
+	// Another regular pod
+	anotherRegularPod := util.NewPod("default", "another-regular", v1.PodRunning)
+
+	// Another static pod with mirror annotation
+	anotherStaticPod := util.NewPod("default", "another-static", v1.PodRunning)
+	anotherStaticPod.Annotations["kubernetes.io/config.mirror"] = "node-2"
+
+	pods := []v1.Pod{regularPod, staticPod, anotherRegularPod, anotherStaticPod}
+
+	filtered := filterStaticPods(pods)
+
+	// Should only have the 2 regular pods, static pods should be filtered out
+	suite.Equal(2, len(filtered))
+	suite.Equal("regular", filtered[0].Name)
+	suite.Equal("another-regular", filtered[1].Name)
+}
+
 func (suite *Suite) TestNotifierCall() {
 	chaoskube := suite.setupWithPods(
 		labels.Everything(),

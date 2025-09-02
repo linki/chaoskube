@@ -206,6 +206,12 @@ $ chaoskube --minimum-age 6h
 INFO[0000] setting pod filter       minimumAge=6h0m0s
 ```
 
+### Static Pod Protection
+
+`chaoskube` automatically excludes static pods (mirror pods) from being terminated. Static pods are managed directly by the kubelet on a node rather than by the API server, and they are identified by the presence of the `kubernetes.io/config.mirror` annotation.
+
+Static pods are typically critical system components (like kube-proxy, kube-dns, etc.) that should not be disrupted by chaos engineering activities. This filtering happens automatically and cannot be disabled, ensuring that essential cluster infrastructure remains stable during chaos testing.
+
 ## Limit the Chaos
 
 You can limit the time when chaos is introduced by weekdays, time periods of a day, day of a year or all of them together.

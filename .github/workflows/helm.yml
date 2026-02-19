@@ -11,7 +11,7 @@ jobs:
       chart: ${{ steps.filter.outputs.chart }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -29,7 +29,7 @@ jobs:
       needs.changes.outputs.chart == 'true'
     steps:
       - name: Checkout master
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           # Fetch entire history. Required for chart-releaser; see https://github.com/helm/chart-releaser-action/issues/13#issuecomment-602063896
           fetch-depth: 0

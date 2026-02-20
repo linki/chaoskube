@@ -73,3 +73,18 @@ resources: {}
 
 # tolerations can be used to configure tolerations for the pods
 tolerations: []
+
+# nodeSelector can be used to assign the pods to nodes with specific labels
+nodeSelector: {}
+
+# affinity can be used to configure affinity rules for the pods
+affinity: {}
+# nodeAffinity:
+#   requiredDuringSchedulingIgnoredDuringExecution:
+#     nodeSelectorTerms:
+#     - matchExpressions:
+#       - key: topology.kubernetes.io/zone
+#         operator: In
+#         values:
+#         - antarctica-east1
+#         - antarctica-west1

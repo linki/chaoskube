@@ -32,8 +32,16 @@ spec:
         {{- end }}
         {{- end }}
     spec:
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       tolerations:
         {{- toYaml .Values.tolerations | nindent 8 }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       serviceAccountName: {{ include "chaoskube.serviceAccountName" . }}
       containers:
       - name: {{ .Chart.Name }}

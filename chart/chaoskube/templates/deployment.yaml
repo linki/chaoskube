@@ -70,6 +70,10 @@ spec:
         {{- end }}
         securityContext:
           {{- toYaml .Values.podSecurityContext | nindent 10 }}
+        ports:
+        - name: metrics
+          containerPort: {{ include "chaoskube.metricsPort" . }}
+          protocol: TCP
         {{- with .Values.resources}}
         resources:
           {{- toYaml . | nindent 10 }}

@@ -60,3 +60,16 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Returns the port of the metrics endpoint, defaulting to 8080 if not set in args.
+We need to use some failure handling when default value '.Values.chaoskube.args' is used, otherwise we see
+errors like: wrong type for value; expected map[string]interface {}; got interface {}
+*/}}
+{{- define "chaoskube.metricsPort" -}}
+{{- $args := .Values.chaoskube.args -}}
+{{- $metricsAddr := index $args "metrics-address" -}}
+{{- $metricsPort := ($metricsAddr | toString | split ":")._1 -}}
+
+{{ printf "%s" ($metricsPort | default "8080") -}}
+{{- end -}}

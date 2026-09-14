@@ -297,7 +297,31 @@ func (suite *Suite) TestParseTimePeriods() {
 		timePeriods, err := ParseTimePeriods(tt.given)
 		suite.Require().NoError(err)
 
+		for i := range tt.expected {
+			tt.expected[i].To = tt.expected[i].To.Add(time.Minute - time.Nanosecond)
+		}
 		suite.Equal(tt.expected, timePeriods)
+	}
+}
+
+func (suite *Suite) TestParseTimePeriodsIncludesFinalSeconds() {
+	for _, tc := range []struct {
+		rangeText string
+		inside    string
+		outside   string
+	}{
+		{"16:00-23:59", "23:59:27", "15:59:59"},
+		{"16:00:00-23:59:59", "23:59:27", "00:00:00"},
+		{"16:00-14:00", "13:59:59", "14:01:00"},
+	} {
+		periods, err := ParseTimePeriods(tc.rangeText)
+		suite.Require().NoError(err)
+		inside, err := time.Parse("15:04:05", tc.inside)
+		suite.Require().NoError(err)
+		outside, err := time.Parse("15:04:05", tc.outside)
+		suite.Require().NoError(err)
+		suite.True(periods[0].Includes(inside), tc.rangeText)
+		suite.False(periods[0].Includes(outside), tc.rangeText)
 	}
 }
 

@@ -31,8 +31,9 @@ func NewTimePeriod(from, to time.Time) TimePeriod {
 
 // Includes returns true iff the given pointInTime's time of day is included in time period tp.
 func (tp TimePeriod) Includes(pointInTime time.Time) bool {
-	isAfter := TimeOfDay(pointInTime).After(tp.From)
-	isBefore := TimeOfDay(pointInTime).Before(tp.To)
+	point := TimeOfDay(pointInTime)
+	isAfter := !point.Before(tp.From)
+	isBefore := !point.After(tp.To)
 
 	if tp.From.Before(tp.To) {
 		return isAfter && isBefore
@@ -40,7 +41,7 @@ func (tp TimePeriod) Includes(pointInTime time.Time) bool {
 	if tp.From.After(tp.To) {
 		return isAfter || isBefore
 	}
-	return TimeOfDay(pointInTime).Equal(tp.From)
+	return point.Equal(tp.From)
 }
 
 // String returns tp as a pretty string.
@@ -85,20 +86,34 @@ func ParseTimePeriods(timePeriods string) ([]TimePeriod, error) {
 			return nil, fmt.Errorf("Invalid time range '%v': must contain exactly one '-'", tp)
 		}
 
-		begin, err := time.Parse(Kitchen24, strings.TrimSpace(parts[0]))
+		begin, err := parseTimeOfDay(strings.TrimSpace(parts[0]))
 		if err != nil {
 			return nil, err
 		}
 
-		end, err := time.Parse(Kitchen24, strings.TrimSpace(parts[1]))
+		endText := strings.TrimSpace(parts[1])
+		end, err := parseTimeOfDay(endText)
 		if err != nil {
 			return nil, err
+		}
+		// A minute-only end includes the entire minute, not just its first instant.
+		if strings.Count(endText, ":") == 1 {
+			end = end.Add(time.Minute - time.Nanosecond)
+		} else {
+			end = end.Add(time.Second - time.Nanosecond)
 		}
 
 		parsedTimePeriods = append(parsedTimePeriods, NewTimePeriod(begin, end))
 	}
 
 	return parsedTimePeriods, nil
+}
+
+func parseTimeOfDay(value string) (time.Time, error) {
+	if strings.Count(value, ":") == 2 {
+		return time.Parse("15:04:05", value)
+	}
+	return time.Parse(Kitchen24, value)
 }
 
 func ParseDays(days string) ([]time.Time, error) {

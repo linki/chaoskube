@@ -183,6 +183,8 @@ You can limit the time when chaos is introduced by weekdays, time periods of a d
 
 Add a comma-separated list of abbreviated weekdays via the `--excluded-weekdays` options, a comma-separated list of time periods via the `--excluded-times-of-day` option and/or a comma-separated list of days of a year via the `--excluded-days-of-year` option and specify a `--timezone` by which to interpret them.
 
+Time periods accept `HH:MM-HH:MM` or `HH:MM:SS-HH:MM:SS`. Both ends are inclusive: a minute-only end such as `23:59` excludes the entire minute through `23:59:59`, while a second-precision end includes that entire second. A period can cross midnight, for example `22:00-08:00`.
+
 ```console
 $ chaoskube \
     --excluded-weekdays=Sat,Sun \

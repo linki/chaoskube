@@ -88,3 +88,13 @@ affinity: {}
 #         values:
 #         - antarctica-east1
 #         - antarctica-west1
+
+livenessProbe:
+  # Is is required that you do not set chaoskube.args.metrics-address="", otherwise
+  # the probe will not work properly.
+  enabled: false
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 3

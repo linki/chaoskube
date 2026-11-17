@@ -79,6 +79,8 @@ INFO[0000] setting pod filter       labels="app=mate,chaos,stage!=production"
 
 This selects all pods that have the label `app` set to `mate`, the label `chaos` set to anything and the label `stage` not set to `production` or unset.
 
+Mirror pods of [static pods](https://kubernetes.io/docs/tasks/configure-pod-container/static-pod/) (annotated with `kubernetes.io/config.mirror`) are never selected, because they can't be killed via the Kubernetes API.
+
 You can filter target pods by namespace selector as well.
 
 ```console

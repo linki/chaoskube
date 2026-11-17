@@ -237,6 +237,7 @@ func (c *Chaoskube) Candidates(ctx context.Context) ([]v1.Pod, error) {
 	pods = filterByAnnotations(pods, c.Annotations)
 	pods = filterByPhase(pods, v1.PodRunning)
 	pods = filterTerminatingPods(pods)
+	pods = filterStaticPods(pods)
 	pods = filterByMinimumAge(pods, c.MinimumAge, c.Now())
 	pods = filterByPodName(pods, c.IncludedPodNames, c.ExcludedPodNames)
 	pods = filterByOwnerReference(pods)
@@ -454,6 +455,20 @@ func filterByPhase(pods []v1.Pod, phase v1.PodPhase) []v1.Pod {
 		if pod.Status.Phase == phase {
 			filteredList = append(filteredList, pod)
 		}
+	}
+
+	return filteredList
+}
+
+// filterStaticPods removes mirror pods of static pods, which can't be killed via the API:
+// the kubelet recreates them right away.
+func filterStaticPods(pods []v1.Pod) []v1.Pod {
+	filteredList := []v1.Pod{}
+	for _, pod := range pods {
+		if _, ok := pod.Annotations["kubernetes.io/config.mirror"]; ok {
+			continue
+		}
+		filteredList = append(filteredList, pod)
 	}
 
 	return filteredList

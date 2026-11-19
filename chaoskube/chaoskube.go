@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"time"
 
@@ -74,6 +75,11 @@ type Chaoskube struct {
 	Notifier notifier.Notifier
 	// namespace scope for the Kubernetes client
 	ClientNamespaceScope string
+
+	// Dynamic interval configuration
+	DynamicInterval       bool
+	DynamicIntervalFactor float64
+	BaseInterval          time.Duration
 }
 
 var (
@@ -97,34 +103,155 @@ var (
 // * a logger implementing logrus.FieldLogger to send log output to
 // * what specific terminator to use to imbue chaos on victim pods
 // * whether to enable/disable dry-run mode
-func New(client kubernetes.Interface, labels, annotations, kinds, namespaces, namespaceLabels labels.Selector, includedPodNames, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator, maxKill int, notifier notifier.Notifier, clientNamespaceScope string) *Chaoskube {
+func New(client kubernetes.Interface, labels, annotations, kinds, namespaces, namespaceLabels labels.Selector, includedPodNames, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator, maxKill int, notifier notifier.Notifier, clientNamespaceScope string, dynamicInterval bool, dynamicIntervalFactor float64, baseInterval time.Duration) *Chaoskube {
 	broadcaster := record.NewBroadcaster()
 	broadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events(clientNamespaceScope)})
 	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "chaoskube"})
 
 	return &Chaoskube{
-		Client:               client,
-		Labels:               labels,
-		Annotations:          annotations,
-		Kinds:                kinds,
-		Namespaces:           namespaces,
-		NamespaceLabels:      namespaceLabels,
-		IncludedPodNames:     includedPodNames,
-		ExcludedPodNames:     excludedPodNames,
-		ExcludedWeekdays:     excludedWeekdays,
-		ExcludedTimesOfDay:   excludedTimesOfDay,
-		ExcludedDaysOfYear:   excludedDaysOfYear,
-		Timezone:             timezone,
-		MinimumAge:           minimumAge,
-		Logger:               logger,
-		DryRun:               dryRun,
-		Terminator:           terminator,
-		EventRecorder:        recorder,
-		Now:                  time.Now,
-		MaxKill:              maxKill,
-		Notifier:             notifier,
-		ClientNamespaceScope: clientNamespaceScope,
+		Client:                client,
+		Labels:                labels,
+		Annotations:           annotations,
+		Kinds:                 kinds,
+		Namespaces:            namespaces,
+		NamespaceLabels:       namespaceLabels,
+		IncludedPodNames:      includedPodNames,
+		ExcludedPodNames:      excludedPodNames,
+		ExcludedWeekdays:      excludedWeekdays,
+		ExcludedTimesOfDay:    excludedTimesOfDay,
+		ExcludedDaysOfYear:    excludedDaysOfYear,
+		Timezone:              timezone,
+		MinimumAge:            minimumAge,
+		Logger:                logger,
+		DryRun:                dryRun,
+		Terminator:            terminator,
+		EventRecorder:         recorder,
+		Now:                   time.Now,
+		MaxKill:               maxKill,
+		Notifier:              notifier,
+		ClientNamespaceScope:  clientNamespaceScope,
+		DynamicInterval:       dynamicInterval,
+		DynamicIntervalFactor: dynamicIntervalFactor,
+		BaseInterval:          baseInterval,
 	}
+}
+
+// NewTicker creates a ticker channel that handles both fixed and dynamic intervals.
+// It returns a channel that sends ticks and a stop function to clean up resources.
+func (c *Chaoskube) NewTicker(ctx context.Context) (<-chan time.Time, func()) {
+	if !c.DynamicInterval {
+		// Use fixed interval ticker
+		ticker := time.NewTicker(c.BaseInterval)
+		return ticker.C, ticker.Stop
+	}
+
+	// Use dynamic interval
+	tickerChan := make(chan time.Time)
+	stopChan := make(chan struct{})
+
+	go func() {
+		defer close(tickerChan)
+
+		for {
+			// Calculate current dynamic interval
+			waitDuration := c.CalculateDynamicInterval(ctx)
+			metrics.CurrentIntervalSeconds.Set(float64(waitDuration.Seconds()))
+
+			select {
+			case <-time.After(waitDuration):
+				select {
+				case tickerChan <- time.Now():
+				case <-stopChan:
+					return
+				case <-ctx.Done():
+					return
+				}
+			case <-stopChan:
+				return
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	stopFunc := func() {
+		close(stopChan)
+	}
+
+	return tickerChan, stopFunc
+}
+
+// CalculateDynamicInterval calculates a dynamic interval based on current pod count
+func (c *Chaoskube) CalculateDynamicInterval(ctx context.Context) time.Duration {
+
+	// Get total number of pods
+	listOptions := metav1.ListOptions{LabelSelector: c.Labels.String()}
+	podList, err := c.Client.CoreV1().Pods(c.ClientNamespaceScope).List(ctx, listOptions)
+
+	if err != nil {
+		c.Logger.WithField("err", err).Error("failed to get list of pods, using base interval")
+		return c.BaseInterval
+	}
+
+	pods, err := filterByNamespaces(podList.Items, c.Namespaces)
+	if err != nil {
+		c.Logger.WithField("err", err).Error("failed to filterByNamespaces, using base interval")
+		return c.BaseInterval
+	}
+
+	pods, err = filterPodsByNamespaceLabels(ctx, pods, c.NamespaceLabels, c.Client)
+	if err != nil {
+		c.Logger.WithField("err", err).Error("failed to filterPodsByNamespaceLabels, using base interval")
+		return c.BaseInterval
+	}
+
+	pods, err = filterByKinds(pods, c.Kinds)
+	if err != nil {
+		c.Logger.WithField("err", err).Error("failed to filterByKinds, using base interval")
+		return c.BaseInterval
+	}
+
+	pods = filterByAnnotations(pods, c.Annotations)
+
+	podCount := len(pods)
+
+	c.Logger.Debug("Listing candidate pods for dynamic interval calculation:")
+	for i, pod := range pods {
+		c.Logger.WithFields(log.Fields{
+			"index":     i,
+			"name":      pod.Name,
+			"namespace": pod.Namespace,
+			"labels":    pod.Labels,
+			"phase":     pod.Status.Phase,
+		}).Debug("candidate pod")
+	}
+
+	// Guard against division by zero, pods could be all filtered!
+	if podCount == 0 {
+		c.Logger.WithField("podCount", 0).Info("no pods found, using base interval")
+		return c.BaseInterval
+	}
+	// As a simple reference, we asume that every pod should be killed during 10 working days (9-17h)
+	totalWorkingMinutes := 10 * 8 * 60
+
+	// Calculate raw interval in minutes
+	// Higher pod counts = shorter intervals, lower pod counts = longer intervals
+	rawIntervalMinutes := float64(totalWorkingMinutes) / (float64(podCount) * c.DynamicIntervalFactor)
+
+	// Round to nearest minute and ensure minimum of 1 minute
+	minutes := int(math.Max(1, math.Round(rawIntervalMinutes)))
+	roundedInterval := time.Duration(minutes) * time.Minute
+
+	// Provide detailed logging about the calculation
+	c.Logger.WithFields(log.Fields{
+		"podCount":         podCount,
+		"totalWorkMinutes": totalWorkingMinutes,
+		"factor":           c.DynamicIntervalFactor,
+		"rawIntervalMins":  rawIntervalMinutes,
+		"roundedInterval":  roundedInterval,
+	}).Info("calculated dynamic interval")
+
+	return roundedInterval
 }
 
 // Run continuously picks and terminates a victim pod at a given interval
@@ -138,8 +265,10 @@ func (c *Chaoskube) Run(ctx context.Context, next <-chan time.Time) {
 
 		c.Logger.Debug("sleeping...")
 		metrics.IntervalsTotal.Inc()
+
 		select {
 		case <-next:
+			// Continue to next iteration
 		case <-ctx.Done():
 			return
 		}
@@ -218,28 +347,63 @@ func (c *Chaoskube) Candidates(ctx context.Context) ([]v1.Pod, error) {
 	if err != nil {
 		return nil, err
 	}
+	c.Logger.WithFields(log.Fields{
+		"count": len(podList.Items),
+	}).Debug("Initial pod count after API list")
 
 	pods, err := filterByNamespaces(podList.Items, c.Namespaces)
 	if err != nil {
 		return nil, err
 	}
+	c.Logger.WithFields(log.Fields{
+		"count": len(pods),
+	}).Debug("Pod count after namespace filtering")
 
 	pods, err = filterPodsByNamespaceLabels(ctx, pods, c.NamespaceLabels, c.Client)
 	if err != nil {
 		return nil, err
 	}
+	c.Logger.WithFields(log.Fields{
+		"count": len(pods),
+	}).Debug("Pod count after namespace labels filtering")
 
 	pods, err = filterByKinds(pods, c.Kinds)
 	if err != nil {
 		return nil, err
 	}
+	c.Logger.WithFields(log.Fields{
+		"count": len(pods),
+	}).Debug("Pod count after kinds filtering")
 
 	pods = filterByAnnotations(pods, c.Annotations)
+	c.Logger.WithFields(log.Fields{
+		"count": len(pods),
+	}).Debug("Pod count after annotations filtering")
+
 	pods = filterByPhase(pods, v1.PodRunning)
+	c.Logger.WithFields(log.Fields{
+		"count": len(pods),
+	}).Debug("Pod count after phase filtering")
+
 	pods = filterTerminatingPods(pods)
+	c.Logger.WithFields(log.Fields{
+		"count": len(pods),
+	}).Debug("Pod count after terminating pods filtering")
+
 	pods = filterByMinimumAge(pods, c.MinimumAge, c.Now())
+	c.Logger.WithFields(log.Fields{
+		"count": len(pods),
+	}).Debug("Pod count after minimum age filtering")
+
 	pods = filterByPodName(pods, c.IncludedPodNames, c.ExcludedPodNames)
+	c.Logger.WithFields(log.Fields{
+		"count": len(pods),
+	}).Debug("Pod count after pod name filtering")
+
 	pods = filterByOwnerReference(pods)
+	c.Logger.WithFields(log.Fields{
+		"count": len(pods),
+	}).Debug("Final pod count after owner reference filtering")
 
 	return pods, nil
 }

@@ -189,6 +189,37 @@ func (suite *Suite) TestCandidates() {
 }
 
 // TestCandidatesNamespaceLabels tests that the label selector for namespaces works correctly.
+func (suite *Suite) TestCandidatesExcludesStaticPods() {
+	chaoskube := suite.setupWithPods(
+		labels.Everything(),
+		labels.Everything(),
+		labels.Everything(),
+		labels.Everything(),
+		labels.Everything(),
+		nil,
+		nil,
+		[]time.Weekday{},
+		[]util.TimePeriod{},
+		[]time.Time{},
+		time.UTC,
+		time.Duration(0),
+		false,
+		10,
+		v1.NamespaceAll,
+	)
+
+	// the kubelet registers static pods in the API as mirror pods with this annotation
+	static := util.NewPod("default", "static", v1.PodRunning)
+	static.Annotations = map[string]string{"kubernetes.io/config.mirror": "3ffad4b19c937d5bb9cbacadb2f463a1"}
+	_, err := chaoskube.Client.CoreV1().Pods(static.Namespace).Create(context.Background(), &static, metav1.CreateOptions{})
+	suite.Require().NoError(err)
+
+	suite.assertCandidates(chaoskube, []map[string]string{
+		{"namespace": "default", "name": "foo"},
+		{"namespace": "testing", "name": "bar"},
+	})
+}
+
 func (suite *Suite) TestCandidatesNamespaceLabels() {
 	foo := map[string]string{"namespace": "default", "name": "foo"}
 	bar := map[string]string{"namespace": "testing", "name": "bar"}

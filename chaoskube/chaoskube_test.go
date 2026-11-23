@@ -48,22 +48,23 @@ func (suite *Suite) SetupTest() {
 // TestNew tests that arguments are passed to the new instance correctly
 func (suite *Suite) TestNew() {
 	var (
-		client             = fake.NewSimpleClientset()
-		labelSelector, _   = labels.Parse("foo=bar")
-		annotations, _     = labels.Parse("baz=waldo")
-		kinds, _           = labels.Parse("job")
-		namespaces, _      = labels.Parse("qux")
-		namespaceLabels, _ = labels.Parse("taz=wubble")
-		includedPodNames   = regexp.MustCompile("foo")
-		excludedPodNames   = regexp.MustCompile("bar")
-		excludedWeekdays   = []time.Weekday{time.Friday}
-		excludedTimesOfDay = []util.TimePeriod{util.TimePeriod{}}
-		excludedDaysOfYear = []time.Time{time.Now()}
-		minimumAge         = time.Duration(42)
-		dryRun             = true
-		terminator         = terminator.NewDeletePodTerminator(client, logger, 10*time.Second)
-		maxKill            = 1
-		notifier           = testNotifier
+		client               = fake.NewSimpleClientset()
+		labelSelector, _     = labels.Parse("foo=bar")
+		annotations, _       = labels.Parse("baz=waldo")
+		kinds, _             = labels.Parse("job")
+		namespaces, _        = labels.Parse("qux")
+		namespaceLabels, _   = labels.Parse("taz=wubble")
+		includedPodNames     = regexp.MustCompile("foo")
+		excludedPodNames     = regexp.MustCompile("bar")
+		excludedWeekdays     = []time.Weekday{time.Friday}
+		excludedTimesOfDay   = []util.TimePeriod{{}}
+		excludedDaysOfYear   = []time.Time{time.Now()}
+		minimumAge           = time.Duration(42)
+		dryRun               = true
+		terminator           = terminator.NewDeletePodTerminator(client, logger, 10*time.Second)
+		maxKill              = 1
+		notifier             = testNotifier
+		ignoreSingleReplicas = false
 	)
 
 	chaoskube := New(
@@ -86,6 +87,7 @@ func (suite *Suite) TestNew() {
 		maxKill,
 		notifier,
 		v1.NamespaceAll,
+		ignoreSingleReplicas,
 	)
 	suite.Require().NotNil(chaoskube)
 
@@ -105,6 +107,7 @@ func (suite *Suite) TestNew() {
 	suite.Equal(logger, chaoskube.Logger)
 	suite.Equal(dryRun, chaoskube.DryRun)
 	suite.Equal(terminator, chaoskube.Terminator)
+	suite.Equal(ignoreSingleReplicas, chaoskube.IgnoreSingleReplicas)
 }
 
 // TestRunContextCanceled tests that a canceled context will exit the Run function.
@@ -126,6 +129,7 @@ func (suite *Suite) TestRunContextCanceled() {
 		10,
 		1,
 		v1.NamespaceAll,
+		false,
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -182,6 +186,7 @@ func (suite *Suite) TestCandidates() {
 			false,
 			10,
 			v1.NamespaceAll,
+			false,
 		)
 
 		suite.assertCandidates(chaoskube, tt.pods)
@@ -228,6 +233,7 @@ func (suite *Suite) TestCandidatesNamespaceLabels() {
 			false,
 			10,
 			v1.NamespaceAll,
+			false,
 		)
 
 		suite.assertCandidates(chaoskube, tt.pods)
@@ -262,6 +268,7 @@ func (suite *Suite) TestCandidatesClientNamespaceScope() {
 			false,
 			10,
 			tt.clientNamespaceScope,
+			false,
 		)
 
 		suite.assertCandidates(chaoskube, tt.pods)
@@ -306,6 +313,7 @@ func (suite *Suite) TestCandidatesPodNameRegexp() {
 			false,
 			10,
 			v1.NamespaceAll,
+			false,
 		)
 
 		suite.assertCandidates(chaoskube, tt.pods)
@@ -347,6 +355,7 @@ func (suite *Suite) TestVictim() {
 			false,
 			10,
 			v1.NamespaceAll,
+			false,
 		)
 
 		suite.assertVictim(chaoskube, tt.victim)
@@ -402,6 +411,7 @@ func (suite *Suite) TestVictims() {
 			10,
 			tt.maxKill,
 			v1.NamespaceAll,
+			false,
 		)
 		suite.createPods(chaoskube.Client, podsInfo)
 
@@ -428,6 +438,7 @@ func (suite *Suite) TestNoVictimReturnsError() {
 		10,
 		1,
 		v1.NamespaceAll,
+		false,
 	)
 
 	_, err := chaoskube.Victims(context.Background())
@@ -463,6 +474,7 @@ func (suite *Suite) TestDeletePod() {
 			tt.dryRun,
 			10,
 			v1.NamespaceAll,
+			false,
 		)
 
 		victim := util.NewPod("default", "foo", v1.PodRunning)
@@ -494,6 +506,7 @@ func (suite *Suite) TestDeletePodNotFound() {
 		10,
 		1,
 		v1.NamespaceAll,
+		false,
 	)
 
 	victim := util.NewPod("default", "foo", v1.PodRunning)
@@ -726,6 +739,7 @@ func (suite *Suite) TestTerminateVictim() {
 			false,
 			10,
 			v1.NamespaceAll,
+			false,
 		)
 		chaoskube.Now = tt.now
 
@@ -758,6 +772,7 @@ func (suite *Suite) TestTerminateNoVictimLogsInfo() {
 		10,
 		1,
 		v1.NamespaceAll,
+		false,
 	)
 
 	err := chaoskube.TerminateVictims(context.Background())
@@ -792,7 +807,7 @@ func (suite *Suite) assertNotified(notifier *notifier.Noop) {
 	suite.Assert().Greater(notifier.Calls, 0)
 }
 
-func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, kinds labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration, clientNamespaceScope string) *Chaoskube {
+func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations labels.Selector, kinds labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration, clientNamespaceScope string, ignoreSingleReplicas bool) *Chaoskube {
 	chaoskube := suite.setup(
 		labelSelector,
 		annotations,
@@ -810,6 +825,7 @@ func (suite *Suite) setupWithPods(labelSelector labels.Selector, annotations lab
 		gracePeriod,
 		1,
 		clientNamespaceScope,
+		ignoreSingleReplicas,
 	)
 
 	for _, namespace := range []v1.Namespace{
@@ -845,7 +861,7 @@ func (suite *Suite) createPods(client kubernetes.Interface, podsInfo []podInfo) 
 	}
 }
 
-func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, kinds labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration, maxKill int, clientNamespaceScope string) *Chaoskube {
+func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Selector, kinds labels.Selector, namespaces labels.Selector, namespaceLabels labels.Selector, includedPodNames *regexp.Regexp, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, dryRun bool, gracePeriod time.Duration, maxKill int, clientNamespaceScope string, ignoreSingleReplicas bool) *Chaoskube {
 	logOutput.Reset()
 
 	client := fake.NewSimpleClientset()
@@ -871,6 +887,7 @@ func (suite *Suite) setup(labelSelector labels.Selector, annotations labels.Sele
 		maxKill,
 		testNotifier,
 		clientNamespaceScope,
+		ignoreSingleReplicas,
 	)
 }
 
@@ -977,6 +994,7 @@ func (suite *Suite) TestMinimumAge() {
 			10,
 			1,
 			v1.NamespaceAll,
+			false,
 		)
 		chaoskube.Now = tt.now
 
@@ -1091,10 +1109,11 @@ func (suite *Suite) TestFilterByOwnerReference() {
 	baz1 := util.NewPod("default", "baz-1", v1.PodRunning)
 
 	for _, tt := range []struct {
-		seed     int64
-		name     string
-		pods     []v1.Pod
-		expected []v1.Pod
+		seed                 int64
+		name                 string
+		pods                 []v1.Pod
+		expected             []v1.Pod
+		ignoreSingleReplicas bool
 	}{
 		{
 			seed:     1000,
@@ -1126,10 +1145,31 @@ func (suite *Suite) TestFilterByOwnerReference() {
 			pods:     []v1.Pod{baz, baz1},
 			expected: []v1.Pod{baz, baz1},
 		},
+		{
+			seed:                 1000,
+			name:                 "1 pod, with parent, don't pick",
+			pods:                 []v1.Pod{foo},
+			expected:             []v1.Pod{},
+			ignoreSingleReplicas: true,
+		},
+		{
+			seed:                 1000,
+			name:                 "3 pods, 2 with same parent one without, pick first from first parent and ignore second",
+			pods:                 []v1.Pod{foo, foo1, bar},
+			expected:             []v1.Pod{foo},
+			ignoreSingleReplicas: true,
+		},
+		{
+			seed:                 1000,
+			name:                 "2 pods, different parents, don't pick",
+			pods:                 []v1.Pod{foo, bar},
+			expected:             []v1.Pod{},
+			ignoreSingleReplicas: true,
+		},
 	} {
 		rand.Seed(tt.seed)
 
-		results := filterByOwnerReference(tt.pods)
+		results := filterByOwnerReference(tt.pods, tt.ignoreSingleReplicas)
 		suite.Require().Len(results, len(tt.expected))
 
 		// ensure returned pods are ordered by name
@@ -1160,6 +1200,7 @@ func (suite *Suite) TestNotifierCall() {
 		false,
 		10,
 		v1.NamespaceAll,
+		false,
 	)
 
 	victim := util.NewPod("default", "foo", v1.PodRunning)

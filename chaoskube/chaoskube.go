@@ -74,6 +74,9 @@ type Chaoskube struct {
 	Notifier notifier.Notifier
 	// namespace scope for the Kubernetes client
 	ClientNamespaceScope string
+
+	// ignoreSingleReplicas will make chaoskube ignore services with one replica when needed.
+	IgnoreSingleReplicas bool
 }
 
 var (
@@ -97,7 +100,7 @@ var (
 // * a logger implementing logrus.FieldLogger to send log output to
 // * what specific terminator to use to imbue chaos on victim pods
 // * whether to enable/disable dry-run mode
-func New(client kubernetes.Interface, labels, annotations, kinds, namespaces, namespaceLabels labels.Selector, includedPodNames, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator, maxKill int, notifier notifier.Notifier, clientNamespaceScope string) *Chaoskube {
+func New(client kubernetes.Interface, labels, annotations, kinds, namespaces, namespaceLabels labels.Selector, includedPodNames, excludedPodNames *regexp.Regexp, excludedWeekdays []time.Weekday, excludedTimesOfDay []util.TimePeriod, excludedDaysOfYear []time.Time, timezone *time.Location, minimumAge time.Duration, logger log.FieldLogger, dryRun bool, terminator terminator.Terminator, maxKill int, notifier notifier.Notifier, clientNamespaceScope string, ignoreSingleReplicas bool) *Chaoskube {
 	broadcaster := record.NewBroadcaster()
 	broadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events(clientNamespaceScope)})
 	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "chaoskube"})
@@ -124,6 +127,7 @@ func New(client kubernetes.Interface, labels, annotations, kinds, namespaces, na
 		MaxKill:              maxKill,
 		Notifier:             notifier,
 		ClientNamespaceScope: clientNamespaceScope,
+		IgnoreSingleReplicas: ignoreSingleReplicas,
 	}
 }
 
@@ -239,7 +243,7 @@ func (c *Chaoskube) Candidates(ctx context.Context) ([]v1.Pod, error) {
 	pods = filterTerminatingPods(pods)
 	pods = filterByMinimumAge(pods, c.MinimumAge, c.Now())
 	pods = filterByPodName(pods, c.IncludedPodNames, c.ExcludedPodNames)
-	pods = filterByOwnerReference(pods)
+	pods = filterByOwnerReference(pods, c.IgnoreSingleReplicas)
 
 	return pods, nil
 }
@@ -513,7 +517,7 @@ func filterByPodName(pods []v1.Pod, includedPodNames, excludedPodNames *regexp.R
 	return filteredList
 }
 
-func filterByOwnerReference(pods []v1.Pod) []v1.Pod {
+func filterByOwnerReference(pods []v1.Pod, ignoreSingleReplicas bool) []v1.Pod {
 	owners := make(map[types.UID][]v1.Pod)
 	filteredList := []v1.Pod{}
 	for _, pod := range pods {
@@ -531,6 +535,9 @@ func filterByOwnerReference(pods []v1.Pod) []v1.Pod {
 
 	// For each owner reference select a random pod from its group
 	for _, pods := range owners {
+		if ignoreSingleReplicas && len(pods) <= 1 {
+			continue
+		}
 		filteredList = append(filteredList, util.RandomPodSubSlice(pods, 1)...)
 	}
 

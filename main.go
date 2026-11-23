@@ -62,6 +62,7 @@ var (
 	logCaller            bool
 	slackWebhook         string
 	clientNamespaceScope string
+	ignoreSingleReplicas bool
 )
 
 func cliEnvVar(name string) string {
@@ -97,6 +98,7 @@ func init() {
 	kingpin.Flag("log-caller", "Include the calling function name and location in the log messages.").Envar(cliEnvVar("LOG_CALLER")).BoolVar(&logCaller)
 	kingpin.Flag("slack-webhook", "The address of the slack webhook for notifications").Envar(cliEnvVar("SLACK_WEBHOOK")).StringVar(&slackWebhook)
 	kingpin.Flag("client-namespace-scope", "Scope Kubernetes API calls to the given namespace. Defaults to v1.NamespaceAll which requires global read permission.").Envar(cliEnvVar("CLIENT_NAMESPACE_SCOPE")).Default(v1.NamespaceAll).StringVar(&clientNamespaceScope)
+	kingpin.Flag("ignore-single-replicas", "Ignore services with one replica when needed.").Envar(cliEnvVar("IGNORE_SINGLE_REPLICAS")).BoolVar(&ignoreSingleReplicas)
 }
 
 func main() {
@@ -141,6 +143,7 @@ func main() {
 		"logFormat":            logFormat,
 		"slackWebhook":         slackWebhook,
 		"clientNamespaceScope": clientNamespaceScope,
+		"ignoreSingleReplicas": ignoreSingleReplicas,
 	}).Debug("reading config")
 
 	log.WithFields(log.Fields{
@@ -234,6 +237,7 @@ func main() {
 		maxKill,
 		notifiers,
 		clientNamespaceScope,
+		ignoreSingleReplicas,
 	)
 
 	if metricsAddress != "" {
